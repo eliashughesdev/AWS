@@ -1,0 +1,13 @@
+{
+  "name": "custom-authorizer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.845.0",
+    "@aws-sdk/util-dynamodb": "^3.845.0",
+    "jsonwebtoken": "^9.0.2",
+    "jwk-to-pem": "^2.0.5"
+  }
+}

@@ -1,0 +1,29 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        - cd amplify/layers/nodejs
+        - yarn install --frozen-lockfile
+        - cd ../../fn/authorizer
+        - yarn install --frozen-lockfile
+        - cd ../../..
+        - yarn install --frozen-lockfile
+        - yarn ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - mkdir build
+        - ls -al
+        - yarn run build
+    build:
+      commands:
+        # todo
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
