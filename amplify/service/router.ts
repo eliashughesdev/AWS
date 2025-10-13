@@ -1,6 +1,7 @@
 import accountsKyc from './routes/accounts/kyc'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
+import accountsCreate from './routes/accounts/create'
 import webhookHandler from './routes/webhook/cb'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
@@ -16,6 +17,7 @@ export const routes: RoutesMap = new Map([
 	['/v1/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
 	['/v1/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
 	['/v1/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
+	// ['/v1/accounts/account/create', { handler: accountsCreate, requiredParams: ['provider', 'userId', 'currency'], method: 'POST' }],
 ])
 
 export const router = async (event: { body: any, path: string }, context: any) => {
