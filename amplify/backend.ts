@@ -1,13 +1,14 @@
 import * as path from 'path'
 import * as url from 'node:url'
 import { defineBackend } from '@aws-amplify/backend'
-import { Duration, Stack } from 'aws-cdk-lib'
+import { Duration, RemovalPolicy, Stack } from 'aws-cdk-lib'
 import {
 	AccessLogFormat,
 	AuthorizationType,
 	Cors,
 	IdentitySource,
-	LambdaIntegration, LogGroupLogDestination,
+	LambdaIntegration,
+	LogGroupLogDestination,
 	MethodLoggingLevel,
 	RequestAuthorizer,
 	RestApi,
@@ -26,7 +27,6 @@ import { auth } from './auth/resource'
 import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
 
-
 const backend = defineBackend({
 	auth,
 	data,
@@ -34,6 +34,13 @@ const backend = defineBackend({
 })
 
 const apiStack = backend.createStack('loudibly-stack')
+
+const branchName = process.env.AWS_BRANCH || 'main'
+const isProduction = branchName === 'main'
+
+const getResourceName = (baseName: string): string => {
+	return isProduction ? baseName : `${branchName}-${baseName}`
+}
 
 backend.mainApiFn.resources.lambda.addToRolePolicy(
 	new iam.PolicyStatement({
@@ -43,7 +50,7 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
 )
 
 const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
-	functionName: 'custom-authorizer-fn',
+	functionName: getResourceName('custom-authorizer-fn'),
 	runtime: Runtime.NODEJS_20_X,
 	handler: 'index.handler',
 	code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer'))
@@ -56,13 +63,13 @@ customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
 
 /** SQS */
 const v1WebhookQueue = new sqs.Queue(apiStack, 'v1WebhookQueue', {
-	queueName: 'v1-webhook-queue',
+	queueName: getResourceName('v1-webhook-queue'),
 	visibilityTimeout: Duration.seconds(300),
 	retentionPeriod: Duration.days(14),
 })
 
 const v1GeneralQueue = new sqs.Queue(apiStack, 'v1GeneralQueue', {
-	queueName: 'v1-general-queue',
+	queueName: getResourceName('v1-general-queue'),
 	visibilityTimeout: Duration.seconds(300),
 	retentionPeriod: Duration.days(14),
 })
@@ -70,7 +77,7 @@ const v1GeneralQueue = new sqs.Queue(apiStack, 'v1GeneralQueue', {
 const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1WebhookProcessingFn', {
 	entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
 	runtime: Runtime.NODEJS_20_X,
-	functionName: 'sqsV1WebhookProcessorFn',
+	functionName: getResourceName('sqsV1WebhookProcessorFn'),
 	timeout: Duration.seconds(60),
 	environment: {
 		V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
@@ -88,7 +95,7 @@ sqsV1WebhookProcessingFn.addEventSource(
 const sqsV1GeneralProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1GeneralProcessingFn', {
 	entry: url.fileURLToPath(new URL('./fn/sqs-processor/general/handler.ts', import.meta.url)),
 	runtime: Runtime.NODEJS_20_X,
-	functionName: 'sqsV1GeneralProcessorFn',
+	functionName: getResourceName('sqsV1GeneralProcessorFn'),
 	timeout: Duration.seconds(60),
 	environment: {
 		V1_GENERAL_QUEUE_URL: v1GeneralQueue.queueUrl,
@@ -104,12 +111,12 @@ sqsV1GeneralProcessingFn.addEventSource(
 )
 
 const apiLogGroup = new LogGroup(apiStack, 'ApiGatewayLogGroup', {
-	logGroupName: '/aws/apigateway/LoudiblyRestApi',
+	logGroupName: `/aws/apigateway/${getResourceName('LoudiblyRestApi')}`,
 	retention: RetentionDays.ONE_YEAR
 })
 
 const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
-	restApiName: 'loudiblyRestApi',
+	restApiName: getResourceName('loudiblyRestApi'),
 	deploy: true,
 	deployOptions: {
 		stageName: 'v1',
@@ -200,7 +207,10 @@ const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
 	},
 	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
 	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: 'v1UserKeysTable',
+	tableName: getResourceName('v1UserKeysTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
 })
 
 const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
@@ -210,7 +220,10 @@ const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
 	},
 	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
 	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: 'v1CustomerTable',
+	tableName: getResourceName('v1CustomerTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
 })
 
 const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelistTable', {
@@ -220,7 +233,10 @@ const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelist
 	},
 	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
 	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: 'v1WebhookIPWhitelistTable',
+	tableName: getResourceName('v1WebhookIPWhitelistTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
 })
 
 v1WebhookIPWhitelistTable.addGlobalSecondaryIndex({
@@ -235,7 +251,7 @@ const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
 	entry: url.fileURLToPath(new URL('./fn/stream/handler.ts', import.meta.url)),
 	environment: {},
 	runtime: Runtime.NODEJS_20_X,
-	functionName: 'streamTopicHandlerFn',
+	functionName: getResourceName('streamTopicHandlerFn'),
 	timeout: Duration.seconds(28)
 })
 
