@@ -35,11 +35,9 @@ const backend = defineBackend({
 
 const apiStack = backend.createStack('loudibly-stack')
 
-// Get branch name from Amplify environment variable
-const branchName = process.env.AWS_BRANCH || 'main'
+const branchName = (process.env.AWS_BRANCH || 'main').replace(/\//g, '-')
 const isProduction = branchName === 'main'
 
-// Helper function to generate resource names
 const getResourceName = (baseName: string): string => {
 	return isProduction ? baseName : `${branchName}-${baseName}`
 }
@@ -64,7 +62,6 @@ const v1GeneralQueue = new sqs.Queue(apiStack, 'v1GeneralQueue', {
 	retentionPeriod: Duration.days(14),
 })
 
-// DynamoDB Tables with production protection - Create these first
 const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
 	partitionKey: {
 		name: 'id',
@@ -110,7 +107,6 @@ v1WebhookIPWhitelistTable.addGlobalSecondaryIndex({
 	sortKey: { name: 'created_at', type: AttributeType.NUMBER },
 })
 
-// Now create custom authorizer with environment variables
 const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
 	functionName: getResourceName('custom-authorizer-fn'),
 	runtime: Runtime.NODEJS_20_X,
