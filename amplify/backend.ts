@@ -35,9 +35,11 @@ const backend = defineBackend({
 
 const apiStack = backend.createStack('loudibly-stack')
 
+// Get branch name from Amplify environment variable
 const branchName = process.env.AWS_BRANCH || 'main'
 const isProduction = branchName === 'main'
 
+// Helper function to generate resource names
 const getResourceName = (baseName: string): string => {
 	return isProduction ? baseName : `${branchName}-${baseName}`
 }
@@ -48,18 +50,6 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
 		resources: ['*']
 	})
 )
-
-const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
-	functionName: getResourceName('custom-authorizer-fn'),
-	runtime: Runtime.NODEJS_20_X,
-	handler: 'index.handler',
-	code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer'))
-})
-
-customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
-	actions: ['cognito-idp:*'],
-	resources: ['*']
-}))
 
 /** SQS */
 const v1WebhookQueue = new sqs.Queue(apiStack, 'v1WebhookQueue', {
@@ -74,6 +64,69 @@ const v1GeneralQueue = new sqs.Queue(apiStack, 'v1GeneralQueue', {
 	retentionPeriod: Duration.days(14),
 })
 
+// DynamoDB Tables with production protection - Create these first
+const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
+	partitionKey: {
+		name: 'id',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+	tableName: getResourceName('v1UserKeysTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
+})
+
+const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
+	partitionKey: {
+		name: 'id',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+	tableName: getResourceName('v1CustomerTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
+})
+
+const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelistTable', {
+	partitionKey: {
+		name: 'id',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+	tableName: getResourceName('v1WebhookIPWhitelistTable'),
+	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
+	// deletionProtection: isProduction,
+	// pointInTimeRecovery: isProduction,
+})
+
+v1WebhookIPWhitelistTable.addGlobalSecondaryIndex({
+	indexName: 'v1v1WebhookIPWhitelistTableIpToProviderName',
+	partitionKey: { name: 'provider_code', type: AttributeType.STRING },
+	sortKey: { name: 'created_at', type: AttributeType.NUMBER },
+})
+
+// Now create custom authorizer with environment variables
+const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
+	functionName: getResourceName('custom-authorizer-fn'),
+	runtime: Runtime.NODEJS_20_X,
+	handler: 'index.handler',
+	code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer')),
+	environment: {
+		V1_USER_KEYS_TABLE: v1UserKeysTable.tableName,
+		BRANCH_NAME: branchName,
+	}
+})
+
+customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
+	actions: ['cognito-idp:*'],
+	resources: ['*']
+}))
+
 const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1WebhookProcessingFn', {
 	entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
 	runtime: Runtime.NODEJS_20_X,
@@ -81,6 +134,10 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
 	timeout: Duration.seconds(60),
 	environment: {
 		V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
+		V1_CUSTOMER_TABLE: v1CustomerTable.tableName,
+		V1_USER_KEYS_TABLE: v1UserKeysTable.tableName,
+		V1_WEBHOOK_IP_TABLE: v1WebhookIPWhitelistTable.tableName,
+		BRANCH_NAME: branchName,
 	},
 })
 
@@ -99,6 +156,10 @@ const sqsV1GeneralProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Gener
 	timeout: Duration.seconds(60),
 	environment: {
 		V1_GENERAL_QUEUE_URL: v1GeneralQueue.queueUrl,
+		V1_CUSTOMER_TABLE: v1CustomerTable.tableName,
+		V1_USER_KEYS_TABLE: v1UserKeysTable.tableName,
+		V1_WEBHOOK_IP_TABLE: v1WebhookIPWhitelistTable.tableName,
+		BRANCH_NAME: branchName,
 	},
 })
 
@@ -200,59 +261,19 @@ backend.auth.resources.unauthenticatedUserIamRole.attachInlinePolicy(
 	apiRestPolicy
 )
 
-const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
-	partitionKey: {
-		name: 'id',
-		type: dynamo.AttributeType.STRING,
-	},
-	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: getResourceName('v1UserKeysTable'),
-	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-	// deletionProtection: isProduction,
-	// pointInTimeRecovery: isProduction,
-})
-
-const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
-	partitionKey: {
-		name: 'id',
-		type: dynamo.AttributeType.STRING,
-	},
-	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: getResourceName('v1CustomerTable'),
-	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-	// deletionProtection: isProduction,
-	// pointInTimeRecovery: isProduction,
-})
-
-const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelistTable', {
-	partitionKey: {
-		name: 'id',
-		type: dynamo.AttributeType.STRING,
-	},
-	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: getResourceName('v1WebhookIPWhitelistTable'),
-	// removalPolicy: isProduction ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-	// deletionProtection: isProduction,
-	// pointInTimeRecovery: isProduction,
-})
-
-v1WebhookIPWhitelistTable.addGlobalSecondaryIndex({
-	indexName: 'v1v1WebhookIPWhitelistTableIpToProviderName',
-	partitionKey: { name: 'provider_code', type: AttributeType.STRING },
-	sortKey: { name: 'created_at', type: AttributeType.NUMBER },
-})
-
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
 const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
 	entry: url.fileURLToPath(new URL('./fn/stream/handler.ts', import.meta.url)),
-	environment: {},
 	runtime: Runtime.NODEJS_20_X,
 	functionName: getResourceName('streamTopicHandlerFn'),
-	timeout: Duration.seconds(28)
+	timeout: Duration.seconds(28),
+	environment: {
+		V1_CUSTOMER_TABLE: v1CustomerTable.tableName,
+		V1_USER_KEYS_TABLE: v1UserKeysTable.tableName,
+		V1_WEBHOOK_IP_TABLE: v1WebhookIPWhitelistTable.tableName,
+		BRANCH_NAME: branchName,
+	}
 })
 
 streamTopic.addSubscription(new subscriptions.LambdaSubscription(stream))
@@ -289,6 +310,17 @@ v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1GeneralQueue.grantSendMessages(apiGatewayRole)
 v1GeneralQueue.grantConsumeMessages(sqsV1GeneralProcessingFn)
 
+// Add environment variables to mainApiFn Lambda using CFN overrides
+const mainApiFnLambda = backend.mainApiFn.resources.lambda.node.defaultChild as any
+if (mainApiFnLambda && mainApiFnLambda.addPropertyOverride) {
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.V1_CUSTOMER_TABLE', v1CustomerTable.tableName)
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.V1_USER_KEYS_TABLE', v1UserKeysTable.tableName)
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.V1_WEBHOOK_IP_TABLE', v1WebhookIPWhitelistTable.tableName)
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.V1_WEBHOOK_QUEUE_URL', v1WebhookQueue.queueUrl)
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.V1_GENERAL_QUEUE_URL', v1GeneralQueue.queueUrl)
+	mainApiFnLambda.addPropertyOverride('Environment.Variables.BRANCH_NAME', branchName)
+}
+
 backend.addOutput({
 	custom: {
 		API: {
@@ -301,6 +333,11 @@ backend.addOutput({
 		Queues: {
 			v1WebhookQueue: v1WebhookQueue.queueUrl,
 			v1GeneralQueue: v1GeneralQueue.queueUrl,
+		},
+		Tables: {
+			v1CustomerTable: v1CustomerTable.tableName,
+			v1UserKeysTable: v1UserKeysTable.tableName,
+			v1WebhookIPWhitelistTable: v1WebhookIPWhitelistTable.tableName,
 		}
 	},
 })

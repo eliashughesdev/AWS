@@ -22,7 +22,8 @@ export default class AccountHandler {
 			status: 'active',
 			updated_at: Date.now(),
 		}
-		const result = await putItem('v1CustomerTable', data)
+		const tableName = process.env.V1_CUSTOMER_TABLE!
+		const result = await putItem(tableName, data)
 		if (!result.success || !result.res) return processError(100003)
 
 		// After user is created in the database one should
