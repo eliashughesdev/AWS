@@ -4,6 +4,7 @@ import { putItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ProviderName'
+import { getResourceName } from '../../../utils/common'
 
 /**
  * Creates new account (internal)
@@ -22,8 +23,7 @@ export default class AccountHandler {
 			status: 'active',
 			updated_at: Date.now(),
 		}
-		const tableName = process.env.V1_CUSTOMER_TABLE!
-		const result = await putItem(tableName, data)
+		const result = await putItem(getResourceName('v1CustomerTable'), data)
 		if (!result.success || !result.res) return processError(100003)
 
 		// After user is created in the database one should
