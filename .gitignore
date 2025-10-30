@@ -3,3 +3,4 @@
 dist
 node_modules
 */**/**/node_modules
+amplify/service/routes/e2e/credentials.ts
