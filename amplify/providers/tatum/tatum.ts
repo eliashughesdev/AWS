@@ -3,12 +3,15 @@ import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFu
 
 export class TatumProvider implements AccountProvider {
     private readonly apiKey = process.env.TATUM_API_KEY;
+    private readonly TATUM_BASE_URL = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3';
 
-    async createVaAccount({ userId, currency }: CreateAccountParams): Promise<CreateAccountResponse> {
-        const res = await axios.post('https://api.tatum.io/v3/ledger/account', {
+    async createVaAccount({ userId, currency, xpub }: CreateAccountParams): Promise<CreateAccountResponse> {
+        const res = await axios.post(`${this.TATUM_BASE_URL}/ledger/account`, {
             currency,
             customer: { externalId: userId },
-        }, {
+            xpub
+        },
+        {
             headers: { 'x-api-key': this.apiKey }
         });
         return { accountId: res.data.id };
@@ -16,7 +19,7 @@ export class TatumProvider implements AccountProvider {
 
     async getCustomerAccounts(customerId: string): Promise<{ accounts: CustomerAccount[] }> {
         const res = await axios.get(
-            `https://api.tatum.io/v3/ledger/account/customer/${customerId}?pageSize=50`,
+            `${this.TATUM_BASE_URL}/ledger/account/customer/${customerId}?pageSize=50`,
             {
                 headers: { 'x-api-key': this.apiKey }
             }
@@ -60,5 +63,4 @@ export class TatumProvider implements AccountProvider {
             throw new Error('Unable to generate deposit address')
         }
     }
-
 }

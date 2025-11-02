@@ -4,7 +4,12 @@ import { customer } from '../credentials'
 const path = '/v1/accounts/account'
 console.log('path: ', path)
 
-const body = JSON.stringify({ account_name: `Account ${Date.now().toString()}` })
+const body = JSON.stringify({
+    account_name: `Account ${Date.now().toString()}`,
+    chain: 'TRON',
+    provider: 'TATUM',
+    accounting_currency: 'USD'
+});
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
 console.log('bodyHash', bodyHash)
@@ -28,7 +33,7 @@ const headers = {
   'Authorization': `Signature ${timestamp}:${bodyHash}:${signature}`
 }
 
-const url = 'https://api.loudibly.com/v1/accounts/account'
+const url = 'https://u1u9p3dwg6.execute-api.us-east-2.amazonaws.com/v1/accounts/account'
 fetch(url, { method: 'POST', body, headers })
   .then(res => res.json())
   .then(data => { console.log(data) })
