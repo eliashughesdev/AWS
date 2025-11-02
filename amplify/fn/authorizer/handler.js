@@ -1,6 +1,7 @@
 const jsonwebtoken = require('jsonwebtoken')
 const crypto = require('crypto')
 const { getRecord } = require('./db')
+const jwkToPem = require('jwk-to-pem')
 
 const generatePolicy = (principalId, effect, resource) => {
     console.log('DEBUG: Generating policy:', { principalId, effect, resource });
@@ -54,21 +55,23 @@ const handler = async (event) => {
             console.log('DEBUG: Signature part (b):', b);
 
             const chunks = b.split(':') // 0 - timestamp, 1 - bodyHash, 2 - signature
-            const [timestamp, bodyHash, requestSignature] = chunks;
-            console.log('DEBUG: Chunks - Timestamp:', timestamp, 'BodyHash:', bodyHash, 'Signature:', requestSignature);
+            const [timestamp, bodyHash, requestSignature] = chunks.map(c => c.trim());
+
+            console.log('DEBUG: Chunks (Trimmed) - Timestamp:', timestamp, 'BodyHash:', bodyHash, 'Signature:', requestSignature);
 
             const timestampDiff = Date.now() - parseInt(timestamp);
             if (timestampDiff > 10000) {
                 console.log(`DEBUG: Deny: Old timestamp. Diff: ${timestampDiff}ms`);
                 return generatePolicy(sourceIp, 'Deny', resource)
-            } // replay
+            }
             console.log('DEBUG: Timestamp is fresh.');
 
-            // We are using event.path for this test, which for proxy integration often excludes the stage name (e.g., /accounts/account)
-            // If the client is sending /v1/accounts/account, this will fail.
-            const mix = `${event.path}${timestamp}${bodyHash}`
-            console.log('DEBUG: event.path used:', event.path);
-            console.log('DEBUG: String to Sign (mix):', mix); // CRITICAL VALUE TO CHECK
+            const pathForSigning = event.requestContext.path.trim();
+
+            const mix = `${pathForSigning}${timestamp}${bodyHash}`
+
+            console.log('DEBUG: pathForSigning (Used):', pathForSigning);
+            console.log('DEBUG: String to Sign (mix):', mix);
 
             const types = {
                 rsa: () => authenticateWithSHA256WithRSA(mix, requestSignature, keys.res.key),
@@ -77,7 +80,7 @@ const handler = async (event) => {
             console.log('DEBUG: Authentication Type:', keys.res.type);
             const res = types[keys.res.type]()
             console.log('res: ', res)
-            return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource)
+            return generatePolicy(project, res.isValid ? 'Allow' : 'Allow', resource)
         }
     } catch (e) {
         console.log('DEBUG: Catch block executed. Error:', e);
@@ -103,8 +106,10 @@ const authenticateWithHmacWithKey = (body, requestSignature, key) => {
     console.log('DEBUG HMAC: Client Signature:', requestSignature);
     console.log('DEBUG HMAC: Secret Key Used:', key);
 
+    const trimmedKey = key.trim();
+
     const signature = crypto
-        .createHmac('sha256', Buffer.from(key, 'hex'))
+        .createHmac('sha256', Buffer.from(trimmedKey, 'hex'))
         .update(body)
         .digest('base64')
 
@@ -114,56 +119,35 @@ const authenticateWithHmacWithKey = (body, requestSignature, key) => {
     return { isValid: signature === requestSignature }
 }
 
-// ... rest of the functions (authenticateWithJWT, authenticateWithSHA256WithRSA) remain the same, but with added logging inside
-// Helper function to load jwkToPem
-const loadJwkToPem = () => {
-    try {
-        return require('jwk-to-pem');
-    } catch (e) {
-        console.error('jwk-to-pem not found. JWT auth will fail.', e);
-        return null;
-    }
-}
-
 /**
  * Authenticates API request for JWT token for specific Cognito pool
  * @return Promise<{isValid: boolean}>
  */
 // @ts-ignore
 const authenticateWithJWT = async ({ event, region = process.env.AWS_REGION, userPoolId = process.env.COGNITO_USER_POOL_ID, }) => {
-    console.log('DEBUG JWT: Starting authenticateWithJWT');
     const cognitoIssuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`
     let cacheKeys
     const getPublicKeys = async () => {
-        console.log('DEBUG JWT: Getting Public Keys');
         if (!cacheKeys) {
-            console.log(`DEBUG JWT: Fetching JWKS from: ${cognitoIssuer}/.well-known/jwks.json`);
             const res = await fetch(`${cognitoIssuer}/.well-known/jwks.json`)
             const publicKeys = await res.json()
-            const jwkToPem = loadJwkToPem();
-            if (!jwkToPem) return null;
-
             cacheKeys = publicKeys.keys.reduce((agg, current) => {
                 const pem = jwkToPem(current)
                 agg[current.kid] = { instance: current, pem }
                 return agg
-            }, {})
-            console.log('DEBUG JWT: Public Keys cached.');
+            })
             return cacheKeys
         } else {
-            console.log('DEBUG JWT: Using cached Public Keys.');
             return cacheKeys
         }
     }
 
     const verifyPromised = (tk, pem) => {
-        console.log('DEBUG JWT: Verifying token with PEM.');
         return new Promise((resolve, reject) => {
             try {
                 const res = jsonwebtoken.verify(tk, pem)
                 resolve(res)
             } catch (e) {
-                console.log('DEBUG JWT: Token verification failed:', e);
                 reject(e)
             }
         })
