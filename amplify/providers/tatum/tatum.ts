@@ -2,8 +2,6 @@ import axios from 'axios';
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount } from '../provider';
 
 export class TatumProvider implements AccountProvider {
-    // Note: It's better to get the API key from the constructor or method parameters
-    // rather than relying on global process.env here for better testing/dependency injection.
     private readonly apiKey = process.env.TATUM_API_KEY;
     private readonly TATUM_BASE_URL = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3';
 
