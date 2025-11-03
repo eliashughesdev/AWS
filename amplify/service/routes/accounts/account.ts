@@ -51,8 +51,8 @@ export default class AccountHandler {
             console.log(`DEBUG: Wallet generated. signatureId: ${signatureId}, xpub: ${xpub}`);
 
             // create virtual account
-            console.log(`DEBUG: Getting provider: ${event.provider}`);
-            const vaProvider = ProviderRegistry.getProvider(event.provider as ProviderName)
+            console.log(`DEBUG: Getting provider: ${event.body.provider}`);
+            const vaProvider = ProviderRegistry.getProvider(event.body.provider as ProviderName)
             const userId = data.id;
 
             console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, xpub: ${xpub}`);
