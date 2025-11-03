@@ -33,7 +33,7 @@ export class TatumKmsClient {
      * @returns The signatureId and xpub of the newly created wallet.
      */
     async generateWallet(chain: string): Promise<{ signatureId: string; xpub: string }> {
-        const endpoint = '/wallet/generate';
+        const endpoint = 'api/wallet/generate';
         const payload = { chain };
 
         console.log(`DEBUG (KMS Client): Sending POST request to ${endpoint}`);
