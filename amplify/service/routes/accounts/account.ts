@@ -44,7 +44,7 @@ export default class AccountHandler {
             // create wallent in kms
             console.log('DEBUG: Initializing TatumKmsClient...');
             const kmsClient = new TatumKmsClient();
-            const chain = data.currency;
+            const chain = event.body.chain;
 
             console.log(`DEBUG: Calling kmsClient.generateWallet for chain: ${chain}`);
             const { signatureId, xpub } = await kmsClient.generateWallet(chain);
