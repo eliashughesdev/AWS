@@ -80,7 +80,7 @@ const handler = async (event) => {
             console.log('DEBUG: Authentication Type:', keys.res.type);
             const res = types[keys.res.type]()
             console.log('res: ', res)
-            return generatePolicy(project, res.isValid ? 'Allow' : 'Allow', resource)
+            return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource)
         }
     } catch (e) {
         console.log('DEBUG: Catch block executed. Error:', e);
