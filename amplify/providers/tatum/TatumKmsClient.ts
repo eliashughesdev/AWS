@@ -1,6 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
 
-const TATUM_KMS_URL = process.env.TATUM_KMS_URL
 
 
 interface KmsGenerateWalletResponse {
@@ -16,6 +15,8 @@ export class TatumKmsClient {
     private axiosInstance: AxiosInstance;
 
     constructor() {
+
+        const TATUM_KMS_URL = process.env.TATUM_KMS_URL
         console.log(`DEBUG (KMS Client): Initializing with base URL: ${TATUM_KMS_URL}`);
         this.axiosInstance = axios.create({
             baseURL: TATUM_KMS_URL,
