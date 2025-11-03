@@ -2,52 +2,100 @@ import axios from 'axios';
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount } from '../provider';
 
 export class TatumProvider implements AccountProvider {
+    // Note: It's better to get the API key from the constructor or method parameters
+    // rather than relying on global process.env here for better testing/dependency injection.
     private readonly apiKey = process.env.TATUM_API_KEY;
     private readonly TATUM_BASE_URL = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3';
 
     async createVaAccount({ userId, currency, xpub }: CreateAccountParams): Promise<CreateAccountResponse> {
-        const res = await axios.post(`${this.TATUM_BASE_URL}/ledger/account`, {
+        const url = `${this.TATUM_BASE_URL}/ledger/account`;
+        const payload = {
             currency,
             customer: { externalId: userId },
             xpub
-        },
-        {
-            headers: { 'x-api-key': this.apiKey }
-        });
-        return { accountId: res.data.id };
+        };
+
+        console.log('DEBUG (TatumProvider): Calling createVaAccount.');
+        console.log(`DEBUG (TatumProvider): POST URL: ${url}`);
+        console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`);
+
+        try {
+            const res = await axios.post(url, payload,
+            {
+                headers: { 'x-api-key': this.apiKey }
+            });
+
+            console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Account ID: ${res.data?.id}`);
+            return { accountId: res.data.id };
+        } catch (error) {
+            console.error('ERROR (TatumProvider): Failed to create VA Account.', error);
+            throw error; // Re-throw to be caught by the calling handler
+        }
     }
 
     async getCustomerAccounts(customerId: string): Promise<{ accounts: CustomerAccount[] }> {
-        const res = await axios.get(
-            `${this.TATUM_BASE_URL}/ledger/account/customer/${customerId}?pageSize=50`,
-            {
-                headers: { 'x-api-key': this.apiKey }
-            }
-        )
+        const url = `${this.TATUM_BASE_URL}/ledger/account/customer/${customerId}?pageSize=50`;
 
-        return { accounts: res.data as CustomerAccount[] }
+        console.log('DEBUG (TatumProvider): Calling getCustomerAccounts.');
+        console.log(`DEBUG (TatumProvider): GET URL: ${url}`);
+
+        try {
+            const res = await axios.get(
+                url,
+                {
+                    headers: { 'x-api-key': this.apiKey }
+                }
+            )
+
+            console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Accounts received: ${res.data?.length}`);
+            return { accounts: res.data as CustomerAccount[] }
+        } catch (error) {
+            console.error('ERROR (TatumProvider): Failed to get customer accounts.', error);
+            throw error;
+        }
     }
 
 
     async transferFunds({ fromId, toId, amount }: TransferFundsParams): Promise<TransferFundsResponse> {
-        const res = await axios.post('https://api.tatum.io/v3/ledger/transaction', {
+        const url = 'https://api.tatum.io/v3/ledger/transaction';
+        const payload = {
             senderAccountId: fromId,
             recipientAccountId: toId,
             amount,
-        }, {
-            headers: { 'x-api-key': this.apiKey }
-        });
-        return { txId: res.data.id };
+        };
+
+        console.log('DEBUG (TatumProvider): Calling transferFunds.');
+        console.log(`DEBUG (TatumProvider): POST URL: ${url}`);
+        console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`);
+
+        try {
+            const res = await axios.post(url, payload, {
+                headers: { 'x-api-key': this.apiKey }
+            });
+
+            console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Transaction ID: ${res.data?.id}`);
+            return { txId: res.data.id };
+        } catch (err) {
+            console.error('ERROR (TatumProvider): Failed to transfer funds.', err);
+            throw err;
+        }
     }
 
     async getXpub(chaniName: string): Promise<{ xpub: string }> {
+        // NOTE: This implementation returns a hardcoded placeholder.
+        console.log('DEBUG (TatumProvider): Calling getXpub (Returning placeholder).');
         return { xpub: "EXAMPLE_XPUB_FOR_ILUSTRATIVE_POUPOSES_REAL_ONE_SHOULD_COME_FROM_KMS" };
     }
 
     async generateDepositAddress(accountId: string): Promise<{ address: string }> {
+        const url = `https://api.tatum.io/v3/offchain/account/${accountId}/address`;
+
+        console.log('DEBUG (TatumProvider): Calling generateDepositAddress.');
+        console.log(`DEBUG (TatumProvider): POST URL: ${url}`);
+
         try {
             const response = await axios.post(
-                `https://api.tatum.io/v3/offchain/account/${accountId}/address`,
+                url,
                 {},
                 {
                     headers: {
@@ -57,9 +105,10 @@ export class TatumProvider implements AccountProvider {
                 }
             )
 
+            console.log(`DEBUG (TatumProvider): Response status: ${response.status}. Generated address: ${response.data}`);
             return { address: response.data as string }
         } catch (error) {
-            console.error('Failed to generate deposit address:', error)
+            console.error('ERROR (TatumProvider): Failed to generate deposit address:', error);
             throw new Error('Unable to generate deposit address')
         }
     }
