@@ -33,7 +33,7 @@ const headers = {
   'Authorization': `Signature ${timestamp}:${bodyHash}:${signature}`
 }
 
-const url = 'https://u1u9p3dwg6.execute-api.us-east-2.amazonaws.com/v1/accounts/account'
+const url = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/account'
 fetch(url, { method: 'POST', body, headers })
   .then(res => res.json())
   .then(data => { console.log(data) })
