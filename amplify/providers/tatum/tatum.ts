@@ -55,7 +55,7 @@ export class TatumProvider implements AccountProvider {
 
 
     async transferFunds({ fromId, toId, amount }: TransferFundsParams): Promise<TransferFundsResponse> {
-        const url = 'https://api.tatum.io/v3/ledger/transaction';
+        const url = `${this.TATUM_BASE_URL}/ledger/transaction`;
         const payload = {
             senderAccountId: fromId,
             recipientAccountId: toId,
@@ -86,7 +86,7 @@ export class TatumProvider implements AccountProvider {
     }
 
     async generateDepositAddress(accountId: string): Promise<{ address: string }> {
-        const url = `https://api.tatum.io/v3/offchain/account/${accountId}/address`;
+        const url = `${this.TATUM_BASE_URL}/offchain/account/${accountId}/address`;
 
         console.log('DEBUG (TatumProvider): Calling generateDepositAddress.');
         console.log(`DEBUG (TatumProvider): POST URL: ${url}`);
