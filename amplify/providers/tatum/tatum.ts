@@ -54,11 +54,11 @@ export class TatumProvider implements AccountProvider {
     }
 
 
-    async transferFunds({ fromId, toId, amount }: TransferFundsParams): Promise<TransferFundsResponse> {
+    async transferFunds({ fromAccount, toAccount, amount }: TransferFundsParams): Promise<TransferFundsResponse> {
         const url = `${this.TATUM_BASE_URL}/ledger/transaction`;
         const payload = {
-            senderAccountId: fromId,
-            recipientAccountId: toId,
+            senderAccountId: fromAccount,
+            recipientAccountId: toAccount,
             amount,
         };
 

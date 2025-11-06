@@ -13,8 +13,8 @@ export interface GetBalanceResponse {
 }
 
 export interface TransferFundsParams {
-  fromId: string
-  toId: string
+  fromAccount: string
+  toAccount: string
   amount: number
 }
 
@@ -45,6 +45,6 @@ export interface AccountProvider {
   getXpub(chainName: string): Promise<{xpub: string}>
   createVaAccount(params: { userId: string; currency: string, xpub: string }): Promise<{ accountId: string }>;
   getCustomerAccounts(accountId: string): Promise<{ accounts: CustomerAccount[] }>;
-  transferFunds(params: {fromId: string, toId: string, amount: number}): Promise<{ txId: string }>;
+  transferFunds(params: TransferFundsParams): Promise<{ txId: string }>;
   generateDepositAddress(accountId: string): Promise<{ address: string }>
 }
