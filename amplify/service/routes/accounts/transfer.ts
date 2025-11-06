@@ -33,7 +33,7 @@ export default class TransferFundsHandler {
 				success: true,
 				res: {
 					data: {
-						id: result.txId,
+						transactionId: result.reference,
 					}
 				}
 			}
