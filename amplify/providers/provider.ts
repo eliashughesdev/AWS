@@ -15,7 +15,7 @@ export interface GetBalanceResponse {
 export interface TransferFundsParams {
   senderAccountId: string
   recipientAccountId: string
-  amount: number
+  amount: string
 }
 
 export interface TransferFundsResponse {

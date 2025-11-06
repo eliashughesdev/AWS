@@ -10,7 +10,7 @@ type Event = {
     provider: string
     senderAccountId: string
     recipientAccountId: string
-    amount: number
+    amount: string
   }
 }
 
