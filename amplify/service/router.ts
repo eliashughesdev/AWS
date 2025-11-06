@@ -18,7 +18,7 @@ export const routes: RoutesMap = new Map([
     ['/v1/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
     ['/v1/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
-    ['/accounts/transfer', { handler: transferFunds, requiredParams: ['fromAccount', 'toAccount', 'amount'], method: 'POST' }],
+    ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string }, context: any) => {

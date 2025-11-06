@@ -8,23 +8,23 @@ import { ProviderName } from '../../../providers/ProviderName'
 type Event = {
   body: {
     provider: string
-    fromAccount: string
-    toAccount: string
+    senderAccountId: string
+    recipientAccountId: string
     amount: number
   }
 }
 
 export default class TransferFundsHandler {
   async execute(event: Event, context: Context) {
-    const { provider, fromAccount, toAccount, amount } = event.body
+    const { provider, senderAccountId, recipientAccountId, amount } = event.body
 
-    if (!provider || !fromAccount || !toAccount || !amount) {
+    if (!provider || !senderAccountId || !recipientAccountId || !amount) {
       return processError(100029, 'Missing required parameters')
     }
 
     try {
       const vaProvider = ProviderRegistry.getProvider(provider as ProviderName)
-      const result = await vaProvider.transferFunds({ fromAccount, toAccount, amount})
+      const result = await vaProvider.transferFunds({ senderAccountId, recipientAccountId, amount})
 
       	return response({
 			statusCode: 200,
