@@ -2,6 +2,7 @@ export interface CreateAccountParams {
   userId: string
   currency: string
   xpub: string
+  accountingCurrency: string
 }
 
 export interface CreateAccountResponse {
@@ -43,7 +44,7 @@ export interface CustomerAccount {
 
 export interface AccountProvider {
   getXpub(chainName: string): Promise<{xpub: string}>
-  createVaAccount(params: { userId: string; currency: string, xpub: string }): Promise<{ accountId: string }>;
+  createVaAccount(params: CreateAccountParams): Promise<{ accountId: string }>;
   getCustomerAccounts(accountId: string): Promise<{ accounts: CustomerAccount[] }>;
   transferFunds(params: TransferFundsParams): Promise<{ reference: string }>;
   generateDepositAddress(accountId: string): Promise<{ address: string }>

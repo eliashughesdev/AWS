@@ -5,12 +5,13 @@ export class TatumProvider implements AccountProvider {
     private readonly apiKey = process.env.TATUM_API_KEY;
     private readonly TATUM_BASE_URL = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3';
 
-    async createVaAccount({ userId, currency, xpub }: CreateAccountParams): Promise<CreateAccountResponse> {
+    async createVaAccount({ userId, currency, xpub, accountingCurrency }: CreateAccountParams): Promise<CreateAccountResponse> {
         const url = `${this.TATUM_BASE_URL}/ledger/account`;
         const payload = {
             currency,
             customer: { externalId: userId },
-            xpub
+            xpub,
+            accountingCurrency
         };
 
         console.log('DEBUG (TatumProvider): Calling createVaAccount.');
@@ -72,7 +73,7 @@ export class TatumProvider implements AccountProvider {
             });
 
             console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Transaction ID: ${res.data?.id}`);
-            return { txId: res.data.id };
+            return { reference: res.data.id };
         } catch (err) {
             console.error('ERROR (TatumProvider): Failed to transfer funds.', err);
             throw err;
