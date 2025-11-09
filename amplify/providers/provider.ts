@@ -42,6 +42,15 @@ export interface CustomerAccount {
   frozen?: boolean
 }
 
+export interface AssignDepositAddressParams {
+    accountId: string;
+    address: string;
+}
+
+export interface AssignDepositAddressResponse {
+    address: string;
+}
+
 
 export interface AccountProvider {
   getXpub(chainName: string): Promise<{xpub: string}>
@@ -49,4 +58,5 @@ export interface AccountProvider {
   getCustomerAccounts(accountId: string): Promise<{ accounts: CustomerAccount[] }>;
   transferFunds(params: TransferFundsParams): Promise<{ reference: string }>;
   generateDepositAddress(accountId: string): Promise<{ address: string }>
+  assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
 }

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount } from '../provider';
+import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams } from '../provider';
 
 export class TatumProvider implements AccountProvider {
     private readonly apiKey = process.env.TATUM_API_KEY;
@@ -109,6 +109,31 @@ export class TatumProvider implements AccountProvider {
         } catch (error) {
             console.error('ERROR (TatumProvider): Failed to generate deposit address:', error);
             throw new Error('Unable to generate deposit address')
+        }
+    }
+
+    async assignDepositAddress({ accountId, address }: AssignDepositAddressParams): Promise<AssignDepositAddressResponse> {
+        const url = `${this.TATUM_BASE_URL}/offchain/account/${accountId}/address/${address}`;
+
+        console.log('DEBUG (TatumProvider): Calling assignDepositAddress.');
+        console.log(`DEBUG (TatumProvider): PUT URL: ${url}`);
+
+        try {
+            // Tatum uses a PUT request to link an existing address to a VA
+            const res = await axios.put(
+                url,
+                {}, // No body required for this Tatum endpoint
+                {
+                    headers: { 'x-api-key': this.apiKey }
+                }
+            );
+
+            // The response typically returns the address, confirming the link.
+            console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Assigned address: ${res.data?.address || address}`);
+            return { address: res.data?.address || address };
+        } catch (error) {
+            console.error(`ERROR (TatumProvider): Failed to assign address ${address} to VA ${accountId}.`, error);
+            throw new Error('Unable to assign external deposit address');
         }
     }
 }

@@ -70,18 +70,31 @@ export default class AccountHandler {
             const { accountId } = await vaProvider.createVaAccount(vaCreationPayload);
             console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`);
 
-            // generate deposit address
-            console.log(`DEBUG: Calling vaProvider.generateDepositAddress for accountId: ${accountId}`);
-            const { address } = await vaProvider.generateDepositAddress(accountId);
-            console.log(`DEBUG: Deposit address generated: ${address}`);
+            // 3. Generate or Assign Deposit Address
+            let depositAddress: string = '';
 
+            if (kmsAddress) {
+                // If KMS returned a direct address
+                console.log(`DEBUG: KMS returned direct address. Calling vaProvider.assignDepositAddress for accountId: ${accountId}`);
+                const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: kmsAddress });
+                depositAddress = assignedAddress;
+            } else if (xpub) {
+                // If KMS returned an xpub (HD chain), generate the next address.
+                console.log(`DEBUG: KMS returned xpub. Calling vaProvider.generateDepositAddress for accountId: ${accountId}`);
+                const { address: generatedAddress } = await vaProvider.generateDepositAddress(accountId);
+                depositAddress = generatedAddress;
+            } else{
+                throw new Error("one of 'xpub' or 'address' is needed to generate deposit address");
+            }
+
+            console.log(`DEBUG: Final Deposit address confirmed: ${depositAddress}`);
             const newAccount = {
                 provider: event.body.provider,
                 chain: chain,
                 xpub: xpub,
                 address: kmsAddress,
                 signatureId: signatureId,
-                depositAddress: address,
+                depositAddress: depositAddress,
                 vAccountId: accountId,
                 created_at: Date.now(),
             };
@@ -108,7 +121,7 @@ export default class AccountHandler {
                         data: {
                             id: data.id,
                             vAccountId: accountId,
-                            depositAddress: address,
+                            depositAddress: depositAddress,
                             signatureId: signatureId
                         }
                     }
