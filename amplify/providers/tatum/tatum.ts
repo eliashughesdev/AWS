@@ -120,7 +120,7 @@ export class TatumProvider implements AccountProvider {
 
         try {
             // Tatum uses a PUT request to link an existing address to a VA
-            const res = await axios.put(
+            const res = await axios.post(
                 url,
                 {}, // No body required for this Tatum endpoint
                 {
