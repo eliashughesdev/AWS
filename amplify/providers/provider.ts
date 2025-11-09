@@ -1,7 +1,8 @@
 export interface CreateAccountParams {
   userId: string
   currency: string
-  xpub: string
+  xpub?: string
+  address?: string
   accountingCurrency: string
 }
 

@@ -6,7 +6,8 @@ interface KmsGenerateWalletResponse {
     success: boolean;
     output: {
         signatureId: string;
-        xpub: string;
+        xpub?: string;
+        address?: string;
     };
     raw: string;
 }
@@ -32,7 +33,7 @@ export class TatumKmsClient {
      * @param chain The blockchain identifier (e.g., 'ETH', 'MATIC').
      * @returns The signatureId and xpub of the newly created wallet.
      */
-    async generateWallet(chain: string): Promise<{ signatureId: string; xpub: string }> {
+    async generateWallet(chain: string): Promise<{ signatureId: string; xpub?: string, address?: string }> {
         const endpoint = 'api/wallet/generate';
         const payload = { chain };
 
@@ -51,16 +52,17 @@ export class TatumKmsClient {
             console.log(`DEBUG (KMS Client): Raw KMS Response Data: ${JSON.stringify(json)}`);
 
 
-            if (!json.success || !json.output || !json.output.signatureId || !json.output.xpub) {
+            if (!json.success || !json.output || !json.output.signatureId || !json.output.xpub || !json.output.address) {
                 console.error('ERROR (KMS Client): Invalid response structure received.');
                 throw new Error(`KMS command failed: ${JSON.stringify(json)}`);
             }
 
-            const { signatureId, xpub } = json.output;
+            const { signatureId, xpub, address } = json.output;
 
-            console.log(`DEBUG (KMS Client): Successfully generated wallet. SignatureId: ${signatureId.substring(0, 8)}..., Xpub: ${xpub.substring(0, 10)}...`);
+            const identifier = xpub || address;
+            console.log(`DEBUG (KMS Client): Successfully generated wallet. SignatureId: ${signatureId.substring(0, 8)}..., Identifier: ${identifier ? identifier.substring(0, 10) + '...' : 'None'}`);
 
-            return { signatureId, xpub };
+            return { signatureId, xpub, address };
 
         } catch (error) {
             if (axios.isAxiosError(error)) {
