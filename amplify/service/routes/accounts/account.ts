@@ -55,8 +55,8 @@ export default class AccountHandler {
             const vaProvider = ProviderRegistry.getProvider(event.body.provider as ProviderName)
             const userId = data.id;
 
-            console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, xpub: ${xpub}`);
-            const { accountId } = await vaProvider.createVaAccount({ userId, currency: chain, xpub });
+            console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, xpub: ${xpub}, accountingCurrency: ${event.body.accounting_currency}`);
+            const { accountId } = await vaProvider.createVaAccount({ userId, currency: chain, xpub, accountingCurrency: event.body.accounting_currency });
             console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`);
 
             // generate deposit address
