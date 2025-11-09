@@ -52,7 +52,7 @@ export class TatumKmsClient {
             console.log(`DEBUG (KMS Client): Raw KMS Response Data: ${JSON.stringify(json)}`);
 
 
-            if (!json.success || !json.output || !json.output.signatureId || !json.output.xpub || !json.output.address) {
+            if (!json.success || !json.output || !json.output.signatureId || (!json.output.xpub && !json.output.address)) {
                 console.error('ERROR (KMS Client): Invalid response structure received.');
                 throw new Error(`KMS command failed: ${JSON.stringify(json)}`);
             }
