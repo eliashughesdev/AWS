@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams } from '../provider';
+import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse } from '../provider';
 
 export class TatumProvider implements AccountProvider {
     private readonly apiKey = process.env.TATUM_API_KEY;
@@ -86,7 +86,7 @@ export class TatumProvider implements AccountProvider {
         return { xpub: "EXAMPLE_XPUB_FOR_ILUSTRATIVE_POUPOSES_REAL_ONE_SHOULD_COME_FROM_KMS" };
     }
 
-    async generateDepositAddress(accountId: string): Promise<{ address: string }> {
+    async generateDepositAddress(accountId: string): Promise<GenerateDepositAddressResponse> {
         const url = `${this.TATUM_BASE_URL}/offchain/account/${accountId}/address`;
 
         console.log('DEBUG (TatumProvider): Calling generateDepositAddress.');
@@ -105,7 +105,7 @@ export class TatumProvider implements AccountProvider {
             )
 
             console.log(`DEBUG (TatumProvider): Response status: ${response.status}. Generated address: ${response.data}`);
-            return { address: response.data as string }
+            return response.data as GenerateDepositAddressResponse;
         } catch (error) {
             console.error('ERROR (TatumProvider): Failed to generate deposit address:', error);
             throw new Error('Unable to generate deposit address')
