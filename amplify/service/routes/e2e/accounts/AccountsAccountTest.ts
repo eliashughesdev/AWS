@@ -6,7 +6,7 @@ console.log('path: ', path)
 
 const body = JSON.stringify({
     account_name: `Account ${Date.now().toString()}`,
-    chain: 'SOL',
+    chain: 'TRON',
     provider: 'TATUM',
     accounting_currency: 'USD'
 });

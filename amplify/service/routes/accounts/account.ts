@@ -81,23 +81,39 @@ export default class AccountHandler {
             } else if (xpub) {
                 // If KMS returned an xpub (HD chain), generate the next address.
                 console.log(`DEBUG: KMS returned xpub. Calling vaProvider.generateDepositAddress for accountId: ${accountId}`);
-                const { address: generatedAddress } = await vaProvider.generateDepositAddress(accountId);
-                depositAddress = generatedAddress;
+                const { address } = (await vaProvider.generateDepositAddress(accountId));
+                depositAddress = address;
             } else{
                 throw new Error("one of 'xpub' or 'address' is needed to generate deposit address");
             }
 
             console.log(`DEBUG: Final Deposit address confirmed: ${depositAddress}`);
-            const newAccount = {
+            // const newAccount = {
+            //     provider: event.body.provider,
+            //     chain: chain,
+            //     xpub: xpub,
+            //     address: kmsAddress,
+            //     signatureId: signatureId,
+            //     depositAddress: depositAddress,
+            //     vAccountId: accountId,
+            //     created_at: Date.now(),
+            // };
+            const newAccount: Record<string, any> = {
                 provider: event.body.provider,
                 chain: chain,
-                xpub: xpub,
-                address: kmsAddress,
                 signatureId: signatureId,
-                depositAddress: depositAddress,
+                depositAddress: depositAddress, // Now guaranteed to be a string
                 vAccountId: accountId,
                 created_at: Date.now(),
             };
+
+            if (xpub) {
+                newAccount.xpub = xpub;
+            }
+
+            if (kmsAddress) {
+                newAccount.address = kmsAddress;
+            }
 
             data.accounts.push(newAccount);
             console.log('DEBUG: Internal Account Record (Final update structure):', JSON.stringify(data));
