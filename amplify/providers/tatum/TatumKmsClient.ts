@@ -17,7 +17,7 @@ export class TatumKmsClient {
 
     constructor() {
 
-        const TATUM_KMS_BASE_URL = process.env.TATUM_KMS_BASE_URL || 'https://a36fdf747de1.ngrok-free.app'
+        const TATUM_KMS_BASE_URL = process.env.TATUM_KMS_BASE_URL
         console.log(`DEBUG (KMS Client): Initializing with base URL: ${TATUM_KMS_BASE_URL}`);
         this.axiosInstance = axios.create({
             baseURL: TATUM_KMS_BASE_URL,

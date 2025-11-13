@@ -92,10 +92,6 @@ export default class AccountHandler {
                 newAccount.xpub = xpub;
             }
 
-            if (kmsAddress) {
-                newAccount.address = kmsAddress;
-            }
-
             data.accounts.push(newAccount);
             console.log('DEBUG: Internal Account Record (Final update structure):', JSON.stringify(data));
 
