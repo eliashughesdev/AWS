@@ -23,23 +23,13 @@ export default class AccountHandler {
             deleted_at: null,
             fees: 'default',
             name: event.body.account_name,
-            providerId: 'default',
+            providerId: event.body.provider || 'default',
             status: 'active',
             updated_at: Date.now(),
             accounts: [],
         }
 
         console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(data));
-
-        // Attempt initial database write
-        console.log('DEBUG: Attempting initial putItem to v1CustomerTable...');
-        let dbResult = await putItem('v1CustomerTable', data)
-        console.log('DEBUG: Initial putItem result:', JSON.stringify(dbResult));
-
-        if (!dbResult.success || !dbResult.res) {
-            console.error('ERROR: Initial DB write failed. Processing error 100003.');
-            return processError(100003)
-        }
 
         try {
             // create wallent in kms
@@ -88,21 +78,12 @@ export default class AccountHandler {
             }
 
             console.log(`DEBUG: Final Deposit address confirmed: ${depositAddress}`);
-            // const newAccount = {
-            //     provider: event.body.provider,
-            //     chain: chain,
-            //     xpub: xpub,
-            //     address: kmsAddress,
-            //     signatureId: signatureId,
-            //     depositAddress: depositAddress,
-            //     vAccountId: accountId,
-            //     created_at: Date.now(),
-            // };
+
             const newAccount: Record<string, any> = {
                 provider: event.body.provider,
                 chain: chain,
                 signatureId: signatureId,
-                depositAddress: depositAddress, // Now guaranteed to be a string
+                depositAddress: depositAddress,
                 vAccountId: accountId,
                 created_at: Date.now(),
             };
@@ -118,14 +99,23 @@ export default class AccountHandler {
             data.accounts.push(newAccount);
             console.log('DEBUG: Internal Account Record (Final update structure):', JSON.stringify(data));
 
-            console.log('DEBUG: Attempting final putItem to v1CustomerTable...');
-            dbResult = await putItem('v1CustomerTable', data);
-            console.log('DEBUG: Final putItem result:', JSON.stringify(dbResult));
+            // console.log('DEBUG: Attempting final putItem to v1CustomerTable...');
+            // dbResult = await putItem('v1CustomerTable', data);
+            // console.log('DEBUG: Final putItem result:', JSON.stringify(dbResult));
 
-            if (!dbResult.success) {
-                console.error('ERROR: Final DB update failed. Throwing error for rollback consideration.');
-                throw new Error('Failed to update user with new wallet account structure.');
-            }
+            // if (!dbResult.success) {
+            //     console.error('ERROR: Final DB update failed. Throwing error for rollback consideration.');
+            //     throw new Error('Failed to update user with new wallet account structure.');
+            // }
+        // Attempt database write
+        console.log('DEBUG: Attempting initial putItem to v1CustomerTable...');
+        let dbResult = await putItem('v1CustomerTable', data)
+        console.log('DEBUG: Initial putItem result:', JSON.stringify(dbResult));
+
+        if (!dbResult.success || !dbResult.res) {
+            console.error('ERROR: Initial DB write failed. Processing error 100003.');
+            return processError(100003)
+        }
 
             console.log('DEBUG: Account creation flow successful. Returning 200 response.');
             return response({
@@ -146,8 +136,7 @@ export default class AccountHandler {
 
         } catch (err) {
             console.error('FATAL ERROR: Wallet/VA creation error:', err)
-            // TODO: ROLLBACK at this point. DELETE user if account creation fails
-            return processError(100002, `Failed to create virtual account and wallet`)
+            return processError(100002, `Failed to create virtual account`)
         }
     }
 }

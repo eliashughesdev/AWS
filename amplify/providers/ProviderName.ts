@@ -1,3 +1,3 @@
 export enum ProviderName {
-  Tatum = 'TATUM',
+  Tatum = 'PCF0001',
 }
