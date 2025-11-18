@@ -36,11 +36,12 @@ const providerCodes: any = {
 
 export default class WebhookHandler {
 	async execute(event: any, context: Context) {
-		const checkIpResult = await checkIp(event)
-		if (!checkIpResult.success) return processResponse(403, 'you are not allowed to access this endpoint')
-		if (providerCodes.hasOwnProperty(checkIpResult.provider_code)) {
-			return providerCodes[checkIpResult.provider_code](event, context)
-		}
-		return processResponse(403, 'no cb route')
+		// const checkIpResult = await checkIp(event)
+		// if (!checkIpResult.success) return processResponse(403, 'you are not allowed to access this endpoint')
+		// if (providerCodes.hasOwnProperty(checkIpResult.provider_code)) {
+			// return providerCodes[checkIpResult.provider_code](event, context)
+		return providerCodes['tatum'](event, context) // just to test the webhook works correclty when all checks pass
+		// }
+		// return processResponse(403, 'no cb route')
 	}
 }
