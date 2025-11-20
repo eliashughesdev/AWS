@@ -21,6 +21,8 @@ export default class DetailsHandler {
 		});
 		if (!account.success || !account.res) return processError(100001)
 
+
+		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account.res));
 		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account.res));
 
 		// const fees = await getRecord('v1FeesTable', account.res?.fees)
@@ -41,8 +43,7 @@ export default class DetailsHandler {
 			bodyObject: {
 				success: true,
 				res: {
-					// data: { ...res }
-					data: { "OK": "OK" }
+					data: { ...account.res }
 				}
 			}
 		})
