@@ -1,13 +1,24 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
-import { getRecord } from '../../../utils/db'
+import { getRecord, queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 
 export default class DetailsHandler {
 	async execute(event: any, context: Context) {
 		// todo ensure that customer have enough right to get this account
 		// const cstomer = await getRecord('v2CustomerTable', event.body.account_id)
-		const account = await getRecord('v2CustomerTable', event.body.account_id)
+		// const account = await byindes('v2CustomerTable', event.body.account_id)
+		const account = await queryItemFromIndex({
+			tableName: 'v2CustomerTable',
+			indexName: 'v1v2CustomerTableToAccountId',
+			keyConditionExpression: '#sk = :accountNumber',
+			attributeNames: {
+				'#sk': 'sk',
+			},
+			attributeValues: {
+				':accountNumber': event.body.account_id,
+			}
+		});
 		if (!account.success || !account.res) return processError(100001)
 
 		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account.res));
