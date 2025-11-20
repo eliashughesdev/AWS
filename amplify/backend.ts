@@ -217,6 +217,13 @@ const v2CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
     tableName: 'v2CustomerTable',
 });
 
+v2CustomerTable.addGlobalSecondaryIndex({
+    indexName: 'v1v2CustomerTableToAccountId',
+    partitionKey: {name: 'sk', type: dynamo.AttributeType.STRING},
+    sortKey: {name: 'id', type: dynamo.AttributeType.STRING  },
+    projectionType: dynamo.ProjectionType.ALL
+});
+
 // const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
 // 	partitionKey: {
 // 		name: 'id',
