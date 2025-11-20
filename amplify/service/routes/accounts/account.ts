@@ -110,26 +110,30 @@ export default class AccountHandler {
             //     throw new Error('Failed to update user with new wallet account structure.');
             // }
             // Attempt database write
-            console.log('DEBUG: Attempting to save user profile to v1CustomerTable...');
-            let dbResult = await putItem('v1CustomerTable', data)
+            console.log('DEBUG: Attempting to save user profile to v2CustomerTable...');
+            // let dbResult = await putItem('v2CustomerTable', data)
 
             // save user profile
-            const userResult = await putItem('v1CustomerTable', data);
+            const userResult = await putItem('v2CustomerTable', data);
             if (!userResult.success) {
                 throw new Error('Failed to create User Profile');
             }
-            console.log('DEBUG: customer profile save attempt result:', JSON.stringify(dbResult));
+            console.log('DEBUG: customer profile save attempt result:', JSON.stringify(userResult));
+            if (!userResult.success || !userResult.res) {
+                console.error('ERROR: Initial DB write failed. Processing error 100003.');
+                return processError(100003)
+            }
 
             // save account
-            console.log('DEBUG: Attempting to save user account to v1CustomerTable...');
-            const accountResult = await putItem('v1CustomerTable', newAccount);
+            console.log('DEBUG: Attempting to save user account to v2CustomerTable...');
+            const accountResult = await putItem('v2CustomerTable', newAccount);
             if (!accountResult.success) {
                 // detailed error handling: You might want to delete the userProfile here to rollback
                 throw new Error('Failed to create Account Record');
             }
-            console.log('DEBUG: customer account save attempt result:', JSON.stringify(dbResult));
+            console.log('DEBUG: customer account save attempt result:', JSON.stringify(accountResult));
 
-            if (!dbResult.success || !dbResult.res) {
+            if (!accountResult.success || !accountResult.res) {
                 console.error('ERROR: Initial DB write failed. Processing error 100003.');
                 return processError(100003)
             }
