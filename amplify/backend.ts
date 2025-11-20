@@ -204,14 +204,28 @@ const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
 })
 
 const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
-	partitionKey: {
-		name: 'id',
-		type: dynamo.AttributeType.STRING,
-	},
-	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-	tableName: 'v1CustomerTable',
-})
+    partitionKey: {
+        name: 'id',
+        type: dynamo.AttributeType.STRING,
+    },
+    sortKey: {
+        name: 'sk',
+        type: dynamo.AttributeType.STRING,
+    },
+    billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+    stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+    tableName: 'v1CustomerTable',
+});
+
+// const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
+// 	partitionKey: {
+// 		name: 'id',
+// 		type: dynamo.AttributeType.STRING,
+// 	},
+// 	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+// 	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+// 	tableName: 'v1CustomerTable',
+// })
 
 const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelistTable', {
 	partitionKey: {

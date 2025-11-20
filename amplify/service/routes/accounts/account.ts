@@ -18,6 +18,7 @@ export default class AccountHandler {
 
         const data: any = {
             id: crypto.randomUUID(),
+            sk: "USERPROFILE",
             created_at: Date.now(),
             currency: event.body.accounting_currency,
             deleted_at: null,
@@ -26,7 +27,7 @@ export default class AccountHandler {
             providerId: event.body.provider || 'default',
             status: 'active',
             updated_at: Date.now(),
-            accounts: [],
+            // accounts: [],
         }
 
         console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(data));
@@ -73,14 +74,19 @@ export default class AccountHandler {
                 console.log(`DEBUG: KMS returned xpub. Calling vaProvider.generateDepositAddress for accountId: ${accountId}`);
                 const { address } = (await vaProvider.generateDepositAddress(accountId));
                 depositAddress = address;
-            } else{
+            } else {
                 throw new Error("one of 'xpub' or 'address' is needed to generate deposit address");
             }
 
             console.log(`DEBUG: Final Deposit address confirmed: ${depositAddress}`);
 
+            const accountNumber = event.body.provider + crypto.randomUUID().replaceAll("-", "")
             const newAccount: Record<string, any> = {
+                id: userId,
+                sk: `ACCOUNT#${accountNumber}`,
                 provider: event.body.provider,
+                accountNo: accountNumber,
+                balance: 0.0,
                 chain: chain,
                 signatureId: signatureId,
                 depositAddress: depositAddress,
@@ -92,7 +98,7 @@ export default class AccountHandler {
                 newAccount.xpub = xpub;
             }
 
-            data.accounts.push(newAccount);
+            // data.accounts.push(newAccount);
             console.log('DEBUG: Internal Account Record (Final update structure):', JSON.stringify(data));
 
             // console.log('DEBUG: Attempting final putItem to v1CustomerTable...');
@@ -103,15 +109,30 @@ export default class AccountHandler {
             //     console.error('ERROR: Final DB update failed. Throwing error for rollback consideration.');
             //     throw new Error('Failed to update user with new wallet account structure.');
             // }
-        // Attempt database write
-        console.log('DEBUG: Attempting initial putItem to v1CustomerTable...');
-        let dbResult = await putItem('v1CustomerTable', data)
-        console.log('DEBUG: Initial putItem result:', JSON.stringify(dbResult));
+            // Attempt database write
+            console.log('DEBUG: Attempting to save user profile to v1CustomerTable...');
+            let dbResult = await putItem('v1CustomerTable', data)
 
-        if (!dbResult.success || !dbResult.res) {
-            console.error('ERROR: Initial DB write failed. Processing error 100003.');
-            return processError(100003)
-        }
+            // save user profile
+            const userResult = await putItem('v1CustomerTable', data);
+            if (!userResult.success) {
+                throw new Error('Failed to create User Profile');
+            }
+            console.log('DEBUG: customer profile save attempt result:', JSON.stringify(dbResult));
+
+            // save account
+            console.log('DEBUG: Attempting to save user account to v1CustomerTable...');
+            const accountResult = await putItem('v1CustomerTable', newAccount);
+            if (!accountResult.success) {
+                // detailed error handling: You might want to delete the userProfile here to rollback
+                throw new Error('Failed to create Account Record');
+            }
+            console.log('DEBUG: customer account save attempt result:', JSON.stringify(dbResult));
+
+            if (!dbResult.success || !dbResult.res) {
+                console.error('ERROR: Initial DB write failed. Processing error 100003.');
+                return processError(100003)
+            }
 
             console.log('DEBUG: Account creation flow successful. Returning 200 response.');
             return response({
@@ -122,7 +143,8 @@ export default class AccountHandler {
                     res: {
                         data: {
                             id: data.id,
-                            vAccountId: accountId,
+                            accountNo: accountNumber,
+                            // vAccountId: accountId,
                             depositAddress: depositAddress,
                             signatureId: signatureId
                         }
