@@ -14,7 +14,7 @@ type RoutesMap = Map<string, {
 }>
 
 export const routes: RoutesMap = new Map([
-    ['/v1/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
+    ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
     ['/v1/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
     ['/v1/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],

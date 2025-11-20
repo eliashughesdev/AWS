@@ -20,14 +20,9 @@ export default class AccountHandler {
             id: crypto.randomUUID(),
             sk: "USERPROFILE",
             created_at: Date.now(),
-            currency: event.body.accounting_currency,
             deleted_at: null,
-            fees: 'default',
             name: event.body.account_name,
-            providerId: event.body.provider || 'default',
-            status: 'active',
             updated_at: Date.now(),
-            // accounts: [],
         }
 
         console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(data));
@@ -84,6 +79,7 @@ export default class AccountHandler {
             const newAccount: Record<string, any> = {
                 id: userId,
                 sk: `ACCOUNT#${accountNumber}`,
+                currency: event.body.accounting_currency,
                 provider: event.body.provider,
                 accountNo: accountNumber,
                 balance: 0.0,
@@ -92,6 +88,9 @@ export default class AccountHandler {
                 depositAddress: depositAddress,
                 vAccountId: accountId,
                 created_at: Date.now(),
+                fees: 'default',
+                providerId: event.body.provider || 'default',
+                status: 'active',
             };
 
             if (xpub) {
