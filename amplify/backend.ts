@@ -203,7 +203,7 @@ const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
 	tableName: 'v1UserKeysTable',
 })
 
-const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
+const v2CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
     partitionKey: {
         name: 'id',
         type: dynamo.AttributeType.STRING,
@@ -214,7 +214,7 @@ const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
     },
     billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
     stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
-    tableName: 'v1CustomerTable',
+    tableName: 'v2CustomerTable',
 });
 
 // const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
@@ -261,7 +261,7 @@ stream.addEventSource(
 )
 
 stream.addEventSource(
-	new eventsources.DynamoEventSource(v1CustomerTable, {
+	new eventsources.DynamoEventSource(v2CustomerTable, {
 		startingPosition: StartingPosition.LATEST
 	})
 )
@@ -276,8 +276,8 @@ v1UserKeysTable.grantReadWriteData(apiGatewayRole)
 v1UserKeysTable.grantReadWriteData(customAuthorizerFn)
 v1UserKeysTable.grantStreamRead(stream)
 
-v1CustomerTable.grantReadWriteData(apiGatewayRole)
-v1CustomerTable.grantStreamRead(stream)
+v2CustomerTable.grantReadWriteData(apiGatewayRole)
+v2CustomerTable.grantStreamRead(stream)
 
 v1WebhookIPWhitelistTable.grantReadWriteData(apiGatewayRole)
 v1WebhookIPWhitelistTable.grantStreamRead(stream)

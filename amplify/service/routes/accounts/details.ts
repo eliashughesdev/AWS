@@ -6,7 +6,7 @@ import { processError } from '../../../errors/http'
 export default class DetailsHandler {
 	async execute(event: any, context: Context) {
 		// todo ensure that customer have enough right to get this account
-		const customer = await getRecord('v1CustomerTable', event.body.account_id)
+		const customer = await getRecord('v2CustomerTable', event.body.account_id)
 		if (!customer.success || !customer.res) return processError(100001)
 
 		const fees = await getRecord('v1FeesTable', customer.res?.fees)
