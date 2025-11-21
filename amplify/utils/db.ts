@@ -100,10 +100,10 @@ export const putItem = async (tableName: string | undefined, item: Record<string
 
 interface IUpdateItemRequest {
 	tableName: string | undefined
-	key: Record<string, AttributeValue>
+	key: Record<string, any>
 	updateExpression: string | undefined
 	attributeNames: Record<string, string> | undefined
-	attributeValues: Record<string, AttributeValue>
+	attributeValues: Record<string, any>
 }
 /**
  * Update record by id

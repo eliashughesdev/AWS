@@ -1,4 +1,5 @@
 import { Context } from 'aws-lambda'
+import { getRecord, updateItem } from '../../../../utils/db'
 
 const statuses: any = {
 	authorized: (body: any) => console.log('authorized. status logic'),
@@ -23,14 +24,54 @@ interface IncomingBlockchainTransactionRequest {
 
 }
 
-const handleIncomingTransaction = (body: IncomingBlockchainTransactionRequest) => {
+const handleIncomingTransaction = async (body: IncomingBlockchainTransactionRequest) => {
+	const vAccountId = body.accountId;
+	const amountToAdd = parseFloat(body.amount);
+
+	console.log('--- Incoming Blockchain Transaction Event Received ---');
 	console.log(body)
-	console.log('Incoming Blockchain Transaction Event Received');
-	console.log(`Subscription Type: ${body.subscriptionType}`);
-	console.log(`Virtual Account ID: ${body.accountId}`);
-	console.log(`Amount: ${body.amount} ${body.currency}`);
-	console.log(`Blockchain TX ID: ${body.txId || 'N/A'}`);
-	console.log(`Timestamp: ${new Date(body.date).toISOString()}`);
+	console.log('----------------------------------------------------');
+
+	const BALANCE_TABLE_NAME = 'v1AccountBalanceTable';
+	try {
+		const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, vAccountId);
+
+		if (!currentBalanceResult.success || !currentBalanceResult.res) {
+			console.error(`DB_ERROR: Balance record not found for vAccountId: ${vAccountId}. Cannot update balance.`);
+			return;
+		}
+
+		const currentBalance = parseFloat(currentBalanceResult.res.balance || '0');
+		const newBalance = currentBalance + amountToAdd;
+
+		console.log(`Balance Calculation: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`);
+
+		const updateResult = await updateItem({
+			tableName: BALANCE_TABLE_NAME,
+			key: { id: vAccountId },
+
+			updateExpression: 'SET #balance = :newBalance, #lastUpdated = :now',
+
+			attributeNames: {
+				'#balance': 'balance',
+				'#lastUpdated': 'lastUpdated',
+			},
+
+			attributeValues: {
+				':newBalance': newBalance,
+				':now': new Date().toISOString(),
+			},
+		});
+
+		if (updateResult.success) {
+			console.log(`SUCCESS: Balance for ${vAccountId} updated to ${newBalance.toFixed(2)} ${body.currency}`);
+		} else {
+			console.error('DB_ERROR: Failed to update balance document:', updateResult);
+		}
+
+	} catch (e) {
+		console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${body.txId}.`, e);
+	}
 }
 
 
