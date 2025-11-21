@@ -36,6 +36,8 @@ const providerCodes: any = {
 
 export default class WebhookHandler {
 	async execute(event: any, context: Context) {
+		console.log("webhook event body")
+		console.log(event.body)
 		// const checkIpResult = await checkIp(event)
 		// if (!checkIpResult.success) return processResponse(403, 'you are not allowed to access this endpoint')
 		// if (providerCodes.hasOwnProperty(checkIpResult.provider_code)) {

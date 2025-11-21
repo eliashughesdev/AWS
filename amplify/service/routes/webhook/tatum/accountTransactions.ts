@@ -24,7 +24,8 @@ interface IncomingBlockchainTransactionRequest {
 }
 
 const handleIncomingTransaction = (body: IncomingBlockchainTransactionRequest) => {
-	console.log('✨ Incoming Blockchain Transaction Event Received');
+	console.log(body)
+	console.log('Incoming Blockchain Transaction Event Received');
 	console.log(`Subscription Type: ${body.subscriptionType}`);
 	console.log(`Virtual Account ID: ${body.accountId}`);
 	console.log(`Amount: ${body.amount} ${body.currency}`);
