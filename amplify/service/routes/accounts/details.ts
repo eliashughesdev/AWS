@@ -19,20 +19,37 @@ export default class DetailsHandler {
 				':accountNumber': event.body.account_id,
 			}
 		});
-		if (!account.success || !account.res) return processError(100001)
+		if (!account.success || !account.res) {
+			console.error(`ERROR: Account not found for accountNo: ${event.body.account_id}`);
+			return processError(100001)
+		}
 
 
-		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account.res));
-		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account.res));
+		const accountDet = account.res[0];
+		const vAccountId = accountDet.vAccountId;
+
+		console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account));
+		console.log('DEBUG: Extracted vAccountId for balance lookup:', vAccountId);
+
+		const balanceResult = await getRecord('v1AccountBalanceTable', vAccountId);
+
+		if (!balanceResult.success || !balanceResult.res) {
+			console.error(`ERROR: Balance record not found for vAccountId: ${vAccountId}`);
+			return processError(100008); // Balance Not Found Error Code
+		}
+
+		const balance = balanceResult.res;
+		console.log('DEBUG: Retrieved Balance Record:', JSON.stringify(balance));
+
+		const res = { ...accountDet, ...balance };
+
+		delete res.vAccountId;
+		delete res.providerId
+
 
 		// const fees = await getRecord('v1FeesTable', account.res?.fees)
 		// if (!fees.success || !fees.res) return processError(100007)
 
-		// const balance = await getRecord('v1AccountBalanceTable', event.body.account_id)
-		// if (!balance.success || !balance.res) return processError(100008)
-
-		// const res = { ...account.res, ...balance.res }
-		// const res = { ...account.res, ...balance.res }
 		// res.fees = { ...fees.res }
 
 		// delete res.providerId
@@ -43,7 +60,7 @@ export default class DetailsHandler {
 			bodyObject: {
 				success: true,
 				res: {
-					data: { ...account.res }
+					data: { res }
 				}
 			}
 		})
