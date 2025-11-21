@@ -4,7 +4,8 @@ import {
 	GetItemCommand,
 	PutItemCommand,
 	QueryCommand,
-	UpdateItemCommand
+	UpdateItemCommand,
+	TransactWriteItemsCommand
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 
@@ -34,6 +35,14 @@ interface IQueryItemFromIndexRequest {
 	keyConditionExpression: string
 	attributeNames: Record<string, string> | undefined
 	attributeValues: Record<string, AttributeValue>
+}
+
+interface ITransactWriteItemsRequest { // ADDED: Interface for transactional writes
+    // Array of items to put atomically. All items must be for the same table in this common pattern.
+    puts: {
+        tableName: string;
+        item: Record<string, any>;
+    }[]
 }
 
 /**
@@ -129,4 +138,26 @@ export const updateItem = async (r: IUpdateItemRequest) => {
 		console.log(e)
 		return { success: false, res: null }
 	}
+}
+
+export const transactWriteItems = async (r: ITransactWriteItemsRequest) => {
+    const transactItems = r.puts.map(putOperation => ({
+        Put: {
+            TableName: putOperation.tableName,
+            Item: marshall(putOperation.item),
+        }
+    }));
+
+    const command = new TransactWriteItemsCommand({
+        TransactItems: transactItems,
+    });
+
+    try {
+        const response = await db.send(command);
+        return { success: true, res: response };
+    } catch (e) {
+        console.error("TransactWriteItems failed:", e);
+        // In case of a transaction failure, provide the error details
+        return { success: false, res: null };
+    }
 }

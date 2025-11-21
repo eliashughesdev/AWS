@@ -1,6 +1,6 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
-import { putItem } from '../../../utils/db'
+import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ProviderName'
@@ -82,7 +82,6 @@ export default class AccountHandler {
                 currency: event.body.accounting_currency,
                 provider: event.body.provider,
                 accountNo: accountNumber,
-                balance: 0.0,
                 chain: chain,
                 signatureId: signatureId,
                 depositAddress: depositAddress,
@@ -97,45 +96,31 @@ export default class AccountHandler {
                 newAccount.xpub = xpub;
             }
 
-            // data.accounts.push(newAccount);
-            console.log('DEBUG: Internal Account Record (Final update structure):', JSON.stringify(data));
+            const newAccountBalance: Record<string, any> = {
+                id: accountId,
+                availableBalance: 0.0,
+                balance: 0.0,
+                created_at: Date.now(),
+                updated_at: Date.now(),
+            };
 
-            // console.log('DEBUG: Attempting final putItem to v1CustomerTable...');
-            // dbResult = await putItem('v1CustomerTable', data);
-            // console.log('DEBUG: Final putItem result:', JSON.stringify(dbResult));
+            console.log('DEBUG: Account Balance Record (Initial):', JSON.stringify(newAccountBalance));
 
-            // if (!dbResult.success) {
-            //     console.error('ERROR: Final DB update failed. Throwing error for rollback consideration.');
-            //     throw new Error('Failed to update user with new wallet account structure.');
-            // }
-            // Attempt database write
-            console.log('DEBUG: Attempting to save user profile to v2CustomerTable...');
-            // let dbResult = await putItem('v2CustomerTable', data)
+            const itemsToTransact = [
+                { tableName: 'v2CustomerTable', item: data },
+                { tableName: 'v2CustomerTable', item: newAccount },
+                { tableName: 'v1AccountBalanceTable', item: newAccountBalance },
+            ];
 
-            // save user profile
-            const userResult = await putItem('v2CustomerTable', data);
-            if (!userResult.success) {
-                throw new Error('Failed to create User Profile');
-            }
-            console.log('DEBUG: customer profile save attempt result:', JSON.stringify(userResult));
-            if (!userResult.success || !userResult.res) {
-                console.error('ERROR: Initial DB write failed. Processing error 100003.');
+            console.log('DEBUG: Attempting to save all records transactionally...');
+
+            const transactionResult = await transactWriteItems({ puts: itemsToTransact });
+
+            if (!transactionResult.success || !transactionResult.res) {
+                console.log('Failed to perform atomic write for all required records');
                 return processError(100003)
             }
-
-            // save account
-            console.log('DEBUG: Attempting to save user account to v2CustomerTable...');
-            const accountResult = await putItem('v2CustomerTable', newAccount);
-            if (!accountResult.success) {
-                // detailed error handling: You might want to delete the userProfile here to rollback
-                throw new Error('Failed to create Account Record');
-            }
-            console.log('DEBUG: customer account save attempt result:', JSON.stringify(accountResult));
-
-            if (!accountResult.success || !accountResult.res) {
-                console.error('ERROR: Initial DB write failed. Processing error 100003.');
-                return processError(100003)
-            }
+            console.log('DEBUG: atomic transaction save attempt result:', JSON.stringify(transactionResult));
 
             console.log('DEBUG: Account creation flow successful. Returning 200 response.');
             return response({
@@ -147,7 +132,6 @@ export default class AccountHandler {
                         data: {
                             id: data.id,
                             accountNo: accountNumber,
-                            // vAccountId: accountId,
                             depositAddress: depositAddress,
                             signatureId: signatureId
                         }

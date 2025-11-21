@@ -234,6 +234,16 @@ v2CustomerTable.addGlobalSecondaryIndex({
 // 	tableName: 'v1CustomerTable',
 // })
 
+const v1AccountBalanceTable = new dynamo.Table(apiStack, 'AccountBalanceTable', {
+	partitionKey: {
+		name: 'id',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+	tableName: 'v1AccountBalanceTable',
+})
+
 const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelistTable', {
 	partitionKey: {
 		name: 'id',
