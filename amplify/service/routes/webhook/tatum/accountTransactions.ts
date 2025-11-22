@@ -25,53 +25,64 @@ interface IncomingBlockchainTransactionRequest {
 }
 
 const handleIncomingTransaction = async (body: IncomingBlockchainTransactionRequest) => {
-	const vAccountId = body.accountId;
-	const amountToAdd = parseFloat(body.amount);
+    const vAccountId = body.accountId;
+    const amountToAdd = parseFloat(body.amount);
+    const txId = body.txId; // Using txId for better error context
 
-	console.log('--- Incoming Blockchain Transaction Event Received ---');
-	console.log(body)
-	console.log('----------------------------------------------------');
+    console.log(`--- Processing Incoming TX [${txId}] for Account [${vAccountId}] ---`);
+    console.log('Incoming Payload:', body);
+    console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${body.currency}`);
 
-	const BALANCE_TABLE_NAME = 'v1AccountBalanceTable';
-	try {
-		const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, vAccountId);
+    const BALANCE_TABLE_NAME = 'v1AccountBalanceTable';
 
-		if (!currentBalanceResult.success || !currentBalanceResult.res) {
-			console.error(`DB_ERROR: Balance record not found for vAccountId: ${vAccountId}. Cannot update balance.`);
-			return;
-		}
+    try {
+        console.log(`DB_READ: Fetching current balance for ${vAccountId} from ${BALANCE_TABLE_NAME}...`);
+        const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, vAccountId);
 
-		const currentBalance = parseFloat(currentBalanceResult.res.balance || '0');
-		const newBalance = currentBalance + amountToAdd;
+        if (!currentBalanceResult.success || !currentBalanceResult.res) {
+            console.error(`DB_ERROR: Balance record not found for vAccountId: ${vAccountId}. Cannot update balance. Read result:`, currentBalanceResult);
+            // Optionally throw here if absence of record is unexpected and critical
+            return;
+        }
 
-		console.log(`Balance Calculation: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`);
+        console.log('DB_READ_SUCCESS: Retrieved record:', currentBalanceResult.res);
 
-		const updateResult = await updateItem({
-			tableName: BALANCE_TABLE_NAME,
-			key: { id: vAccountId },
+        const currentBalance = parseFloat(currentBalanceResult.res.balance || '0');
+        const newBalance = currentBalance + amountToAdd;
 
-			updateExpression: 'SET #balance = :newBalance, #lastUpdated = :now',
+        console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`);
 
-			attributeNames: {
-				'#balance': 'balance',
-				'#lastUpdated': 'lastUpdated',
-			},
+        // Prepare and log update parameters
+        const updateParams = {
+            tableName: BALANCE_TABLE_NAME,
+            key: { id: vAccountId },
+            updateExpression: 'SET #balance = :newBalance, #lastUpdated = :now',
+            attributeNames: {
+                '#balance': 'balance',
+                '#lastUpdated': 'lastUpdated',
+            },
+            attributeValues: {
+                ':newBalance': newBalance,
+                ':now': new Date().toISOString(),
+            },
+        };
 
-			attributeValues: {
-				':newBalance': newBalance,
-				':now': new Date().toISOString(),
-			},
-		});
+        console.log('DB_WRITE: Preparing to update balance with parameters:', updateParams);
 
-		if (updateResult.success) {
-			console.log(`SUCCESS: Balance for ${vAccountId} updated to ${newBalance.toFixed(2)} ${body.currency}`);
-		} else {
-			console.error('DB_ERROR: Failed to update balance document:', updateResult);
-		}
+        const updateResult = await updateItem(updateParams);
 
-	} catch (e) {
-		console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${body.txId}.`, e);
-	}
+        if (updateResult.success) {
+            console.log(`TX_SUCCESS: Balance for ${vAccountId} successfully updated to ${newBalance.toFixed(2)} ${body.currency}. TX: ${txId}`);
+        } else {
+            console.error(`DB_ERROR: Failed to update balance document for ${vAccountId} and TX ${txId}. Update result:`, updateResult);
+        }
+
+    } catch (e) {
+        // Logging the full error object 'e' provides the most detail
+        console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${txId} (Account ${vAccountId}). Exception caught:`, e);
+    }
+
+    console.log(`--- Finished Processing TX [${txId}] ---`);
 }
 
 
