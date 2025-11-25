@@ -88,7 +88,8 @@ const handleIncomingTransaction = async (body: IncomingBlockchainTransactionRequ
     try {
         console.log('Received webhook request:', JSON.stringify(body))
         // Send message to SQS queue
-        const result = await sendToQueue("https://sqs.us-east-2.amazonaws.com/129364817855/v1-webhook-queue", body)
+        const SQS_QUEUE_URL = process.env.WEBHOOK_QUEUE_URL || "https://sqs.us-east-2.amazonaws.com/129364817855/v1-webhook-queue"
+        const result = await sendToQueue(SQS_QUEUE_URL, body)
 
         result.success ? console.log(`Successfully queued transaction ${body} for processing`) : console.error('Failed to queue transaction:', result.e)
     } catch (e) {
@@ -99,7 +100,7 @@ const handleIncomingTransaction = async (body: IncomingBlockchainTransactionRequ
 export const accountTransactions = async (event: any, context: Context) => {
     const body: IncomingBlockchainTransactionRequest = event.body
     try {
-        handleIncomingTransaction(body)
+        await handleIncomingTransaction(body)
 
     } catch (e) {
         console.error('Error processing incoming blockchain transaction webhook:', e);
