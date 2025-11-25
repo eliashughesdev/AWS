@@ -21,7 +21,6 @@ export const handler = async (event: any) => {
 		// todo delete message from queue
 		const body = JSON.parse(record.body)
 		 console.log(`Received body is ${JSON.stringify(body)}`);
-		const url = body.webhook_url
 		delete body.webhook_url
 		await sendRequest(url, { ...body })
 	}

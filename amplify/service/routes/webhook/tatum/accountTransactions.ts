@@ -22,6 +22,7 @@ interface IncomingBlockchainTransactionRequest {
     from?: string  // might not be present every time; not present for UTXO-based blockchains
     to: string  // the blockchain address of the recipient
     index?: number  // for UTXO-based blockchains (BCH, BTC, DOGE, LTC), this is the index of the output in the transaction
+    webhook_url? : string
 
 }
 
@@ -91,11 +92,11 @@ const handleIncomingTransaction = async (body: IncomingBlockchainTransactionRequ
         const SQS_QUEUE_URL = process.env.WEBHOOK_QUEUE_URL || "https://sqs.us-east-2.amazonaws.com/129364817855/v1-webhook-queue"
         console.log('webhook queue url: ', SQS_QUEUE_URL)
         console.log('trying to write to the queue')
+        body.webhook_url = SQS_QUEUE_URL
         const result = await sendToQueue(SQS_QUEUE_URL, body)
         result.success ? console.log(`Successfully queued transaction ${body} for processing`) : console.error('Failed to queue transaction:', result.e)
     } catch (e) {
         console.error('Error processing incoming blockchain transaction webhook:', e)
-        return;
     }
 }
 
