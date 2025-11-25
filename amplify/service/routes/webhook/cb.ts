@@ -25,7 +25,7 @@ const providerCodes: any = {
 		}
 
 		if (event.queryStringParameters && event.queryStringParameters.type) {
-			const res = types[event.queryStringParameters.type]()
+			const res = await types[event.queryStringParameters.type]()
 		} else {
 			console.log('tatum. no callback type in the request params')
 		}
