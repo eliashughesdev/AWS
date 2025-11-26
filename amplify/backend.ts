@@ -291,6 +291,7 @@ stream.addEventSource(
 
 v1UserKeysTable.grantReadWriteData(apiGatewayRole)
 v1UserKeysTable.grantReadWriteData(customAuthorizerFn)
+v1AccountBalanceTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1UserKeysTable.grantStreamRead(stream)
 
 v2CustomerTable.grantReadWriteData(apiGatewayRole)
