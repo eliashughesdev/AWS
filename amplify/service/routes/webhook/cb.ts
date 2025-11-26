@@ -18,7 +18,8 @@ const processResponse = (code: number, body: any) => response({
 })
 
 const providerCodes: any = {
-	tatum: async (event: any, context: Context) => {
+	// PCF0001 is tatum provider code
+	PCF0001: async (event: any, context: Context) => {
 		// todo check signature, keep secret in ssm
 		const types: any = {
 			accountTransactions: async () => await accountTransactions(event, context),
@@ -38,12 +39,11 @@ export default class WebhookHandler {
 	async execute(event: any, context: Context) {
 		console.log("webhook event body")
 		console.log(event.body)
-		// const checkIpResult = await checkIp(event)
-		// if (!checkIpResult.success) return processResponse(403, 'you are not allowed to access this endpoint')
-		// if (providerCodes.hasOwnProperty(checkIpResult.provider_code)) {
-			// return providerCodes[checkIpResult.provider_code](event, context)
-		return providerCodes['tatum'](event, context) // just to test the webhook works correclty when all checks pass
-		// }
-		// return processResponse(403, 'no cb route')
+		const checkIpResult = await checkIp(event)
+		if (!checkIpResult.success) return processResponse(403, 'you are not allowed to access this endpoint')
+		if (providerCodes.hasOwnProperty(checkIpResult.provider_code)) {
+			return providerCodes[checkIpResult.provider_code](event, context)
+		}
+		return processResponse(403, 'no cb route')
 	}
 }
