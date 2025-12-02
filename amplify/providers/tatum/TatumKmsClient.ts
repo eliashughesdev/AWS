@@ -18,11 +18,13 @@ export class TatumKmsClient {
     constructor() {
 
         const TATUM_KMS_BASE_URL = process.env.TATUM_KMS_BASE_URL
+        const TATUM_API_KEY = process.env.TATUM_API_KEY;
         console.log(`DEBUG (KMS Client): Initializing with base URL: ${TATUM_KMS_BASE_URL}`);
         this.axiosInstance = axios.create({
             baseURL: TATUM_KMS_BASE_URL,
             headers: {
                 'Content-Type': 'application/json',
+                'x-tatum-api-key': TATUM_API_KEY,
             },
             // timeout: 15000,
         });
