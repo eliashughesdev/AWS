@@ -14,12 +14,10 @@ frontend:
   phases:
     preBuild:
       commands:
-        - mkdir build
-        - ls -al
-        - yarn run build
+        - yarn install --frozen-lockfile
     build:
       commands:
-        # todo
+        - yarn run build
   artifacts:
     baseDirectory: dist
     files:
