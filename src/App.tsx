@@ -2,7 +2,7 @@ import CustomerKyc from './pages/CustomerKyc'
 
 function App() {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/'
-  if (path === '/customer/kyc') return <CustomerKyc />
+  if (path === '/customer/kyc/') return <CustomerKyc />
 
   return (
     <main>
