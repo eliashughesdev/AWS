@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import Persona from 'persona'
 import axios from 'axios'
-import crypto from 'crypto'
+// 1. Change the import
+import CryptoJS from 'crypto-js'
 import { customer } from '../../amplify/service/routes/e2e/credentials'
 import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 
@@ -12,20 +13,20 @@ export default function CustomerKyc() {
     if (clientRef.current) return
     const init = async () => {
       const user = await getCurrentUser();
-      const session = await fetchAuthSession();
-      console.log(user);
-      console.log(user.userId);
-      console.log(session)
-      console.log(session.tokens?.idToken?.toString());
-      // const token = session.tokens?.idToken?.toString();
 
       const generateHmacHeaders = (path: string, bodyObj: any) => {
         const timestamp = Date.now();
-        const bodyHash = crypto.createHash('md5').update(JSON.stringify(bodyObj)).digest('hex')
-        const signature = crypto
-          .createHmac('sha256', Buffer.from(customer.key, 'hex'))
-          .update(`${path}${timestamp}${bodyHash}`)
-          .digest('base64')
+        const bodyStr = JSON.stringify(bodyObj);
+
+        // 2. MD5 Body Hash using crypto-js
+        const bodyHash = CryptoJS.MD5(bodyStr).toString();
+
+        // 3. HMAC SHA256 using crypto-js
+        const secretKey = CryptoJS.enc.Hex.parse(customer.key);
+        const stringToSign = `${path}${timestamp}${bodyHash}`;
+
+        const signature = CryptoJS.HmacSHA256(stringToSign, secretKey)
+                            .toString(CryptoJS.enc.Base64);
 
         return {
           'X-Project': 'e2e-hmac',
@@ -44,19 +45,9 @@ export default function CustomerKyc() {
             const path = '/v1/accounts/kyc';
             const body = { inquiryId, status, fields };
             const headers = generateHmacHeaders(path, body);
-            console.log(headers)
 
             await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`, body, { headers });
-            // const API_URL = process.env.API_URL
-            // await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
-            //   { inquiryId, status, fields },
-            //   {
-            //     headers: {
-            //       Authorization: `Bearer ${token}`
-            //     }
-            //   }
-            // )
-            console.log('KYC result posted')
+            console.log('KYC result posted successfully with Signature')
           } catch (e) {
             console.error('Failed posting KYC result', e)
           }
@@ -81,7 +72,7 @@ export default function CustomerKyc() {
   return (
     <main>
       <h1>Customer KYC</h1>
-      <p>Verifcation will load automatically.</p>
+      <p>Verification will load automatically.</p>
     </main>
   )
 }
