@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Persona from 'persona'
 import axios from 'axios'
-import { getCurrentUser } from 'aws-amplify/auth';
+import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 
 export default function CustomerKyc() {
   const clientRef = useRef<any>(null)
@@ -10,26 +10,37 @@ export default function CustomerKyc() {
     if (clientRef.current) return
     const init = async () => {
       const user = await getCurrentUser();
+      const session = await fetchAuthSession();
       console.log(user);
       console.log(user.userId);
+      console.log(session)
+      console.log(session.tokens?.idToken?.toString);
+      const token = session.tokens?.idToken?.toString;
 
       const client = new Persona.Client({
-      templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
-      referenceId: user.userId,
-      environmentId: 'env_p6vqJA4rT688ztP3c6AHojQo',
-      onReady: () => client.open(),
-      onComplete: async ({ inquiryId, status, fields }: any) => {
-        try {
-          // const API_URL = process.env.API_URL
-          await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`, { inquiryId, status, fields })
-          console.log('KYC result posted')
-        } catch (e) {
-          console.error('Failed posting KYC result', e)
-        }
-      },
-      onCancel: () => console.log('Persona cancelled'),
-      onError: (err: any) => console.error('Persona error', err),
-    })
+        templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
+        referenceId: user.userId,
+        environmentId: 'env_p6vqJA4rT688ztP3c6AHojQo',
+        onReady: () => client.open(),
+        onComplete: async ({ inquiryId, status, fields }: any) => {
+          try {
+            // const API_URL = process.env.API_URL
+            await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
+              { inquiryId, status, fields },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`
+                }
+              }
+            )
+            console.log('KYC result posted')
+          } catch (e) {
+            console.error('Failed posting KYC result', e)
+          }
+        },
+        onCancel: () => console.log('Persona cancelled'),
+        onError: (err: any) => console.error('Persona error', err),
+      })
 
       clientRef.current = client
     }
