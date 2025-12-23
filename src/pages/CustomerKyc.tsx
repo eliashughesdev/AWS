@@ -14,32 +14,33 @@ export default function CustomerKyc() {
       console.log(user);
       console.log(user.userId);
       console.log(session)
-      console.log(session.tokens?.idToken?.toString);
+      console.log(session.tokens?.idToken?.toString());
       const token = session.tokens?.accessToken?.toString();
 
       const client = new Persona.Client({
-      templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
-      referenceId: user.userId,
-      environmentId: 'env_p6vqJA4rT688ztP3c6AHojQo',
-      onReady: () => client.open(),
-      onComplete: async ({ inquiryId, status, fields }: any) => {
-        try {
-          // const API_URL = process.env.API_URL
-          await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
-            { inquiryId, status, fields },
-            { headers: {
-              Authorization: `Bearer ${token}`
-            }
+        templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
+        referenceId: user.userId,
+        environmentId: 'env_p6vqJA4rT688ztP3c6AHojQo',
+        onReady: () => client.open(),
+        onComplete: async ({ inquiryId, status, fields }: any) => {
+          try {
+            // const API_URL = process.env.API_URL
+            await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
+              { inquiryId, status, fields },
+              {
+                headers: {
+                  'X-Project': 'e2e-hmac',
+                  Authorization: `Bearer ${token}`
+                }
+              })
+            console.log('KYC result posted')
+          } catch (e) {
+            console.error('Failed posting KYC result', e)
           }
-          )
-          console.log('KYC result posted')
-        } catch (e) {
-          console.error('Failed posting KYC result', e)
-        }
-      },
-      onCancel: () => console.log('Persona cancelled'),
-      onError: (err: any) => console.error('Persona error', err),
-    })
+        },
+        onCancel: () => console.log('Persona cancelled'),
+        onError: (err: any) => console.error('Persona error', err),
+      })
 
       clientRef.current = client
     }
