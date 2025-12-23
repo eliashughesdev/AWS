@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import Persona from 'persona'
 import axios from 'axios'
+import crypto from 'crypto'
+import { customer } from '../../amplify/service/routes/e2e/credentials'
 import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 
 export default function CustomerKyc() {
@@ -17,6 +19,21 @@ export default function CustomerKyc() {
       console.log(session.tokens?.idToken?.toString());
       const token = session.tokens?.idToken?.toString();
 
+      const generateHmacHeaders = (path: string, bodyObj: any) => {
+        const timestamp = Date.now();
+        const bodyHash = crypto.createHash('md5').update(JSON.stringify(bodyObj)).digest('hex')
+        const signature = crypto
+          .createHmac('sha256', Buffer.from(customer.key, 'hex'))
+          .update(`${path}${timestamp}${bodyHash}`)
+          .digest('base64')
+
+        return {
+          'X-Project': 'e2e-hmac',
+          'Authorization': `Signature ${timestamp}:${bodyHash}:${signature}`,
+          'Content-Type': 'application/json'
+        };
+      };
+
       const client = new Persona.Client({
         templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
         referenceId: user.userId,
@@ -24,15 +41,21 @@ export default function CustomerKyc() {
         onReady: () => client.open(),
         onComplete: async ({ inquiryId, status, fields }: any) => {
           try {
+            const path = '/v1/accounts/kyc';
+            const body = { inquiryId, status, fields };
+            const headers = generateHmacHeaders(path, body);
+            console.log(headers)
+
+            await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`, body, { headers });
             // const API_URL = process.env.API_URL
-            await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
-              { inquiryId, status, fields },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`
-                }
-              }
-            )
+            // await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
+            //   { inquiryId, status, fields },
+            //   {
+            //     headers: {
+            //       Authorization: `Bearer ${token}`
+            //     }
+            //   }
+            // )
             console.log('KYC result posted')
           } catch (e) {
             console.error('Failed posting KYC result', e)
