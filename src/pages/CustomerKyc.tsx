@@ -21,7 +21,7 @@ export default function CustomerKyc() {
       onComplete: async ({ inquiryId, status, fields }: any) => {
         try {
           // const API_URL = process.env.API_URL
-          await axios.post(`https://my.staging.loudibly.com/accounts/kyc`, { inquiryId, status, fields })
+          await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`, { inquiryId, status, fields })
           console.log('KYC result posted')
         } catch (e) {
           console.error('Failed posting KYC result', e)
