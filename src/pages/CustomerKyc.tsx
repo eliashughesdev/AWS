@@ -17,7 +17,7 @@ export default function CustomerKyc() {
       console.log(user.userId);
       console.log(session)
       console.log(session.tokens?.idToken?.toString());
-      const token = session.tokens?.idToken?.toString();
+      // const token = session.tokens?.idToken?.toString();
 
       const generateHmacHeaders = (path: string, bodyObj: any) => {
         const timestamp = Date.now();
