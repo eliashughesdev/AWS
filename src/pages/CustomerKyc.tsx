@@ -20,7 +20,8 @@ export default function CustomerKyc() {
       onReady: () => client.open(),
       onComplete: async ({ inquiryId, status, fields }: any) => {
         try {
-          await axios.post('/accounts/kyc', { inquiryId, status, fields })
+          const API_URL = process.env.API_URL
+          await axios.post(`${API_URL}/accounts/kyc`, { inquiryId, status, fields })
           console.log('KYC result posted')
         } catch (e) {
           console.error('Failed posting KYC result', e)
