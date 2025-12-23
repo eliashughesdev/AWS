@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Persona from 'persona'
 import axios from 'axios'
-import { getCurrentUser } from 'aws-amplify/auth';
+// import { getCurrentUser } from 'aws-amplify/auth';
 
 export default function CustomerKyc() {
   const clientRef = useRef<any>(null)
@@ -9,13 +9,13 @@ export default function CustomerKyc() {
   useEffect(() => {
     if (clientRef.current) return
     const init = async () => {
-      const user = await getCurrentUser();
-      console.log(user);
-      console.log(user.userId);
+      // const user = await getCurrentUser();
+      // console.log(user);
+      // console.log(user.userId);
 
       const client = new Persona.Client({
       templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
-      referenceId: user.userId,
+      // referenceId: user.userId,
       environmentId: 'env_p6vqJA4rT688ztP3c6AHojQo',
       onReady: () => client.open(),
       onComplete: async ({ inquiryId, status, fields }: any) => {
