@@ -14,8 +14,8 @@ export default function CustomerKyc() {
       console.log(user);
       console.log(user.userId);
       console.log(session)
-      console.log(session.tokens?.idToken?.toString);
-      const token = session.tokens?.idToken?.toString;
+      console.log(session.tokens?.idToken?.toString());
+      const token = session.tokens?.idToken?.toString();
 
       const client = new Persona.Client({
         templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
