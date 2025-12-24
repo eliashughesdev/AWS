@@ -126,18 +126,44 @@ const authenticateWithHmacWithKey = (body, requestSignature, key) => {
 // @ts-ignore
 const authenticateWithJWT = async ({ event, region = process.env.AWS_REGION, userPoolId = process.env.COGNITO_USER_POOL_ID, }) => {
     const cognitoIssuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`
+
+    console.log('DEBUG JWT: Region:', region)
+    console.log('DEBUG JWT: User Pool ID:', userPoolId)
+    console.log('DEBUG JWT: Cognito Issuer:', cognitoIssuer)
+
     let cacheKeys
     const getPublicKeys = async () => {
         if (!cacheKeys) {
+            console.log('DEBUG JWT: Fetching public keys from:', `${cognitoIssuer}/.well-known/jwks.json`)
+
             const res = await fetch(`${cognitoIssuer}/.well-known/jwks.json`)
+
+            console.log('DEBUG JWT: Fetch response status:', res.status)
+
+            if (!res.ok) {
+                console.error('DEBUG JWT: Failed to fetch public keys. Status:', res.status)
+                throw new Error(`Failed to fetch JWKS: ${res.status}`)
+            }
+
             const publicKeys = await res.json()
+
+            console.log('DEBUG JWT: Public keys response:', JSON.stringify(publicKeys))
+
+            if (!publicKeys.keys || !Array.isArray(publicKeys.keys)) {
+                console.error('DEBUG JWT: Invalid JWKS response - keys array missing')
+                throw new Error('Invalid JWKS response')
+            }
+
             cacheKeys = publicKeys.keys.reduce((agg, current) => {
                 const pem = jwkToPem(current)
                 agg[current.kid] = { instance: current, pem }
                 return agg
-            })
+            }, {})
+
+            console.log('DEBUG JWT: Cached keys:', Object.keys(cacheKeys))
             return cacheKeys
         } else {
+            console.log('DEBUG JWT: Using cached keys')
             return cacheKeys
         }
     }
@@ -213,15 +239,15 @@ const authenticateWithSHA256WithRSA = (body, requestSignature, publicKey) => {
     console.log('DEBUG RSA: Starting authenticateWithSHA256WithRSA');
     try {
         const isValid = crypto
-                .verify(
-                    'RSA-SHA256',
-                    Buffer.from(body),
-                    {
-                        key: publicKey,
-                        padding: crypto.constants.RSA_PKCS1_PADDING
-                    },
-                    Buffer.from(requestSignature, 'base64')
-                );
+            .verify(
+                'RSA-SHA256',
+                Buffer.from(body),
+                {
+                    key: publicKey,
+                    padding: crypto.constants.RSA_PKCS1_PADDING
+                },
+                Buffer.from(requestSignature, 'base64')
+            );
         console.log('DEBUG RSA: Verification result:', isValid);
         return { isValid }
     } catch (e) {
