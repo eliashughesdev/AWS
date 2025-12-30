@@ -45,7 +45,7 @@ export default class KycHandler {
 						sk: 'USERPROFILE'
 					},
 					attributeNames: undefined,
-					updateExpression: 'SET kyc_status = :status, kyc_inquiry_id = :inquiryId, kyc_updated_at = :timestamp, kyc_fields = :fields',
+					updateExpression: 'SET kyc = :kycData',
 					attributeValues: {
 						':kycData': {
 							status: status,
