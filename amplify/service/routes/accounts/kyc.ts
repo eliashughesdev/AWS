@@ -44,14 +44,12 @@ export default class KycHandler {
 						id: userId,
 						sk: 'USERPROFILE'
 					},
+					updateExpression: 'SET kyc_status = :status, kyc_inquiry_id = :inquiryId, kyc_updated_at = :timestamp',
 					attributeNames: undefined,
-					updateExpression: 'SET kyc = :kycData',
 					attributeValues: {
-						':kycData': {
-							status: status,
-							inquiryId: inquiryId,
-							updatedAt: Date.now()
-						}
+						':status': status,
+						':inquiryId': inquiryId,
+						':timestamp': Date.now()
 					}
 				})
 
