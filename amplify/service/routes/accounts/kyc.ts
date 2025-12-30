@@ -55,7 +55,7 @@ export default class KycHandler {
 
 				console.log('KYC status updated successfully:', updateResult)
 			} catch (e) {
-				console.log('Body is not valid JSON')
+				console.log('Body is not valid JSON', e)
 			}
 		}
 
