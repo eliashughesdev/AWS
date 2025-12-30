@@ -1,5 +1,6 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
+import { updateItem } from '../../../utils/db'
 
 export default class KycHandler {
 	async execute(event: any, context: Context) {
@@ -19,6 +20,42 @@ export default class KycHandler {
 			try {
 				const parsedBody = JSON.parse(event.body)
 				console.log('Parsed Body:', JSON.stringify(parsedBody, null, 2))
+
+				const { inquiryId, status, fields } = parsedBody
+
+				// const userId = event.requestContext?.authorizer?.userId
+				const userId = "b7bf9d0a-ea7d-4f36-8ebd-c4bce0706911" // hardcoded for testing pourposes
+
+				if (!userId) {
+					return response({
+						statusCode: 401,
+						headers: null,
+						bodyObject: { message: 'User ID not found in authorization context' }
+					})
+				}
+
+				console.log(`Updating KYC status for user: ${userId}`)
+				console.log(`InquiryId: ${inquiryId}, Status: ${status}`)
+
+				// Update the user profile with KYC status
+				const updateResult = await updateItem({
+					tableName: 'v2CustomerTable',
+					key: {
+						id: userId,
+						sk: 'USERPROFILE'
+					},
+					attributeNames: undefined,
+					updateExpression: 'SET kyc_status = :status, kyc_inquiry_id = :inquiryId, kyc_updated_at = :timestamp, kyc_fields = :fields',
+					attributeValues: {
+						':kycData': {
+							status: status,
+							inquiryId: inquiryId,
+							updatedAt: Date.now()
+						}
+					}
+				})
+
+				console.log('KYC status updated successfully:', updateResult)
 			} catch (e) {
 				console.log('Body is not valid JSON')
 			}
