@@ -18,10 +18,10 @@ export default class KycHandler {
 		if (event.body) {
 			console.log('Request Body:', event.body)
 			try {
-				const parsedBody = JSON.parse(event.body)
-				console.log('Parsed Body:', JSON.stringify(parsedBody, null, 2))
+				// const parsedBody = JSON.parse(event.body)
+				// console.log('Parsed Body:', JSON.stringify(parsedBody, null, 2))
 
-				const { inquiryId, status, fields } = parsedBody
+				const { inquiryId, status, fields } = event.body
 
 				// const userId = event.requestContext?.authorizer?.userId
 				const userId = "b7bf9d0a-ea7d-4f36-8ebd-c4bce0706911" // hardcoded for testing pourposes
@@ -44,12 +44,14 @@ export default class KycHandler {
 						id: userId,
 						sk: 'USERPROFILE'
 					},
-					updateExpression: 'SET kyc_status = :status, kyc_inquiry_id = :inquiryId, kyc_updated_at = :timestamp',
+					updateExpression: 'SET kyc = :kycData',
 					attributeNames: undefined,
 					attributeValues: {
-						':status': status,
-						':inquiryId': inquiryId,
-						':timestamp': Date.now()
+						':kycData': {
+							status: status,
+							inquiryId: inquiryId,
+							updatedAt: Date.now()
+						}
 					}
 				})
 
