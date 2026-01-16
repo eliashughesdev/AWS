@@ -4,6 +4,7 @@ import accountsAccount from './routes/accounts/account'
 import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import webhookHandler from './routes/webhook/cb'
+import savePayment from './routes/payments/save'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
 
@@ -19,6 +20,7 @@ export const routes: RoutesMap = new Map([
     ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
     ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
+    ['/payments/save', { handler: savePayment, requiredParams: ['cardData', 'userId'], method: 'POST' }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string }, context: any) => {

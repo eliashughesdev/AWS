@@ -18,8 +18,8 @@ function App() {
           if (path === '/customer/kyc/') {
             return <CustomerKyc />
           }
-          if (path === '/payment/add/') {
-            return <AddPayment />
+          if (path === '/payment/add') {
+            return <AddPayment user={user} />
           }
 
           return (
