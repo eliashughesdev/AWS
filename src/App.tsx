@@ -29,6 +29,8 @@ function App() {
                 <p>🥳 App successfully hosted.</p>
                 <a href="/customer/kyc">Open KYC</a>
                 <br />
+                <a href="/payment/add">Add Payment</a>
+                <br />
                 <button onClick={signOut}>Sign out</button>
               </div>
             </main>
