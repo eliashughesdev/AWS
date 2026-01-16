@@ -32,7 +32,7 @@ export default function AddPayment({ user }: AddPaymentProps) {
         userId: user.username,
       }, {
         headers: {
-          'X-Project': 'e2e-hmac',
+        //   'X-Project': 'e2e-hmac',
           Authorization: `Bearer ${token}`,
         },
       });
