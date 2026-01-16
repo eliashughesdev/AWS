@@ -167,10 +167,12 @@ const proxyAuthOptions = {
 }
 
 const accountsPath = loudiblyRestApi.root.addResource('accounts')
+const paymentsPath = loudiblyRestApi.root.addResource('payments')
 const webhooksPath = loudiblyRestApi.root.addResource('webhook')
 webhooksPath.addMethod('POST', lambdaIntegration)
 
 accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
+paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
 
 const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
@@ -180,6 +182,7 @@ const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
 			resources: [
 				`${loudiblyRestApi.arnForExecuteApi('*', '/health', 'v1')}`,
 				`${loudiblyRestApi.arnForExecuteApi('*', '/accounts*', 'v1')}`,
+				`${loudiblyRestApi.arnForExecuteApi('*', '/payments*', 'v1')}`,
 				`${loudiblyRestApi.arnForExecuteApi('*', '/webhook*', 'v1')}`,
 			],
 		}),
