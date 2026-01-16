@@ -23,7 +23,7 @@ export default function AddPayment({ user }: AddPaymentProps) {
     }
 
     try {
-      const response = await axios.post('/payments/save', {
+      const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
         cardData: cardData,
         userId: user.username,
       });
