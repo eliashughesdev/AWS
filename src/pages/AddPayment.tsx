@@ -1,6 +1,7 @@
 import { Card, themes } from "@evervault/react";
 import { useState } from "react";
 import axios from "axios";
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 const theme = themes.clean();
 
@@ -23,9 +24,17 @@ export default function AddPayment({ user }: AddPaymentProps) {
     }
 
     try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.accessToken?.toString();
+
       const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
         cardData: cardData,
         userId: user.username,
+      }, {
+        headers: {
+          'X-Project': 'e2e-hmac',
+          Authorization: `Bearer ${token}`,
+        },
       });
       console.log("Payment saved:", response.data);
       alert("Payment method saved successfully!");
