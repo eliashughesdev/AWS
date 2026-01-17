@@ -37,6 +37,7 @@ export default class ProcessPaymentHandler {
 
             // Process the payment using Stripe via Evervault relay
             const stripeProcessor = new StripePaymentProcessor(
+                process.env.STRIPE_API_KEY!,
                 'https://api-stripe-com-app-322d8e2bc10b.relay.evervault.app'
             );
 
