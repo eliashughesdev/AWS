@@ -12,7 +12,7 @@ function App() {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/'
 
   return (
-    <EvervaultProvider teamId="team_8a2d3693584f" appId="app_322d8e2bc10b">
+    <EvervaultProvider teamId={process.env.EVERVAULT_TEAM_ID!} appId={process.env.EVERVAULT_APP_ID!}>
       <Authenticator>
         {({ signOut, user }) => {
           if (path === '/customer/kyc/') {

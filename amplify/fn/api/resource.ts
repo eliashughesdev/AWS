@@ -7,6 +7,7 @@ export const mainApiFn = defineFunction({
 	timeoutSeconds: 28,
 	environment: {
 		TATUM_API_KEY: secret('TATUM_API_KEY'),
-		TATUM_KMS_BASE_URL: process.env.TATUM_KMS_BASE_URL || 'https://api.tatum.io/v3'
+		TATUM_KMS_BASE_URL: process.env.TATUM_KMS_BASE_URL || 'https://api.tatum.io/v3',
+		STRIPE_API_KEY: secret('STRIPE_API_KEY'),
 	},
 })

@@ -29,6 +29,25 @@ export const getRecord = async (tableName: string | undefined, id: string) => {
 	}
 }
 
+export const queryRecord = async (tableName: string | undefined, keyConditionExpression: string, expressionAttributeValues: Record<string, any>) => {
+	const input = new QueryCommand({
+		TableName: tableName,
+		KeyConditionExpression: keyConditionExpression,
+		ExpressionAttributeValues: marshall(expressionAttributeValues),
+	})
+	try {
+		const res = await db.send(input)
+		const items = res.Items ? res.Items.map(item => unmarshall(item as { [key: string]: AttributeValue })) : []
+		return {
+			success: true,
+			res: items,
+		}
+	} catch (e) {
+		console.log(e)
+		return { success: false, res: null }
+	}
+}
+
 interface IQueryItemFromIndexRequest {
 	tableName: string | undefined
 	indexName: string

@@ -27,7 +27,8 @@
     "jwk-to-pem": "^2.0.7",
     "persona": "^5.4.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "stripe": "^20.2.0"
   },
   "devDependencies": {
     "@aws-amplify/backend": "^1.16.1",
