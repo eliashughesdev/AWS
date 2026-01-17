@@ -5,7 +5,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
   private stripe: Stripe;
 
   constructor(apiKey: string, apiBase: string) {
-    this.stripe = new Stripe(apiKey, { host: apiBase });
+    this.stripe = new Stripe(apiKey, { host: apiBase, protocol: 'https', port: 443 });
     console.log("=======================", apiKey)
   }
 
