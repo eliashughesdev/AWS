@@ -16,16 +16,21 @@ export default class ProcessPaymentHandler {
 
         const { paymentId, userId, amount, currency } = event.body;
 
+        console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency);
+
         if (!paymentId || !userId || !amount || !currency) {
             return processError(100029, 'Missing paymentId, userId, amount, or currency');
         }
 
         try {
             // Retrieve the saved payment method
+            console.log('DEBUG: Querying for payment record...');
             const paymentRecord = await queryRecord('v2CustomerTable', 'id = :id AND sk = :sk', {
                 ':id': userId,
                 ':sk': `PAYMENT#${paymentId}`,
             });
+
+            console.log('DEBUG: Query successful:', paymentRecord.success, 'Records found:', paymentRecord.res ? paymentRecord.res.length : 0);
 
             if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
                 return processError(100004, 'Payment method not found');
@@ -33,12 +38,13 @@ export default class ProcessPaymentHandler {
 
             const cardData = paymentRecord.res[0].cardData;
 
-            console.log('DEBUG: Retrieved card data for processing.');
+            console.log('DEBUG: Retrieved card data for processing. Card data keys:', Object.keys(cardData));
+            console.log("++++++++++++++++++++++++++++++++", process.env.STRIPE_API_KEY!)
 
             // Process the payment using Stripe via Evervault relay
             const stripeProcessor = new StripePaymentProcessor(
                 process.env.STRIPE_API_KEY!,
-                'https://api-stripe-com-app-322d8e2bc10b.relay.evervault.app'
+                'api-stripe-com-app-322d8e2bc10b.relay.evervault.app'
             );
 
             const paymentParams: PaymentParams = {
