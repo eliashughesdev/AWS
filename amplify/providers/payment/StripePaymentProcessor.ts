@@ -37,20 +37,22 @@ export class StripePaymentProcessor implements PaymentProcessor {
       };
       console.log('Card payload for Stripe:', JSON.stringify(cardPayload, null, 2));
 
-      console.log('Creating payment intent with inline card data...');
+      // Create payment method with the parsed card data
+      console.log('Creating payment method...');
+      const paymentMethod = await this.stripe.paymentMethods.create({
+        type: 'card',
+        card: cardPayload,
+      });
+      console.log('Payment method created:', paymentMethod.id);
+
+      // Create and confirm payment intent
+      console.log('Creating payment intent...');
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: params.amount,
         currency: params.currency,
-        payment_method_data: {
-          type: 'card',
-          card: {
-            number: cardData.number,
-            exp_month: exp_month,
-            exp_year: exp_year,
-            cvc: cardData.cvc,
-          },
-        },
+        payment_method: paymentMethod.id,
         confirm: true,
+        automatic_payment_methods: { enabled: false },
       });
       console.log('Payment intent created:', paymentIntent.id);
 
