@@ -17,9 +17,16 @@ export class StripePaymentProcessor implements PaymentProcessor {
       const cardData = params.cardData.card;
       console.log('Raw card data:', JSON.stringify(cardData, null, 2));
 
-      const expiryParts = cardData.expiry.split('/').map((s: any) => s.trim());
-      const exp_month = parseInt(expiryParts[0], 10);
-      const exp_year = 2000 + parseInt(expiryParts[1], 10);
+      if (!cardData.expiry || typeof cardData.expiry !== 'object' || !cardData.expiry.month || !cardData.expiry.year) {
+        console.error('Invalid expiry format:', cardData.expiry);
+        return {
+          success: false,
+          error: 'Invalid card expiry format',
+        };
+      }
+
+      const exp_month = parseInt(cardData.expiry.month, 10);
+      const exp_year = 2000 + parseInt(cardData.expiry.year, 10);
       console.log('Parsed expiry:', { exp_month, exp_year });
 
       const cardPayload = {
