@@ -19,7 +19,7 @@ export default class ProcessPaymentHandler {
         //     return processError(100029, 'Invalid request body');
         // }
 
-        const { paymentId, userId, amount, currency } = JSON.parse(event.body);
+        const { paymentId, userId, amount, currency } = event.body;
 
         console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency);
 
@@ -38,16 +38,12 @@ export default class ProcessPaymentHandler {
             console.log('DEBUG: Query successful:', paymentRecord.success, 'Records found:', paymentRecord.res ? paymentRecord.res.length : 0);
 
             if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
-                console.log('DEBUG: No payment record found for userId:', userId, 'paymentId:', paymentId);
                 return processError(100004, 'Payment method not found');
             }
 
             const cardData = paymentRecord.res[0].cardData;
 
-            if (!cardData) {
-                console.log('DEBUG: Card data is missing in the record');
-                return processError(100004, 'Invalid payment method data');
-            }
+            console.log('DEBUG: Retrieved card data for processing. Card data keys:', Object.keys(cardData));
             console.log("++++++++++++++++++++++++++++++++", process.env.STRIPE_API_KEY!)
 
             // Process the payment using Stripe via Evervault relay
