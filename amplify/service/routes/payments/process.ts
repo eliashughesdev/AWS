@@ -14,6 +14,11 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
+        if (!event.body || typeof event.body !== 'object') {
+            console.log('DEBUG: Invalid body type or missing body');
+            return processError(100029, 'Invalid request body');
+        }
+
         const { paymentId, userId, amount, currency } = event.body;
 
         console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency);
