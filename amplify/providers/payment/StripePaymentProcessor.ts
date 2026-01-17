@@ -4,16 +4,26 @@ import { PaymentProcessor, PaymentParams, PaymentResult } from './PaymentProcess
 export class StripePaymentProcessor implements PaymentProcessor {
   private stripe: Stripe;
 
-  constructor(apiBase: string) {
-    this.stripe = new Stripe(process.env.STRIPE_API_KEY!, { host: apiBase });
+  constructor(apiKey: string, apiBase: string) {
+    this.stripe = new Stripe(apiKey, { host: apiBase });
   }
 
   async processPayment(params: PaymentParams): Promise<PaymentResult> {
     try {
-      // Create payment method with the Evervault-encrypted card data
+      // Parse the Evervault card data
+      const cardData = params.cardData.card;
+      const [exp_month, exp_year_str] = cardData.expiry.split('/');
+      const exp_year = 2000 + parseInt(exp_year_str, 10);
+
+      // Create payment method with the parsed card data
       const paymentMethod = await this.stripe.paymentMethods.create({
         type: 'card',
-        card: params.cardData.card,
+        card: {
+          number: cardData.number,
+          exp_month: parseInt(exp_month, 10),
+          exp_year,
+          cvc: cardData.cvc,
+        },
       });
 
       // Create and confirm payment intent
