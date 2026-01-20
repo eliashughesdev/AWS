@@ -13,7 +13,7 @@ function App() {
   console.log("Team id: ", process.env.EVERVAULT_TEAM_ID);
 
   return (
-    <EvervaultProvider teamId={process.env.EVERVAULT_TEAM_ID!} appId={process.env.EVERVAULT_APP_ID!}>
+    <EvervaultProvider teamId="team_8a2d3693584f" appId="app_322d8e2bc10b">
       <Authenticator>
         {({ signOut, user }) => {
           if (path === '/customer/kyc/') {
