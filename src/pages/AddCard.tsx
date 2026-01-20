@@ -33,8 +33,7 @@ export default function AddCard({ user }: AddCardProps) {
 
     const lastFour = cardNumber.slice(-4);
 
-    const paymentMethod = {
-      id: crypto.randomUUID(),
+    const cardData = {
       number: cardNumber,
       cvc: cvc,
       lastFour: lastFour,
@@ -42,20 +41,25 @@ export default function AddCard({ user }: AddCardProps) {
         month: month,
         year: year
       }
-    };
+    }
 
     try {
       console.log("Starting encryption...");
       console.log("Evervault object:", evervault);
-      const encryptedData = await evervault.encrypt(paymentMethod);
+      const encryptedData = await evervault.encrypt(JSON.stringify({ cardData: cardData }));
       console.log("Encryption successful");
+
+      const paymentMethod = {
+        lastFour: lastFour,
+        cardData: encryptedData
+      }
 
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
 
       console.log("Sending request to backend...");
       const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
-        paymentMethod: encryptedData,
+        paymentMethod: paymentMethod,
         userId: user.username,
       }, {
         headers: {
