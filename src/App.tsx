@@ -2,7 +2,6 @@ import { Amplify } from 'aws-amplify'
 import { Authenticator } from '@aws-amplify/ui-react'
 import outputs from '../amplify_outputs.json'
 import CustomerKyc from './pages/CustomerKyc'
-import AddPayment from './pages/AddPayment'
 import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from "@evervault/react";
 import AddCard from './pages/AddCard'
