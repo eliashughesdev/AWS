@@ -6,7 +6,7 @@ console.log('path: ', path)
 
 const body = JSON.stringify({
     paymentId: '100e5016-a152-474c-8d49-527d3c3edad8',
-    userId: '210b5590-3041-7060-f7c6-2fb484965a71',
+    userId: '6117a34c-ed1d-4537-b658-c503c7ab3824',
     amount: 1000,
     currency: 'USD'
 });

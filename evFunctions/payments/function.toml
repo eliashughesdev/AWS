@@ -1,0 +1,4 @@
+[function]
+name = "payments"
+language = "node@18"
+handler = "index.handler"

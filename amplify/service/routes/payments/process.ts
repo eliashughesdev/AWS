@@ -2,8 +2,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryRecord } from '../../../utils/db'
 import { processError } from '../../../errors/http'
-import { StripePaymentProcessor } from '../../../providers/payment/StripePaymentProcessor'
-import { PaymentParams } from '../../../providers/payment/PaymentProcessor'
+import Evervault from '@evervault/sdk'
 
 /**
  * Processes a payment using a saved payment method
@@ -13,11 +12,6 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: ProcessPaymentHandler execution started.');
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
-
-        // if (!event.body || typeof event.body !== 'object') {
-        //     console.log('DEBUG: Invalid body type or missing body');
-        //     return processError(100029, 'Invalid request body');
-        // }
 
         const { paymentId, userId, amount, currency } = event.body;
 
@@ -43,23 +37,18 @@ export default class ProcessPaymentHandler {
 
             const cardData = paymentRecord.res[0].cardData;
 
-            console.log('DEBUG: Retrieved card data for processing. Card data keys:', Object.keys(cardData));
-            console.log("++++++++++++++++++++++++++++++++", process.env.STRIPE_API_KEY!)
+            console.log('DEBUG: Retrieved card data for processing.');
 
-            // Process the payment using Stripe via Evervault relay
-            const stripeProcessor = new StripePaymentProcessor(
-                process.env.STRIPE_API_KEY!,
-                'api-stripe-com-app-322d8e2bc10b.relay.evervault.app'
-            );
+            // Initialize Evervault
+            const evervault = new Evervault(process.env.EVERVAULT_API_KEY);
 
-            const paymentParams: PaymentParams = {
+            // Call the Evervault function
+            const paymentResult = await evervault.run('payments', {
+                cardData: cardData,
                 amount: amount,
                 currency: currency,
-                cardData: cardData,
                 userId: userId,
-            };
-
-            const paymentResult = await stripeProcessor.processPayment(paymentParams);
+            });
 
             if (!paymentResult.success) {
                 console.error('Payment processing failed:', paymentResult.error);
