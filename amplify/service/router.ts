@@ -21,7 +21,7 @@ export const routes: RoutesMap = new Map([
     ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
     ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
-    ['/payments/save', { handler: savePayment, requiredParams: ['cardData', 'userId'], method: 'POST' }],
+    ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
     ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
 ])
 

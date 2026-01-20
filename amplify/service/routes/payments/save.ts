@@ -12,17 +12,17 @@ export default class SavePaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
-        const { cardData, userId } = event.body;
+        const { paymentMethod, userId } = event.body;
 
-        if (!cardData || !userId) {
-            return processError(100029, 'Missing cardData or userId');
+        if (!paymentMethod || !userId) {
+            return processError(100029, 'Missing paymentMethod or userId');
         }
 
         const paymentId = crypto.randomUUID();
         const paymentRecord: Record<string, any> = {
             id: userId,
             sk: `PAYMENT#${paymentId}`,
-            cardData: cardData,
+            cardData: paymentMethod,
             created_at: Date.now(),
             updated_at: Date.now(),
         };
