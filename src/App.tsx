@@ -10,7 +10,7 @@ Amplify.configure(outputs)
 
 function App() {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/'
-  console.log("Team id: ", process.env.EVERVAULT_TEAM_ID);
+
 
   return (
     <EvervaultProvider teamId="team_8a2d3693584f" appId="app_322d8e2bc10b">

@@ -45,11 +45,15 @@ export default function AddCard({ user }: AddCardProps) {
     };
 
     try {
+      console.log("Starting encryption...");
+      console.log("Evervault object:", evervault);
       const encryptedData = await evervault.encrypt(paymentMethod);
+      console.log("Encryption successful");
 
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
 
+      console.log("Sending request to backend...");
       const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
         paymentMethod: encryptedData,
         userId: user.username,
@@ -61,9 +65,12 @@ export default function AddCard({ user }: AddCardProps) {
       });
       console.log("Payment saved:", response.data);
       alert("Payment method saved successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving payment:", error);
-      alert("Failed to save payment method");
+      if (error && error.message) {
+        console.error("Error message:", error.message);
+      }
+      alert("Failed to save payment method: " + (error?.message || "Unknown error"));
     }
   };
 
