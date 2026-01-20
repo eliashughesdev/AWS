@@ -5,11 +5,13 @@ import CustomerKyc from './pages/CustomerKyc'
 import AddPayment from './pages/AddPayment'
 import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from "@evervault/react";
+import AddCard from './pages/AddCard'
 
 Amplify.configure(outputs)
 
 function App() {
   const path = typeof window !== 'undefined' ? window.location.pathname : '/'
+  console.log("Team id: ", process.env.EVERVAULT_TEAM_ID);
 
   return (
     <EvervaultProvider teamId={process.env.EVERVAULT_TEAM_ID!} appId={process.env.EVERVAULT_APP_ID!}>
@@ -19,7 +21,7 @@ function App() {
             return <CustomerKyc />
           }
           if (path === '/payment/add') {
-            return <AddPayment user={user} />
+            return <AddCard user={user} />
           }
 
           return (
