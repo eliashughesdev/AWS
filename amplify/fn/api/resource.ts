@@ -8,6 +8,7 @@ export const mainApiFn = defineFunction({
 	environment: {
 		TATUM_API_KEY: secret('TATUM_API_KEY'),
 		TATUM_KMS_BASE_URL: process.env.TATUM_KMS_BASE_URL || 'https://api.tatum.io/v3',
+		EVERVAULT_API_KEY: secret('EVERVAULT_API_KEY'),
 		STRIPE_API_KEY: secret('STRIPE_API_KEY'),
 	},
 })

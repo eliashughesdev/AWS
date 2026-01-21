@@ -40,7 +40,8 @@ export default class ProcessPaymentHandler {
             console.log('DEBUG: Retrieved card data for processing.');
 
             // Initialize Evervault
-            const evervault = new Evervault(process.env.EVERVAULT_API_KEY);
+            const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
+            const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
 
             // Call the Evervault function
             const paymentResult = await evervault.run('payments', {
