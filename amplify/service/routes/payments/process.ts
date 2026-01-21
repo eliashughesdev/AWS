@@ -41,7 +41,10 @@ export default class ProcessPaymentHandler {
 
             // Initialize Evervault
             const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
+            console.log('DEBUG: Initializing Evervault with API Key.', API_KEY);
             const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
+            console.log('DEBUG: Evervault initialized.');
+            console.log('DEBUG: Running Evervault payment function...');
 
             // Call the Evervault function
             const paymentResult = await evervault.run('payments', {
@@ -50,6 +53,7 @@ export default class ProcessPaymentHandler {
                 currency: currency,
                 userId: userId,
             });
+            console.log('DEBUG: Evervault function executed. Result:', JSON.stringify(paymentResult));
 
             if (!paymentResult.success) {
                 console.error('Payment processing failed:', paymentResult.error);
