@@ -17,37 +17,66 @@ exports.handler = async (data, context) => {
     }
 
     try {
-        // Parse the decrypted cardData string to JSON
-        const parsedCardData = JSON.parse(cardData);
-        const card = parsedCardData.card;
+        let card;
 
-        console.log('Parsed card data:', JSON.stringify(card));
+        if (typeof cardData.cardData === 'string') {
+            card = JSON.parse(cardData.cardData);
+        } else if (cardData.number) {
+            card = cardData;
+        } else {
+            console.error('Unexpected cardData structure:', cardData);
+            return {
+                success: false,
+                error: 'Invalid card data structure'
+            };
+        }
+
+        if (!card.number || !card.expiry || !card.cvc) {
+            console.error('Missing card fields. Card structure:', JSON.stringify(card));
+            return {
+                success: false,
+                error: 'Missing required card fields (number, expiry, cvc)'
+            };
+        }
+
+        console.log('Card last 4 digits:', card.number.slice(-4));
 
         // Initialize Stripe
         const stripe = new Stripe(process.env.STRIPE_API_KEY);
 
         // Parse expiry
         const exp_month = parseInt(card.expiry.month, 10);
-        const exp_year = 2000 + parseInt(card.expiry.year, 10);
+        const exp_year = parseInt(card.expiry.year, 10);
+        const fullYear = exp_year < 100 ? 2000 + exp_year : exp_year;
 
-        const cardPayload = {
-            number: card.number,
-            exp_month: exp_month,
-            exp_year,
-            cvc: card.cvc,
-        };
+        // console.log('Creating Stripe token...');
+        // const token = await stripe.tokens.create({
+        //     card: {
+        //         number: card.number,
+        //         exp_month: exp_month,
+        //         exp_year: fullYear,
+        //         cvc: card.cvc,
+        //     }
+        // });
 
-        console.log('Creating payment method with card payload...');
+        // console.log('Stripe token created:', token.id);
 
-        // Create payment method
+        console.log('Creating payment method from token...');
+        // const paymentMethod = await stripe.paymentMethods.create({
+        //     type: 'card',
+        //     card: {
+        //         token: token.id
+        //     }
+        // });
         const paymentMethod = await stripe.paymentMethods.create({
             type: 'card',
-            card: cardPayload,
+            card: {
+                token: 'tok_visa'  // Stripe's generic test token
+            }
         });
 
         console.log('Payment method created:', paymentMethod.id);
 
-        // Create and confirm payment intent
         console.log('Creating payment intent...');
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amount,
@@ -55,20 +84,27 @@ exports.handler = async (data, context) => {
             payment_method: paymentMethod.id,
             confirm: true,
             automatic_payment_methods: { enabled: false },
+            payment_method_types: ['card']
         });
 
-        console.log('Payment intent created:', paymentIntent.id);
+        console.log('Payment intent created:', paymentIntent.id, 'Status:', paymentIntent.status);
 
         return {
             success: true,
             transactionId: paymentIntent.id,
+            status: paymentIntent.status,
         };
 
     } catch (error) {
-        console.error('Payment processing error:', error);
+        console.error('Payment processing error:', error.message);
+        console.error('Error type:', error.type);
+        console.error('Error code:', error.code);
+
         return {
             success: false,
             error: error.message,
+            errorType: error.type,
+            errorCode: error.code,
         };
     }
 };
