@@ -33,18 +33,27 @@ export default function AddCard({ user }: AddCardProps) {
     const lastFour = cardNumber.slice(-4);
     const cardType = detectCardType(cardNumber);
 
-    const cardData = {
-      number: cardNumber,
-      cvc: cvc,
-      expiry: {
-        month: month,
-        year: year
-      }
-    };
+    // const cardData = {
+    //   number: cardNumber,
+    //   cvc: cvc,
+    //   expiry: {
+    //     month: month,
+    //     year: year
+    //   }
+    // };
 
     try {
       console.log("Starting encryption...");
-      const encryptedCardData = await evervault.encrypt(cardData);
+      const encryptedCardData = await evervault.encrypt(
+        JSON.stringify(
+          {
+            number: cardNumber,
+            cvc: cvc,
+            expiry: {
+              month: month,
+              year: year
+            }
+          }));
       console.log("Encryption successful");
 
       const session = await fetchAuthSession();
