@@ -55,7 +55,7 @@ export default class ProcessPaymentHandler {
             });
             console.log('DEBUG: Evervault function executed. Result:', JSON.stringify(paymentResult));
 
-            if (!paymentResult.success) {
+            if (paymentResult.status != "success") {
                 console.error('Payment processing failed:', paymentResult.error);
                 return processError(100002, `Payment processing failed: ${paymentResult.error}`);
             }
