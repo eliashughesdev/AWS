@@ -60,7 +60,7 @@ export default class ProcessPaymentHandler {
                 return processError(100002, `Payment processing failed: ${paymentResult.error}`);
             }
 
-            console.log('DEBUG: Payment processed successfully. Transaction ID:', paymentResult.transactionId);
+            console.log('DEBUG: Payment processed successfully. Transaction ID:', paymentResult.result.transactionId);
 
             return response({
                 statusCode: 200,
@@ -68,7 +68,7 @@ export default class ProcessPaymentHandler {
                 bodyObject: {
                     success: true,
                     res: {
-                        transactionId: paymentResult.transactionId,
+                        transactionId: paymentResult.resutlt.transactionId,
                     }
                 }
             });
