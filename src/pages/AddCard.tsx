@@ -19,7 +19,6 @@ export default function AddCard({ user }: AddCardProps) {
       return;
     }
 
-    // Parse expiry MM/YY
     const [month, year] = expiry.split('/');
     if (!month || !year || month.length !== 2 || year.length !== 2) {
       alert("Invalid expiry format. Use MM/YY");
@@ -32,34 +31,32 @@ export default function AddCard({ user }: AddCardProps) {
     }
 
     const lastFour = cardNumber.slice(-4);
+    const cardType = detectCardType(cardNumber);
 
     const cardData = {
       number: cardNumber,
       cvc: cvc,
-      lastFour: lastFour,
       expiry: {
         month: month,
         year: year
       }
-    }
+    };
 
     try {
       console.log("Starting encryption...");
-      console.log("Evervault object:", evervault);
-      const encryptedData = await evervault.encrypt(JSON.stringify({ cardData: cardData }));
+      const encryptedCardData = await evervault.encrypt(cardData);
       console.log("Encryption successful");
-
-      const paymentMethod = {
-        lastFour: lastFour,
-        cardData: encryptedData
-      }
 
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
 
       console.log("Sending request to backend...");
       const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
-        paymentMethod: paymentMethod,
+        paymentMethod: {
+          lastFour: lastFour,
+          cardType: cardType,
+          cardData: encryptedCardData
+        },
         userId: user.username,
       }, {
         headers: {
@@ -67,15 +64,30 @@ export default function AddCard({ user }: AddCardProps) {
           Authorization: `Bearer ${token}`,
         },
       });
+
       console.log("Payment saved:", response.data);
       alert("Payment method saved successfully!");
     } catch (error: any) {
       console.error("Error saving payment:", error);
-      if (error && error.message) {
-        console.error("Error message:", error.message);
-      }
       alert("Failed to save payment method: " + (error?.message || "Unknown error"));
     }
+  };
+
+  // Helper function to detect card type
+  function detectCardType(number: string): string {
+    const patterns = {
+      visa: /^4/,
+      mastercard: /^5[1-5]/,
+      amex: /^3[47]/,
+      discover: /^6(?:011|5)/,
+    };
+
+    for (const [type, pattern] of Object.entries(patterns)) {
+      if (pattern.test(number)) {
+        return type;
+      }
+    }
+    return 'unknown';
   };
 
   return (

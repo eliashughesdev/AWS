@@ -41,7 +41,7 @@ export default class ProcessPaymentHandler {
 
             // Initialize Evervault
             const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
-            console.log('DEBUG: Initializing Evervault with API Key.', API_KEY);
+            console.log('DEBUG: Initializing Evervault with API Key.');
             const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
             console.log('DEBUG: Evervault initialized.');
             console.log('DEBUG: Running Evervault payment function...');

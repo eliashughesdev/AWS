@@ -7,6 +7,7 @@ exports.handler = async (data, context) => {
     console.log('Evervault Function: Processing payment data:', JSON.stringify(data));
 
     const { cardData, amount, currency, userId } = data;
+    console.log('Received parameters - amount:', amount, 'currency:', currency, 'userId:', userId);
 
     if (!cardData || !amount || !currency || !userId) {
         return {
