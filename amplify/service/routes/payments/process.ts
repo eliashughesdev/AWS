@@ -68,7 +68,7 @@ export default class ProcessPaymentHandler {
                 bodyObject: {
                     success: true,
                     res: {
-                        transactionId: paymentResult.resutlt.transactionId,
+                        transactionId: paymentResult.result.transactionId,
                     }
                 }
             });
