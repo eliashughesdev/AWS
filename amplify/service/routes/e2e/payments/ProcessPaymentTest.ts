@@ -5,7 +5,7 @@ const path = '/v1/payments/process'
 console.log('path: ', path)
 
 const body = JSON.stringify({
-    paymentId: '912a094b-9c16-4e91-adc6-6815ac243b0f',
+    paymentId: 'fe4fa0d6-1f80-4a23-81ee-b7e2692d91b0',
     userId: '210b5590-3041-7060-f7c6-2fb484965a71',
     amount: 1000,
     currency: 'USD'

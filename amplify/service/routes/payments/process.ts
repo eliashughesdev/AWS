@@ -35,32 +35,59 @@ export default class ProcessPaymentHandler {
                 return processError(100004, 'Payment method not found');
             }
 
-            const cardData = paymentRecord.res[0].cardData;
+            const encryptedCardData = paymentRecord.res[0].cardData;
 
-            console.log('DEBUG: Retrieved card data for processing.');
+            console.log('DEBUG: Retrieved encrypted card data for processing.');
 
             // Initialize Evervault
             const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
+            const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "define stripe secret key";
+
             console.log('DEBUG: Initializing Evervault with API Key.');
             const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
             console.log('DEBUG: Evervault initialized.');
-            console.log('DEBUG: Running Evervault payment function...');
 
-            // Call the Evervault function
-            const paymentResult = await evervault.run('payments', {
-                cardData: cardData,
-                amount: amount,
-                currency: currency,
-                userId: userId,
+            // Prepare the Stripe API request configuration (proxy object)
+            const stripeRequest = {
+                url: "https://api.stripe.com/v1/payment_intents",
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: {
+                    amount: amount,
+                    currency: currency,
+                    "payment_method_data[type]": "card",
+                    "payment_method_data[card][number]": "{{CARD_NUMBER}}",
+                    "payment_method_data[card][exp_month]": "{{EXP_MONTH}}",
+                    "payment_method_data[card][exp_year]": "{{EXP_YEAR}}",
+                    "payment_method_data[card][cvc]": "{{CVC}}",
+                    confirm: "true"
+                }
+            };
+
+            console.log('DEBUG: Encrypting proxy request configuration...');
+
+            // Encrypt the proxy request configuration
+            const encryptedProxy = await evervault.encrypt(JSON.stringify(stripeRequest));
+            console.log('DEBUG: Proxy request encrypted.');
+
+            console.log('DEBUG: Running Evervault payment-proxy function...');
+
+            const paymentResult = await evervault.run('payment-proxy', {
+                proxy: encryptedProxy,
+                card_data: encryptedCardData
             });
+
             console.log('DEBUG: Evervault function executed. Result:', JSON.stringify(paymentResult));
 
-            if (paymentResult.status != "success") {
-                console.error('Payment processing failed:', paymentResult.error);
-                return processError(100002, `Payment processing failed: ${paymentResult.error}`);
+            if (!paymentResult || !paymentResult.id) {
+                console.error('Payment processing failed:', paymentResult);
+                return processError(100002, `Payment processing failed: ${JSON.stringify(paymentResult)}`);
             }
 
-            console.log('DEBUG: Payment processed successfully. Transaction ID:', paymentResult.result.transactionId);
+            console.log('DEBUG: Payment processed successfully. Transaction ID:', paymentResult.id);
 
             return response({
                 statusCode: 200,
@@ -68,7 +95,8 @@ export default class ProcessPaymentHandler {
                 bodyObject: {
                     success: true,
                     res: {
-                        transactionId: paymentResult.result.transactionId,
+                        transactionId: paymentResult.id,
+                        status: paymentResult.status,
                     }
                 }
             });
