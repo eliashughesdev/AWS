@@ -16,13 +16,15 @@ exports.handler = async (data, context) => {
     }
 
     try {
+        console.log('Proxy Method:', proxy);
         console.log('Parsing proxy configuration...');
         const proxyConfig = JSON.parse(proxy);
         console.log('Proxy URL:', proxyConfig.url);
         console.log('Proxy Method:', proxyConfig.method);
+        console.log('Proxy Method:', proxyConfig);
 
-        console.log('Parsing card data...');
-        const cardData = JSON.parse(card_data);
+        console.log('Parsing card data...', card_data);
+        const cardData = JSON.parse(card_data.cardData);
 
         console.log('Card data parsed. Last 4 digits:', cardData.number ? cardData.number.slice(-4) : 'N/A');
 

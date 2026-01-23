@@ -41,7 +41,7 @@ export default class ProcessPaymentHandler {
 
             // Initialize Evervault
             const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
-            const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "define stripe secret key";
+            const STRIPE_SECRET_KEY = process.env.STRIPE_API_KEY || "define stripe secret key";
 
             console.log('DEBUG: Initializing Evervault with API Key.');
             const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
