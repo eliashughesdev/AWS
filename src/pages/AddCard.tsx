@@ -43,18 +43,18 @@ export default function AddCard({ user }: AddCardProps) {
     // };
 
     try {
-      console.log("Starting encryption...");
-      const encryptedCardData = await evervault.encrypt(
-        JSON.stringify(
-          {
-            number: cardNumber,
-            cvc: cvc,
-            expiry: {
-              month: month,
-              year: year
-            }
-          }));
-      console.log("Encryption successful");
+      // console.log("Starting encryption...");
+      // const encryptedCardData = await evervault.encrypt(
+      //   JSON.stringify(
+      //     {
+      //       number: cardNumber,
+      //       cvc: cvc,
+      //       expiry: {
+      //         month: month,
+      //         year: year
+      //       }
+      //     }));
+      // console.log("Encryption successful");
 
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
@@ -64,7 +64,15 @@ export default function AddCard({ user }: AddCardProps) {
         paymentMethod: {
           lastFour: lastFour,
           cardType: cardType,
-          cardData: encryptedCardData
+          cardData: JSON.stringify(
+            {
+              number: cardNumber,
+              cvc: cvc,
+              expiry: {
+                month: month,
+                year: year
+              }
+            })
         },
         userId: user.username,
       }, {
