@@ -60,7 +60,7 @@ export default function AddCard({ user }: AddCardProps) {
       const token = session.tokens?.accessToken?.toString();
 
       console.log("Sending request to backend...");
-      const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
+      const response = await axios.post('https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1/payments/save', {
         paymentMethod: {
           lastFour: lastFour,
           cardType: cardType,
