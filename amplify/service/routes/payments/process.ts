@@ -75,7 +75,7 @@ export default class ProcessPaymentHandler {
 
             console.log('DEBUG: Running Evervault payment-proxy function...');
 
-            const paymentResult = await evervault.run('payment-proxy', {
+            const paymentResult = await evervault.run('payments', {
                 proxy: encryptedProxy,
                 card_data: encryptedCardData
             });
