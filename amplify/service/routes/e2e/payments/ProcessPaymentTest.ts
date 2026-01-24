@@ -8,7 +8,8 @@ const body = JSON.stringify({
     paymentId: 'fe4fa0d6-1f80-4a23-81ee-b7e2692d91b0',
     userId: '210b5590-3041-7060-f7c6-2fb484965a71',
     amount: 1000,
-    currency: 'USD'
+    currency: 'USD',
+    returnUrl: 'https://example.com/return'
 });
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
