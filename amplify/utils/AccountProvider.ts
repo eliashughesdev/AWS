@@ -1,6 +1,6 @@
-import { TatumProvider } from '../providers/tatum/tatum'
-import { AccountProvider } from '../providers/provider'
-import {ProviderName} from '../providers/ProviderName'
+import { TatumProvider } from '../providers/ledger/tatum/tatum'
+import { AccountProvider } from '../providers/ledger/provider'
+import {ProviderName} from '../providers/ledger/ProviderName'
 
 
 const providerMap: Record<ProviderName, () => AccountProvider> = {

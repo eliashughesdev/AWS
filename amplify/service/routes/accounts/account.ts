@@ -3,9 +3,9 @@ import { response } from '../../../utils/http'
 import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
-import { ProviderName } from '../../../providers/ProviderName'
-import { TatumKmsClient } from '../../../providers/tatum/TatumKmsClient';
-import { CreateAccountParams } from '../../../providers/provider'
+import { ProviderName } from '../../../providers/ledger/ProviderName'
+import { TatumKmsClient } from '../../../providers/ledger/tatum/TatumKmsClient';
+import { CreateAccountParams } from '../../../providers/ledger/provider'
 
 /**
  * Creates new account (internal)

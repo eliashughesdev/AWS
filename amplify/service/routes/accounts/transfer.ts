@@ -3,7 +3,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
-import { ProviderName } from '../../../providers/ProviderName'
+import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 type Event = {
   body: {
