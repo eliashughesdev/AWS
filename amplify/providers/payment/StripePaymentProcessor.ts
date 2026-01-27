@@ -1,71 +1,153 @@
-import Stripe from 'stripe';
-import { PaymentProcessor, PaymentParams, PaymentResult } from './PaymentProcessor';
+import Evervault from '@evervault/sdk';
+import { PaymentProcessor, PaymentParams, PaymentResult, PaymentProcessorConfig } from './PaymentProcessor';
 
 export class StripePaymentProcessor implements PaymentProcessor {
-  private stripe: Stripe;
+  private stripeApiKey: string;
+  private evervault: Evervault;
 
-  constructor(apiKey: string, apiBase: string) {
-    this.stripe = new Stripe(apiKey, { host: apiBase, protocol: 'https', port: 443 });
-    console.log("=======================", apiKey)
+  private constructor(stripeApiKey: string, evervaultAppId: string, evervaultApiKey: string) {
+    this.stripeApiKey = stripeApiKey;
+    this.evervault = new Evervault(evervaultAppId, evervaultApiKey);
+    console.log("StripePaymentProcessor initialized");
+  }
+
+  // Static factory method - this is what the factory calls
+  static create(config: PaymentProcessorConfig): StripePaymentProcessor {
+    const stripeApiKey = config.stripeApiKey;
+
+    if (!stripeApiKey) {
+      throw new Error('StripePaymentProcessor requires stripeApiKey in config');
+    }
+
+    return new StripePaymentProcessor(
+      stripeApiKey,
+      config.evervaultAppId,
+      config.evervaultApiKey
+    );
   }
 
   async processPayment(params: PaymentParams): Promise<PaymentResult> {
     try {
-      console.log('Processing payment with params:', JSON.stringify(params, null, 2));
+      console.log('StripePaymentProcessor: Processing payment with params:', JSON.stringify(params, null, 2));
 
-      // Parse the Evervault card data
-      const cardData = params.cardData.card;
-      console.log('Raw card data:', JSON.stringify(cardData, null, 2));
-
-      if (!cardData.expiry || typeof cardData.expiry !== 'object' || !cardData.expiry.month || !cardData.expiry.year) {
-        console.error('Invalid expiry format:', cardData.expiry);
+      // Extract Stripe-specific metadata
+      const returnUrl = params.metadata?.returnUrl;
+      if (!returnUrl) {
         return {
           success: false,
-          error: 'Invalid card expiry format',
+          error: 'returnUrl is required for Stripe payments'
         };
       }
 
-      const exp_month = parseInt(cardData.expiry.month, 10);
-      const exp_year = 2000 + parseInt(cardData.expiry.year, 10);
-      console.log('Parsed expiry:', { exp_month, exp_year });
-
-      const cardPayload = {
-        number: cardData.number,
-        exp_month: exp_month,
-        exp_year,
-        cvc: cardData.cvc,
+      // Build the Stripe API request with placeholders
+      const stripeRequest = {
+        url: "https://api.stripe.com/v1/payment_intents",
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.stripeApiKey}`,
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: {
+          amount: params.amount.toString(),
+          currency: params.currency,
+          "payment_method_data[type]": "card",
+          "payment_method_data[card][number]": "{{CARD_NUMBER}}",
+          "payment_method_data[card][exp_month]": "{{EXP_MONTH}}",
+          "payment_method_data[card][exp_year]": "{{EXP_YEAR}}",
+          "payment_method_data[card][cvc]": "{{CVC}}",
+          // Enable 3DS
+          "payment_method_options[card][request_three_d_secure]": "automatic",
+          return_url: returnUrl,
+          confirm: "true",
+          capture_method: "automatic"
+        }
       };
-      console.log('Card payload for Stripe:', JSON.stringify(cardPayload, null, 2));
 
-      // Create payment method with the parsed card data
-      console.log('Creating payment method...');
-      const paymentMethod = await this.stripe.paymentMethods.create({
-        type: 'card',
-        card: cardPayload,
+      console.log('StripePaymentProcessor: Encrypting proxy request configuration...');
+      const encryptedProxy = await this.evervault.encrypt(JSON.stringify(stripeRequest));
+      console.log('StripePaymentProcessor: Proxy request encrypted.');
+
+      console.log('StripePaymentProcessor: Running Evervault payment-proxy function...');
+      const paymentResult = await this.evervault.run('payments', {
+        proxy: encryptedProxy,
+        card_data: params.cardData
       });
-      console.log('Payment method created:', paymentMethod.id);
 
-      // Create and confirm payment intent
-      console.log('Creating payment intent...');
-      const paymentIntent = await this.stripe.paymentIntents.create({
-        amount: params.amount,
-        currency: params.currency,
-        payment_method: paymentMethod.id,
-        confirm: true,
-        automatic_payment_methods: { enabled: false },
-      });
-      console.log('Payment intent created:', paymentIntent.id);
+      console.log('StripePaymentProcessor: Evervault function executed. Result:', JSON.stringify(paymentResult));
 
-      return {
-        success: true,
-        transactionId: paymentIntent.id,
-      };
+      if (!paymentResult || !paymentResult.id) {
+        console.error('StripePaymentProcessor: Payment processing failed:', paymentResult);
+        return {
+          success: false,
+          error: `Payment processing failed: ${JSON.stringify(paymentResult)}`,
+          status: 'failed'
+        };
+      }
+
+      console.log('StripePaymentProcessor: PaymentIntent created:', paymentResult.id);
+      console.log('StripePaymentProcessor: PaymentIntent status:', paymentResult.status);
+
+      // Map Stripe-specific responses to generic PaymentResult
+      if (paymentResult.status === 'requires_action' &&
+          paymentResult.next_action?.type === 'redirect_to_url') {
+        // 3DS authentication required
+        console.log('StripePaymentProcessor: 3DS authentication required');
+        return {
+          success: true,
+          transactionId: paymentResult.id,
+          status: 'requires_action',
+          metadata: {
+            requiresAction: true,
+            paymentIntentId: paymentResult.id,
+            authenticationUrl: paymentResult.next_action.redirect_to_url.url,
+            clientSecret: paymentResult.client_secret,
+            stripeStatus: paymentResult.status
+          }
+        };
+      } else if (paymentResult.status === 'succeeded') {
+        // Payment succeeded
+        console.log('StripePaymentProcessor: Payment succeeded');
+        return {
+          success: true,
+          transactionId: paymentResult.id,
+          status: 'succeeded',
+          metadata: {
+            amount: paymentResult.amount,
+            currency: paymentResult.currency,
+            stripeStatus: paymentResult.status
+          }
+        };
+      } else if (paymentResult.status === 'requires_payment_method') {
+        // Card was declined
+        console.log('StripePaymentProcessor: Payment failed - card declined');
+        return {
+          success: false,
+          error: 'Card declined',
+          status: 'declined',
+          metadata: {
+            stripeStatus: paymentResult.status
+          }
+        };
+      } else {
+        // Other unexpected status
+        console.log('StripePaymentProcessor: Unexpected payment status:', paymentResult.status);
+        return {
+          success: false,
+          error: `Unexpected payment status: ${paymentResult.status}`,
+          status: 'unknown',
+          metadata: {
+            stripeStatus: paymentResult.status
+          }
+        };
+      }
+
     } catch (error: any) {
-      console.error('Stripe payment processing error:', error);
-      console.error('Error details:', error.stack);
+      console.error('StripePaymentProcessor: Payment processing error:', error);
+      console.error('StripePaymentProcessor: Error details:', error.stack);
       return {
         success: false,
         error: error.message,
+        status: 'error'
       };
     }
   }

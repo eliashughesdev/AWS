@@ -2,7 +2,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryRecord } from '../../../utils/db'
 import { processError } from '../../../errors/http'
-import Evervault from '@evervault/sdk'
+import { PaymentProcessorRegistry, PaymentProviderType } from '../../../utils/PaymentProviders'
 
 /**
  * Processes a payment with 3DS authentication in a single step
@@ -13,12 +13,12 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
-        const { paymentId, userId, amount, currency, returnUrl } = event.body;
+        const { paymentId, userId, amount, currency, provider = 'stripe', ...additionalParams } = event.body;
 
-        console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency);
+        console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
 
-        if (!paymentId || !userId || !amount || !currency || !returnUrl) {
-            return processError(100029, 'Missing paymentId, userId, amount, currency, or returnUrl');
+        if (!paymentId || !userId || !amount || !currency) {
+            return processError(100029, 'Missing required parameters: paymentId, userId, amount, or currency');
         }
 
         try {
@@ -39,77 +39,60 @@ export default class ProcessPaymentHandler {
 
             console.log('DEBUG: Retrieved encrypted card data for processing.');
 
-            // Initialize Evervault
-            const API_KEY = process.env.EVERVAULT_API_KEY || "define the evervault api key";
-            const STRIPE_SECRET_KEY = process.env.STRIPE_API_KEY || "define stripe secret key";
-
-            console.log('DEBUG: Initializing Evervault with API Key.');
-            const evervault = new Evervault("app_322d8e2bc10b", API_KEY);
-            console.log('DEBUG: Evervault initialized.');
-
-            // Create PaymentIntent with card data directly (includes 3DS)
-            const stripeRequest = {
-                url: "https://api.stripe.com/v1/payment_intents",
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
-                    "Content-Type": "application/x-www-form-urlencoded"
-                },
-                // body: {
-                //     amount: amount.toString(),
-                //     currency: currency,
-                //     "payment_method_data[type]": "card",
-                //     "payment_method_data[card][number]": "{{CARD_NUMBER}}",
-                //     "payment_method_data[card][exp_month]": "{{EXP_MONTH}}",
-                //     "payment_method_data[card][exp_year]": "{{EXP_YEAR}}",
-                //     "payment_method_data[card][cvc]": "{{CVC}}",
-                //     // Enable 3DS
-                //     "payment_method_options[card][request_three_d_secure]": "automatic",
-                //     return_url: returnUrl,
-                //     confirm: "true",
-                //     capture_method: "automatic"
-                // }
-                body: {
-                    amount: amount.toString(),
-                    currency: currency,
-                    payment_method: "pm_card_threeDSecure2Required",
-                    // Enable 3DS
-                    "payment_method_options[card][request_three_d_secure]": "automatic",
-                    return_url: returnUrl,
-                    confirm: "true",
-                    capture_method: "automatic"
-                }
+            // Build configuration for payment processor
+            const processorConfig = {
+                evervaultAppId: "app_322d8e2bc10b",
+                evervaultApiKey: process.env.EVERVAULT_API_KEY || "",
+                stripeApiKey: process.env.STRIPE_API_KEY,
+                // cloverApiKey: process.env.CLOVER_API_KEY,
             };
 
-            console.log('DEBUG: Encrypting proxy request configuration...');
+            // Get payment processor from registry
+            console.log('DEBUG: Initializing payment processor for provider:', provider);
+            const paymentProcessor = PaymentProcessorRegistry.getProcessor(
+                provider as PaymentProviderType,
+                processorConfig
+            );
 
-            // Encrypt the proxy request configuration
-            const encryptedProxy = await evervault.encrypt(JSON.stringify(stripeRequest));
-            console.log('DEBUG: Proxy request encrypted.');
-
-            console.log('DEBUG: Running Evervault payment-proxy function...');
-
-            const paymentResult = await evervault.run('payments', {
-                proxy: encryptedProxy,
-                card_data: encryptedCardData
-            });
-
-            console.log('DEBUG: Evervault function executed. Result:', JSON.stringify(paymentResult));
-
-            if (!paymentResult || !paymentResult.id) {
-                console.error('Payment processing failed:', paymentResult);
-                return processError(100002, `Payment processing failed: ${JSON.stringify(paymentResult)}`);
+            if (!paymentProcessor) {
+                console.error(`Failed to initialize payment processor for provider: ${provider}`);
+                return processError(100031, `Failed to initialize payment processor for provider: ${provider}`);
             }
 
-            console.log('DEBUG: PaymentIntent created:', paymentResult.id);
-            console.log('DEBUG: PaymentIntent status:', paymentResult.status);
+            // Process the payment
+            console.log('DEBUG: Calling payment processor...');
+            const paymentResult = await paymentProcessor.processPayment({
+                amount: amount,
+                currency: currency,
+                cardData: encryptedCardData,
+                userId: userId,
+                metadata: {
+                    ...additionalParams
+                }
+            });
 
-            // Check if 3DS authentication is required
-            if (paymentResult.status === 'requires_action' &&
-                paymentResult.next_action?.type === 'redirect_to_url') {
+            console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
 
-                console.log('DEBUG: 3DS authentication required');
-                // 3DS authentication required - return redirect URL
+            // Handle the payment result
+            if (!paymentResult.success) {
+                console.error('Payment processing failed:', paymentResult.error);
+                return response({
+                    statusCode: 200,
+                    headers: null,
+                    bodyObject: {
+                        success: false,
+                        res: {
+                            error: paymentResult.error,
+                            status: paymentResult.status,
+                            metadata: paymentResult.metadata
+                        }
+                    }
+                });
+            }
+
+            // Check if additional action is required (e.g., 3DS)
+            if (paymentResult.status === 'requires_action') {
+                console.log('DEBUG: Additional action required');
                 return response({
                     statusCode: 200,
                     headers: null,
@@ -117,15 +100,15 @@ export default class ProcessPaymentHandler {
                         success: true,
                         requiresAction: true,
                         res: {
-                            paymentIntentId: paymentResult.id,
-                            authenticationUrl: paymentResult.next_action.redirect_to_url.url,
-                            clientSecret: paymentResult.client_secret,
-                            status: paymentResult.status
+                            transactionId: paymentResult.transactionId,
+                            status: paymentResult.status,
+                            ...paymentResult.metadata
                         }
                     }
                 });
             } else if (paymentResult.status === 'succeeded') {
-                console.log('DEBUG: Payment succeeded without 3DS');
+                // Payment succeeded
+                console.log('DEBUG: Payment succeeded');
                 return response({
                     statusCode: 200,
                     headers: null,
@@ -133,45 +116,32 @@ export default class ProcessPaymentHandler {
                         success: true,
                         requiresAction: false,
                         res: {
-                            transactionId: paymentResult.id,
+                            transactionId: paymentResult.transactionId,
                             status: paymentResult.status,
-                            amount: paymentResult.amount,
-                            currency: paymentResult.currency
-                        }
-                    }
-                });
-            } else if (paymentResult.status === 'requires_payment_method') {
-                console.log('DEBUG: Payment failed - card declined');
-                // Card was declined
-                return response({
-                    statusCode: 200,
-                    headers: null,
-                    bodyObject: {
-                        success: false,
-                        res: {
-                            error: 'Card declined',
-                            status: paymentResult.status
+                            ...paymentResult.metadata
                         }
                     }
                 });
             } else {
-                console.log('DEBUG: Unexpected payment status:', paymentResult.status);
-                // Other status
+                // Other status (declined, error, etc.)
+                console.log('DEBUG: Payment status:', paymentResult.status);
                 return response({
                     statusCode: 200,
                     headers: null,
                     bodyObject: {
                         success: false,
                         res: {
-                            error: `Unexpected payment status: ${paymentResult.status}`,
-                            status: paymentResult.status
+                            error: paymentResult.error || 'Unknown payment status',
+                            status: paymentResult.status,
+                            ...paymentResult.metadata
                         }
                     }
                 });
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('FATAL ERROR: Payment processing error:', err);
+            console.error('Error stack:', err.stack);
             return processError(100002, 'Failed to process payment');
         }
     }
