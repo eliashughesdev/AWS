@@ -29,7 +29,7 @@ backend:
                   if echo "$CHANGED_FILES" | grep -q "evFunctions/$function_name/"; then
                     echo "Deploying changed function: $function_name"
                     cd "$function_dir"
-                    ev function deploy "$function_name" || echo "Warning: Failed to deploy $function_name"
+                    ev function deploy || echo "Warning: Failed to deploy $function_name"
                     cd ../..
                   else
                     echo "Skipping unchanged function: $function_name"
