@@ -21,10 +21,6 @@ backend:
               echo "Installing Evervault CLI..."
               curl https://cli.evervault.com/v4/install -sL | sh
 
-              # Login to Evervault
-              echo "Logging in to Evervault..."
-              ev login --api-key $EVERVAULT_API_KEY
-
               # Deploy changed functions
               for function_dir in evFunctions/*/; do
                 if [ -d "$function_dir" ]; then
