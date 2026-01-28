@@ -4,7 +4,7 @@
 
 exports.handler = async (data, context) => {
     console.log('Evervault Payment Proxy Function started');
-    console.log('testing evervault function deploys automatically II');
+    console.log('testing evervault function deploys automatically III');
 
     const { proxy, card_data } = data;
 
