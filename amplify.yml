@@ -10,6 +10,44 @@ backend:
         - cd ../../..
         - yarn install --frozen-lockfile
         - yarn ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+        - |
+          if [ -d "evFunctions" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "evFunctions/")
+
+            if echo "$CHANGED_FILES" | grep -q "evFunctions/"; then
+              echo "Changes detected in evFunctions directory"
+
+              # Install Evervault CLI using official installer
+              echo "Installing Evervault CLI..."
+              curl https://cli.evervault.com/v4/install -sL | sh
+
+              # Login to Evervault
+              echo "Logging in to Evervault..."
+              ev login --api-key $EVERVAULT_API_KEY
+
+              # Deploy changed functions
+              for function_dir in evFunctions/*/; do
+                if [ -d "$function_dir" ]; then
+                  function_name=$(basename "$function_dir")
+
+                  if echo "$CHANGED_FILES" | grep -q "evFunctions/$function_name/"; then
+                    echo "Deploying changed function: $function_name"
+                    cd "$function_dir"
+                    ev function deploy "$function_name" || echo "Warning: Failed to deploy $function_name"
+                    cd ../..
+                  else
+                    echo "Skipping unchanged function: $function_name"
+                  fi
+                fi
+              done
+
+              echo "Evervault function deployment complete"
+            else
+              echo "No changes in evFunctions, skipping Evervault deployment"
+            fi
+          else
+            echo "No evFunctions directory found"
+          fi
 frontend:
   phases:
     preBuild:
