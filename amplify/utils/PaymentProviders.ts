@@ -4,18 +4,18 @@ import { CloverPaymentProcessor } from '../providers/payment/CloverPaymentProces
 
 export type PaymentProviderType = 'stripe' | 'clover';
 
-type ProcessorRegistry = {
-  create: (config: PaymentProcessorConfig) => PaymentProcessor;
-};
+interface ProcessorClass {
+  create(config: PaymentProcessorConfig): PaymentProcessor;
+}
 
 export class PaymentProcessorRegistry {
-  private static processors: Map<PaymentProviderType, ProcessorRegistry> = new Map([
-    ['stripe', StripePaymentProcessor],
-    ['clover', CloverPaymentProcessor],
-  ]);
+  private static processors: Record<PaymentProviderType, ProcessorClass> = {
+    stripe: StripePaymentProcessor,
+    clover: CloverPaymentProcessor,
+  };
 
   static getProcessor(provider: PaymentProviderType, config: PaymentProcessorConfig): PaymentProcessor | null {
-    const processorClass = this.processors.get(provider);
+    const processorClass = this.processors[provider];
 
     if (!processorClass) {
       return null;
