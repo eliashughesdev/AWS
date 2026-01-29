@@ -44,7 +44,8 @@ export default class ProcessPaymentHandler {
                 evervaultAppId: "app_322d8e2bc10b",
                 evervaultApiKey: process.env.EVERVAULT_API_KEY || "",
                 stripeApiKey: process.env.STRIPE_API_KEY,
-                // cloverApiKey: process.env.CLOVER_API_KEY,
+                cloverPrivateToken: process.env.CLOVER_PRIVATE_TOKEN,
+                cloverPublicKey: process.env.CLOVER_PUBLIC_KEY
             };
 
             // Get payment processor from registry

@@ -9,7 +9,8 @@ const body = JSON.stringify({
     userId: '210b5590-3041-7060-f7c6-2fb484965a71',
     amount: 1000,
     currency: 'USD',
-    returnUrl: 'https://my.staging.loudibly.com/'
+    returnUrl: 'https://my.staging.loudibly.com/',
+    provider: "clover"
 });
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')

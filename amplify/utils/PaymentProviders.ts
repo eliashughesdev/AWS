@@ -1,6 +1,6 @@
 import { PaymentProcessor, PaymentProcessorConfig } from '../providers/payment/PaymentProcessor';
 import { StripePaymentProcessor } from '../providers/payment/StripePaymentProcessor';
-// import { CloverPaymentProcessor } from '../providers/payment/CloverPaymentProcessor'';
+import { CloverPaymentProcessor } from '../providers/payment/CloverPaymentProcessor';
 
 export type PaymentProviderType = 'stripe' | 'clover';
 
@@ -11,7 +11,7 @@ type ProcessorRegistry = {
 export class PaymentProcessorRegistry {
   private static processors: Map<PaymentProviderType, ProcessorRegistry> = new Map([
     ['stripe', StripePaymentProcessor],
-    // ['clover', CloverPaymentProcessor],
+    ['clover', CloverPaymentProcessor],
   ]);
 
   static getProcessor(provider: PaymentProviderType, config: PaymentProcessorConfig): PaymentProcessor | null {
