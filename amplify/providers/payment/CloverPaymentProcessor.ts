@@ -58,7 +58,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
   private async tokenizeCard(encryptedCardData: any): Promise<string> {
     // Build tokenization request
     const tokenizeRequest = {
-      url: "https://token.sandbox.dev.clover.com/v1/tokens",
+      url: "https://token-sandbox.dev.clover.com/v1/tokens",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -110,8 +110,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         currency: params.currency,
         source: cloverToken,
         capture: true,
-        description: `Payment for user ${params.userId}`,
-        external_reference_id: params.metadata?.orderId || `payment_${Date.now()}`
+        external_reference_id: `payment_${Date.now()}`.slice(0,12)
       }
     };
 
