@@ -81,15 +81,17 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       card_data: encryptedCardData
     });
 
+    console.log('CloverPaymentProcessor: Tokenization result:', JSON.stringify(tokenResult));
+
     if (tokenResult.error) {
       throw new Error(`Clover tokenization failed: ${tokenResult.error.message || tokenResult.error}`);
     }
 
-    if (!tokenResult.token) {
+    if (!tokenResult.id) {
       throw new Error('Clover tokenization did not return a token');
     }
 
-    return tokenResult.token;
+    return tokenResult.id;
   }
 
   /**
