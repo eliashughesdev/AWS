@@ -10,5 +10,6 @@ export const mainApiFn = defineFunction({
 		TATUM_KMS_BASE_URL: process.env.TATUM_KMS_BASE_URL || 'https://api.tatum.io/v3',
 		EVERVAULT_API_KEY: secret('EVERVAULT_API_KEY'),
 		STRIPE_API_KEY: secret('STRIPE_API_KEY'),
+		CLOVER_PRIVATE_TOKEN: secret('CLOVER_PRIVATE_TOKEN'),
 	},
 })

@@ -47,6 +47,7 @@ export default class ProcessPaymentHandler {
                 cloverPrivateToken: process.env.CLOVER_PRIVATE_TOKEN,
                 cloverPublicKey: process.env.CLOVER_PUBLIC_KEY
             };
+            console.log('DEBUG: Payment processor configuration built.', JSON.stringify(processorConfig));
 
             // Get payment processor from registry
             console.log('DEBUG: Initializing payment processor for provider:', provider);
