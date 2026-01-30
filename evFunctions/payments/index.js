@@ -52,14 +52,12 @@ exports.handler = async (data, context) => {
         // Parse back to object
         const bodyObject = JSON.parse(bodyString);
 
-        const urlEncodedBody = new URLSearchParams(bodyObject).toString();
-
         console.log('Making request to payment provider:', proxyConfig.url);
 
         const response = await fetch(proxyConfig.url, {
             method: proxyConfig.method,
             headers: proxyConfig.headers,
-            body: urlEncodedBody
+            body: bodyObject
         });
 
         const result = await response.json();

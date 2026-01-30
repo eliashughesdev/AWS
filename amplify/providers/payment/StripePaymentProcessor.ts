@@ -45,7 +45,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${this.stripeApiKey}`,
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Content-Type": "application/json"
         },
         body: {
           amount: params.amount.toString(),
