@@ -11,5 +11,6 @@ export const mainApiFn = defineFunction({
 		EVERVAULT_API_KEY: secret('EVERVAULT_API_KEY'),
 		STRIPE_API_KEY: secret('STRIPE_API_KEY'),
 		CLOVER_PRIVATE_TOKEN: secret('CLOVER_PRIVATE_TOKEN'),
+		CLOVER_PUBLIC_KEY: process.env.CLOVER_PUBLIC_KEY,
 	},
 })
