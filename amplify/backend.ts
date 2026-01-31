@@ -67,6 +67,12 @@ const v1GeneralQueue = new sqs.Queue(apiStack, 'v1GeneralQueue', {
 	retentionPeriod: Duration.days(14),
 })
 
+const v1PaymentProcessingQueue = new sqs.Queue(apiStack, 'v1PaymentProcessingQueue', {
+	queueName: 'v1-payment-processing-queue',
+	visibilityTimeout: Duration.seconds(300),
+	retentionPeriod: Duration.days(14),
+})
+
 const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1WebhookProcessingFn', {
 	entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
 	runtime: Runtime.NODEJS_20_X,
@@ -74,11 +80,20 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
 	timeout: Duration.seconds(60),
 	environment: {
 		V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
+		PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
 	},
 })
 
 sqsV1WebhookProcessingFn.addEventSource(
 	new eventsources.SqsEventSource(v1WebhookQueue, {
+		batchSize: 10,
+		maxBatchingWindow: Duration.seconds(30),
+		reportBatchItemFailures: true,
+	})
+)
+
+sqsV1WebhookProcessingFn.addEventSource(
+	new eventsources.SqsEventSource(v1PaymentProcessingQueue, {
 		batchSize: 10,
 		maxBatchingWindow: Duration.seconds(30),
 		reportBatchItemFailures: true,
@@ -118,7 +133,8 @@ const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
 		accessLogFormat: AccessLogFormat.jsonWithStandardFields(),
 		variables: {
 			V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
-			V1_GENERAL_QUEUE_URL: v1GeneralQueue.queueUrl
+			V1_GENERAL_QUEUE_URL: v1GeneralQueue.queueUrl,
+			PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
 		}
 	},
 	defaultCorsPreflightOptions: {
@@ -298,6 +314,7 @@ v1AccountBalanceTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1UserKeysTable.grantStreamRead(stream)
 
 v2CustomerTable.grantReadWriteData(apiGatewayRole)
+v2CustomerTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v2CustomerTable.grantStreamRead(stream)
 
 v1WebhookIPWhitelistTable.grantReadWriteData(apiGatewayRole)
@@ -307,6 +324,8 @@ v1WebhookQueue.grantSendMessages(apiGatewayRole)
 v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1GeneralQueue.grantSendMessages(apiGatewayRole)
 v1GeneralQueue.grantConsumeMessages(sqsV1GeneralProcessingFn)
+v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
+v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 
 backend.addOutput({
 	custom: {
@@ -320,6 +339,7 @@ backend.addOutput({
 		Queues: {
 			v1WebhookQueue: v1WebhookQueue.queueUrl,
 			v1GeneralQueue: v1GeneralQueue.queueUrl,
+			v1PaymentProcessingQueue: v1PaymentProcessingQueue.queueUrl,
 		}
 	},
 })
