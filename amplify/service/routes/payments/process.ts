@@ -35,7 +35,8 @@ export default class ProcessPaymentHandler {
 
             // Send to SQS queue
             console.log('DEBUG: Sending payment job to SQS queue:', process.env.PAYMENT_PROCESSING_QUEUE_URL);
-            const result = await sendToQueue(process.env.PAYMENT_PROCESSING_QUEUE_URL!, queueMessage)
+            const queue_url = process.env.PAYMENT_PROCESSING_QUEUE_URL || "https://sqs.us-east-2.amazonaws.com/129364817855/v1-payment-processing-queue"
+            const result = await sendToQueue(queue_url, queueMessage)
             console.log('DEBUG: Payment job queued successfully. Job ID:', result.res?.MessageId);
 
             if (result.success){
