@@ -1,4 +1,5 @@
 import { handleBalanceUpdate } from "./balanceUpdateHandler"
+import { handlePayment } from "./paymentHandler"
 
 // const headers = {
 // 	'Content-Type': 'application/json',
@@ -21,6 +22,7 @@ type QueueHandler = (body: any) => Promise<boolean>;
 
 const queueHandlers: Record<string, QueueHandler> = {
   'v1-webhook-queue': handleBalanceUpdate,
+  'v1-payment-processing-queue': handlePayment,
 };
 
 const routeMessage = async (recordBody: string) => {
