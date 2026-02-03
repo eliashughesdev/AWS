@@ -53,16 +53,18 @@ exports.handler = async (data, context) => {
         const bodyObject = JSON.parse(bodyString);
 
         console.log('Making request to payment provider:', proxyConfig.url);
+        console.log('Request object:', JSON.stringify(bodyObject, null, 2));
 
         const response = await fetch(proxyConfig.url, {
             method: proxyConfig.method,
             headers: proxyConfig.headers,
-            body: bodyObject
+            body: bodyString
         });
 
         const result = await response.json();
 
         console.log('Payment provider response status:', response.status);
+        console.log('Payment provider response:', JSON.stringify(result, null, 2));
 
         return result;
 

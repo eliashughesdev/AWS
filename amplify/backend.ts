@@ -12,6 +12,8 @@ import {
 	RequestAuthorizer,
 	RestApi,
 } from 'aws-cdk-lib/aws-apigateway'
+import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
+import * as apigatewayv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as dynamo from 'aws-cdk-lib/aws-dynamodb'
 import * as lambda from 'aws-cdk-lib/aws-lambda-nodejs'
@@ -73,6 +75,10 @@ const v1PaymentProcessingQueue = new sqs.Queue(apiStack, 'v1PaymentProcessingQue
 	retentionPeriod: Duration.days(14),
 })
 
+const webSocketApi = new apigatewayv2.WebSocketApi(apiStack, 'PaymentWebSocketApi', {
+	apiName: 'PaymentWebSocketApi',
+})
+
 const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1WebhookProcessingFn', {
 	entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
 	runtime: Runtime.NODEJS_20_X,
@@ -81,6 +87,9 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
 	environment: {
 		V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
 		PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
+		CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
+		WEBSOCKET_API_ID: webSocketApi.apiId,
+		WEBSOCKET_STAGE: 'v1',
 	},
 })
 
@@ -279,6 +288,22 @@ v1WebhookIPWhitelistTable.addGlobalSecondaryIndex({
 	sortKey: { name: 'created_at', type: AttributeType.NUMBER },
 })
 
+const v1WebSocketConnectionsTable = new dynamo.Table(apiStack, 'WebSocketConnectionsTable', {
+	partitionKey: {
+		name: 'connectionId',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	tableName: 'v1WebSocketConnectionsTable',
+	timeToLiveAttribute: 'ttl',
+})
+
+v1WebSocketConnectionsTable.addGlobalSecondaryIndex({
+	indexName: 'UserIdIndex',
+	partitionKey: { name: 'userId', type: AttributeType.STRING },
+	sortKey: { name: 'connectionId', type: AttributeType.STRING },
+})
+
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
 const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
@@ -308,6 +333,45 @@ stream.addEventSource(
 	})
 )
 
+// WebSocket API Lambda Handlers
+const wsConnectFn = new lambda.NodejsFunction(apiStack, 'WebSocketConnectFn', {
+	entry: url.fileURLToPath(new URL('./fn/websocket/connect.ts', import.meta.url)),
+	runtime: Runtime.NODEJS_20_X,
+	functionName: 'wsConnectHandlerFn',
+	timeout: Duration.seconds(30),
+	environment: {
+		CONNECTIONS_TABLE_NAME: v1WebSocketConnectionsTable.tableName,
+	},
+})
+
+const wsDisconnectFn = new lambda.NodejsFunction(apiStack, 'WebSocketDisconnectFn', {
+	entry: url.fileURLToPath(new URL('./fn/websocket/disconnect.ts', import.meta.url)),
+	runtime: Runtime.NODEJS_20_X,
+	functionName: 'wsDisconnectHandlerFn',
+	timeout: Duration.seconds(30),
+	environment: {
+		CONNECTIONS_TABLE_NAME: v1WebSocketConnectionsTable.tableName,
+	},
+})
+
+v1WebSocketConnectionsTable.grantReadWriteData(wsConnectFn)
+v1WebSocketConnectionsTable.grantReadWriteData(wsDisconnectFn)
+
+// Configure WebSocket API routes
+webSocketApi.addRoute('$connect', {
+	integration: new apigatewayv2Integrations.WebSocketLambdaIntegration('ConnectIntegration', wsConnectFn),
+})
+
+webSocketApi.addRoute('$disconnect', {
+	integration: new apigatewayv2Integrations.WebSocketLambdaIntegration('DisconnectIntegration', wsDisconnectFn),
+})
+
+const webSocketStage = new apigatewayv2.WebSocketStage(apiStack, 'PaymentWebSocketStage', {
+	webSocketApi,
+	stageName: 'v1',
+	autoDeploy: true,
+})
+
 v1UserKeysTable.grantReadWriteData(apiGatewayRole)
 v1UserKeysTable.grantReadWriteData(customAuthorizerFn)
 v1AccountBalanceTable.grantReadWriteData(sqsV1WebhookProcessingFn)
@@ -320,12 +384,19 @@ v2CustomerTable.grantStreamRead(stream)
 v1WebhookIPWhitelistTable.grantReadWriteData(apiGatewayRole)
 v1WebhookIPWhitelistTable.grantStreamRead(stream)
 
+v1WebSocketConnectionsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
+
 v1WebhookQueue.grantSendMessages(apiGatewayRole)
 v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1GeneralQueue.grantSendMessages(apiGatewayRole)
 v1GeneralQueue.grantConsumeMessages(sqsV1GeneralProcessingFn)
 v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
+
+sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+	actions: ['execute-api:ManageConnections'],
+	resources: [`arn:aws:execute-api:${Stack.of(apiStack).region}:${Stack.of(apiStack).account}:${webSocketApi.apiId}/*`],
+}))
 
 backend.addOutput({
 	custom: {
@@ -335,6 +406,10 @@ backend.addOutput({
 				region: Stack.of(loudiblyRestApi).region,
 				apiName: loudiblyRestApi.restApiName,
 			},
+		},
+		WebSocket: {
+			endpoint: webSocketStage.url,
+			region: Stack.of(webSocketApi).region,
 		},
 		Queues: {
 			v1WebhookQueue: v1WebhookQueue.queueUrl,

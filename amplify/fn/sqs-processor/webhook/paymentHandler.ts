@@ -1,5 +1,6 @@
 import { queryRecord } from '../../../utils/db'
 import { PaymentProcessorRegistry, PaymentProviderType } from '../../../utils/PaymentProviders'
+import { notifyPaymentResult } from '../../../utils/websocket'
 
 /**
  * Processes a payment with 3DS authentication in a single step
@@ -81,16 +82,43 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         if (paymentResult.status === 'succeeded') {
             // Payment succeeded
             console.log('DEBUG: Payment succeeded');
+
+            // Notify via WebSocket
+            await notifyPaymentResult(paymentId, userId, {
+                success: true,
+                status: 'succeeded',
+                transactionId: paymentResult.transactionId,
+            });
+
             return true;
         } else {
             // Other status (declined, error, etc.)
             console.log('DEBUG: Payment status:', paymentResult.status);
+
+            // Notify via WebSocket
+            await notifyPaymentResult(paymentId, userId, {
+                success: false,
+                status: paymentResult.status,
+                error: paymentResult.error || 'Payment failed',
+            });
+
             return false;
         }
 
     } catch (err: any) {
         console.error('FATAL ERROR: Payment processing error:', err);
         console.error('Error stack:', err.stack);
+
+        // Notify via WebSocket about the error
+        try {
+            await notifyPaymentResult(paymentId, userId, {
+                success: false,
+                error: 'Payment processing error',
+            });
+        } catch (notifyErr) {
+            console.error('Failed to send error notification:', notifyErr);
+        }
+
         return false;
     }
 }

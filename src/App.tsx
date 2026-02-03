@@ -5,6 +5,7 @@ import CustomerKyc from './pages/CustomerKyc'
 import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from "@evervault/react";
 import AddCard from './pages/AddCard'
+import ProcessPayment from './pages/ProcessPayment'
 
 Amplify.configure(outputs)
 
@@ -22,6 +23,9 @@ function App() {
           if (path === '/payment/add') {
             return <AddCard user={user} />
           }
+          if (path === '/payment/process') {
+            return <ProcessPayment user={user} />
+          }
 
           return (
             <main>
@@ -31,6 +35,8 @@ function App() {
                 <a href="/customer/kyc">Open KYC</a>
                 <br />
                 <a href="/payment/add">Add Payment</a>
+                <br />
+                <a href="/payment/process">Process Payment</a>
                 <br />
                 <button onClick={signOut}>Sign out</button>
               </div>

@@ -5,6 +5,7 @@ import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import webhookHandler from './routes/webhook/cb'
 import savePayment from './routes/payments/save'
+import listPayments from './routes/payments/list'
 import processPayment from './routes/payments/process'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
@@ -22,6 +23,7 @@ export const routes: RoutesMap = new Map([
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
     ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
     ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
+    ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
     ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
 ])
 

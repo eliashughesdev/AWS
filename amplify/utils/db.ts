@@ -5,7 +5,8 @@ import {
 	PutItemCommand,
 	QueryCommand,
 	UpdateItemCommand,
-	TransactWriteItemsCommand
+	TransactWriteItemsCommand,
+	DeleteItemCommand
 } from '@aws-sdk/client-dynamodb'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 
@@ -53,7 +54,7 @@ interface IQueryItemFromIndexRequest {
 	indexName: string
 	keyConditionExpression: string
 	attributeNames: Record<string, string> | undefined
-	attributeValues: Record<string, AttributeValue>
+	attributeValues: Record<string, any>
 }
 
 interface ITransactWriteItemsRequest { // ADDED: Interface for transactional writes
@@ -103,10 +104,24 @@ export const queryItemFromIndex = async (q: IQueryItemFromIndexRequest) => {
 	}
 }
 
-export const putItem = async (tableName: string | undefined, item: Record<string, AttributeValue>) => {
+export const putItem = async (tableName: string | undefined, item: Record<string, any>) => {
 	const command = new PutItemCommand({
 		TableName: tableName,
 		Item: marshall(item)
+	})
+	try {
+		const response = await db.send(command)
+		return { success: true, res: response }
+	} catch (e) {
+		console.log(e)
+		return { success: false, res: null }
+	}
+}
+
+export const deleteItem = async (tableName: string | undefined, key: Record<string, any>) => {
+	const command = new DeleteItemCommand({
+		TableName: tableName,
+		Key: marshall(key)
 	})
 	try {
 		const response = await db.send(command)
