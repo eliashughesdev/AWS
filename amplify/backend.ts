@@ -103,8 +103,8 @@ sqsV1WebhookProcessingFn.addEventSource(
 
 sqsV1WebhookProcessingFn.addEventSource(
 	new eventsources.SqsEventSource(v1PaymentProcessingQueue, {
-		batchSize: 10,
-		maxBatchingWindow: Duration.seconds(30),
+		batchSize: 1,
+		maxBatchingWindow: Duration.seconds(0),
 		reportBatchItemFailures: true,
 	})
 )
