@@ -30,6 +30,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
             console.log('DEBUG: Payment method not found');
+
+            await notifyPaymentResult(paymentId, userId, {
+                success: false,
+                status: 'failed',
+                error: 'Payment method not found',
+            });
+
             return false;
         }
 
@@ -56,6 +63,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         if (!paymentProcessor) {
             console.error(`Failed to initialize payment processor for provider: ${provider}`);
+
+            await notifyPaymentResult(paymentId, userId, {
+                success: false,
+                status: 'failed',
+                error: `Unsupported payment provider: ${provider}`,
+            });
+
             return false;
         }
 
@@ -76,6 +90,14 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         // Handle the payment result
         if (!paymentResult.success) {
             console.error('Payment processing failed:', paymentResult.error);
+
+            // Notify via WebSocket about the failure
+            await notifyPaymentResult(paymentId, userId, {
+                success: false,
+                status: 'failed',
+                error: paymentResult.error || 'Payment processing failed',
+            });
+
             return false;
         }
 
