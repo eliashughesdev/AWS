@@ -24,7 +24,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
   const wsRef = useRef<WebSocket | null>(null);
 
   // WebSocket connection URL - will be loaded from amplify outputs
-  const WS_URL = "wss://your-websocket-api-id.execute-api.us-east-2.amazonaws.com/v1";
+  const WS_URL = "wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1";
 
   useEffect(() => {
     // Load payment methods for the user
