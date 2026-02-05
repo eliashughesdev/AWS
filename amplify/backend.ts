@@ -149,7 +149,7 @@ const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
 	defaultCorsPreflightOptions: {
 		allowOrigins: Cors.ALL_ORIGINS,
 		allowMethods: Cors.ALL_METHODS,
-		allowHeaders: Cors.DEFAULT_HEADERS,
+		allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project'],
 	},
 })
 
