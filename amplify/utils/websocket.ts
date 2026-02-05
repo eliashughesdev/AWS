@@ -63,16 +63,21 @@ export const removeConnection = async (
 
 /**
  * Notifies a user about payment processing result via WebSocket
+ * @param transactionId - The transaction ID used by frontend to connect WebSocket (for lookup)
+ * @param userId - The user ID
+ * @param result - The payment result to send
+ * @param paymentId - Optional payment method ID to include in the response
  */
 export const notifyPaymentResult = async (
-    paymentId: string,
+    transactionId: string,
     userId: string,
     result: {
         success: boolean
         status?: string
         error?: string
-        transactionId?: string
-    }
+        paymentTransactionId?: string
+    },
+    paymentId?: string
 ): Promise<{ success: boolean }> => {
     try {
         const tableName = process.env.CONNECTIONS_TABLE_NAME
@@ -99,7 +104,7 @@ export const notifyPaymentResult = async (
         }
 
         console.log(`DEBUG: Found ${queryResult.res.length} connections for user ${userId}`)
-        console.log(`DEBUG: Looking for paymentId: "${paymentId}" (type: ${typeof paymentId})`)
+        console.log(`DEBUG: Looking for transactionId: "${transactionId}" (type: ${typeof transactionId})`)
         console.log(`DEBUG: Connections found:`, JSON.stringify(queryResult.res.map((c: any) => ({
             connectionId: c.connectionId,
             paymentId: c.paymentId,
@@ -107,11 +112,12 @@ export const notifyPaymentResult = async (
             userId: c.userId
         }))))
 
-        // Filter connections for this specific payment
-        const connections = queryResult.res.filter((conn: any) => conn.paymentId === paymentId)
+        // Filter connections for this specific transaction
+        // WebSocket connections are stored with paymentId field, which holds the transactionId from frontend
+        const connections = queryResult.res.filter((conn: any) => conn.paymentId === transactionId)
 
         if (connections.length === 0) {
-            console.log(`No WebSocket connections found for payment ${paymentId}`)
+            console.log(`No WebSocket connections found for transactionId ${transactionId}`)
             console.log(`DEBUG: Available paymentIds in connections: ${queryResult.res.map((c: any) => c.paymentId).join(', ')}`)
             return { success: false }
         }
@@ -138,7 +144,8 @@ export const notifyPaymentResult = async (
                 {
                     type: 'PAYMENT_RESULT',
                     data: {
-                        paymentId,
+                        transactionId,
+                        paymentId: paymentId || transactionId,
                         userId,
                         timestamp: new Date().toISOString(),
                         ...result,

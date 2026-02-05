@@ -9,9 +9,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     console.log('DEBUG: ProcessPaymentHandler execution started.');
     console.log('DEBUG: Incoming Message:', JSON.stringify(message));
 
-    const { paymentId, userId, amount, currency, provider = 'stripe', ...additionalParams } = message;
+    const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', ...additionalParams } = message;
 
-    console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
+    // transactionId is used for WebSocket lookup (what frontend uses to connect)
+    // paymentId is used to look up the saved payment method
+    const wsTransactionId = transactionId || paymentId;
+
+    console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', wsTransactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
 
     if (!paymentId || !userId || !amount || !currency) {
         console.log('DEBUG: Missing required parameters');
@@ -31,11 +35,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
             console.log('DEBUG: Payment method not found');
 
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
                 error: 'Payment method not found',
-            });
+            }, paymentId);
 
             return false;
         }
@@ -64,11 +68,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         if (!paymentProcessor) {
             console.error(`Failed to initialize payment processor for provider: ${provider}`);
 
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
                 error: `Unsupported payment provider: ${provider}`,
-            });
+            }, paymentId);
 
             return false;
         }
@@ -92,11 +96,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.error('Payment processing failed:', paymentResult.error);
 
             // Notify via WebSocket about the failure
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
                 error: paymentResult.error || 'Payment processing failed',
-            });
+            }, paymentId);
 
             return false;
         }
@@ -106,11 +110,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.log('DEBUG: Payment succeeded');
 
             // Notify via WebSocket
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: true,
                 status: 'succeeded',
-                transactionId: paymentResult.transactionId,
-            });
+                paymentTransactionId: paymentResult.transactionId,
+            }, paymentId);
 
             return true;
         } else {
@@ -118,11 +122,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.log('DEBUG: Payment status:', paymentResult.status);
 
             // Notify via WebSocket
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: paymentResult.status,
                 error: paymentResult.error || 'Payment failed',
-            });
+            }, paymentId);
 
             return false;
         }
@@ -133,10 +137,10 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         // Notify via WebSocket about the error
         try {
-            await notifyPaymentResult(paymentId, userId, {
+            await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 error: 'Payment processing error',
-            });
+            }, paymentId);
         } catch (notifyErr) {
             console.error('Failed to send error notification:', notifyErr);
         }

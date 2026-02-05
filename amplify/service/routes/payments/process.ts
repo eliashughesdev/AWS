@@ -11,9 +11,9 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
-        const { paymentId, userId, amount, currency, provider = 'stripe', ...additionalParams } = event.body;
+        const { paymentId, userId, amount, currency, provider = 'stripe', transactionId, ...additionalParams } = event.body;
 
-        console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
+        console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
 
         // Validate required parameters
         if (!paymentId || !userId || !amount || !currency) {
@@ -22,9 +22,12 @@ export default class ProcessPaymentHandler {
 
         try {
             // Prepare message for queue
+            // transactionId is used for WebSocket correlation (what frontend uses to connect)
+            // paymentId is used to look up the saved payment method
             const queueMessage = {
                 queue: 'v1-payment-processing-queue',
                 paymentId,
+                transactionId: transactionId || paymentId, // fallback to paymentId if not provided
                 userId,
                 amount,
                 currency,
