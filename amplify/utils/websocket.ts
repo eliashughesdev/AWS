@@ -94,14 +94,25 @@ export const notifyPaymentResult = async (
 
         if (!queryResult.success || !queryResult.res || queryResult.res.length === 0) {
             console.log(`No active WebSocket connections found for user ${userId}`)
+            console.log(`DEBUG: Query result:`, JSON.stringify(queryResult))
             return { success: false }
         }
+
+        console.log(`DEBUG: Found ${queryResult.res.length} connections for user ${userId}`)
+        console.log(`DEBUG: Looking for paymentId: "${paymentId}" (type: ${typeof paymentId})`)
+        console.log(`DEBUG: Connections found:`, JSON.stringify(queryResult.res.map((c: any) => ({
+            connectionId: c.connectionId,
+            paymentId: c.paymentId,
+            paymentIdType: typeof c.paymentId,
+            userId: c.userId
+        }))))
 
         // Filter connections for this specific payment
         const connections = queryResult.res.filter((conn: any) => conn.paymentId === paymentId)
 
         if (connections.length === 0) {
             console.log(`No WebSocket connections found for payment ${paymentId}`)
+            console.log(`DEBUG: Available paymentIds in connections: ${queryResult.res.map((c: any) => c.paymentId).join(', ')}`)
             return { success: false }
         }
 
