@@ -91,7 +91,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       throw new Error('Clover tokenization did not return a token');
     }
 
-    return tokenResult.id;
+    return tokenResult.result.id;
   }
 
   /**
