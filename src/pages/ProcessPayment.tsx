@@ -76,7 +76,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>("");
   const [amount] = useState<number>(50.00);
   const [currency] = useState<string>("EUR");
-  const [provider] = useState<string>("stripe");
+  const [provider, setProvider] = useState<string>("stripe");
   const [view, setView] = useState<PaymentView>('select');
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -300,6 +300,24 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
               </div>
               <span className="text-sm font-semibold text-gray-600 group-hover:text-primary">Add new credit card</span>
             </a>
+
+            {/* Provider Selection */}
+            <div className="mt-6">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Payment Provider</label>
+              <div className="relative">
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value)}
+                  className="w-full appearance-none bg-white border-2 border-gray-100 rounded-xl px-4 py-3 pr-10 text-sm font-semibold text-gray-900 focus:border-primary focus:outline-none transition-all cursor-pointer hover:border-gray-200"
+                >
+                  <option value="stripe">Stripe</option>
+                  <option value="clover">Clover</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <span className="material-symbols-outlined text-gray-400 text-xl">expand_more</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
