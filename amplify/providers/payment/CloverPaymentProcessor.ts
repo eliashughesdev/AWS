@@ -109,7 +109,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       },
       body: {
         amount: params.amount,
-        currency: params.currency,
+        currency: params.currency.toLowerCase(),
         source: cloverToken,
         capture: true,
         external_reference_id: `payment_${Date.now()}`.slice(0,12)
