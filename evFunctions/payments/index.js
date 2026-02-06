@@ -24,36 +24,41 @@ exports.handler = async (data, context) => {
         console.log('Proxy Method:', proxyConfig.method);
         console.log('Proxy Method:', proxyConfig);
 
-        console.log('Parsing card data...', card_data);
-        const cardData = JSON.parse(card_data.cardData);
+        let bodyString = JSON.stringify(proxyConfig.body);
 
-        console.log('Card data parsed. Last 4 digits:', cardData.number ? cardData.number.slice(-4) : 'N/A');
+        // Only parse and substtiute card data if it's provded
+        const hasCardData = card_data.cardData && card_data.cardData !== '' && card_data.cardData !== '{}';
 
-        if (!cardData.number || !cardData.expiry || !cardData.cvc) {
-            console.error('Invalid card data structure:', cardData);
-            return {
-                error: {
-                    message: 'Invalid card data structure'
-                }
-            };
+        if (hasCardData) {
+            console.log('Parsing card data...', card_data);
+            const cardData = JSON.parse(card_data.cardData);
+
+            console.log('Card data parsed. Last 4 digits:', cardData.number ? cardData.number.slice(-4) : 'N/A');
+
+            if (!cardData.number || !cardData.expiry || !cardData.cvc) {
+                console.error('Invalid card data structure:', cardData);
+                return {
+                    error: {
+                        message: 'Invalid card data structure'
+                    }
+                };
+            }
+
+            const exp_month = cardData.expiry.month;
+            const exp_year = cardData.expiry.year;
+            const fullYear = exp_year.length === 2 ? `20${exp_year}` : exp_year;
+
+            console.log('Replacing card data placeholders...');
+            bodyString = bodyString.replace('{{CARD_NUMBER}}', cardData.number);
+            bodyString = bodyString.replace('{{EXP_MONTH}}', exp_month);
+            bodyString = bodyString.replace('{{EXP_YEAR}}', fullYear);
+            bodyString = bodyString.replace('{{CVC}}', cardData.cvc);
+        } else {
+            console.log('No card data provided, skipping substitution (tokenized provider)');
         }
 
-        const exp_month = cardData.expiry.month;
-        const exp_year = cardData.expiry.year;
-        const fullYear = exp_year.length === 2 ? `20${exp_year}` : exp_year;
-
-        console.log('Replacing card data placeholders...');
-        let bodyString = JSON.stringify(proxyConfig.body);
-        bodyString = bodyString.replace('{{CARD_NUMBER}}', cardData.number);
-        bodyString = bodyString.replace('{{EXP_MONTH}}', exp_month);
-        bodyString = bodyString.replace('{{EXP_YEAR}}', fullYear);
-        bodyString = bodyString.replace('{{CVC}}', cardData.cvc);
-
-        // Parse back to object
-        const bodyObject = JSON.parse(bodyString);
-
         console.log('Making request to payment provider:', proxyConfig.url);
-        console.log('Request object:', JSON.stringify(bodyObject, null, 2));
+        console.log('Request body:', bodyString);
 
         const response = await fetch(proxyConfig.url, {
             method: proxyConfig.method,
