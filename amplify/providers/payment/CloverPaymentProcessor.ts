@@ -38,7 +38,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
 
       // Step 2: Create charge with token
       const chargeResult = await this.createCharge(cloverToken, params);
-      console.log('CloverPaymentProcessor: Charge created');
+      console.log('CloverPaymentProcessor: Charge created', JSON.stringify(chargeResult, null, 2));
 
       return chargeResult;
 
@@ -122,15 +122,18 @@ export class CloverPaymentProcessor implements PaymentProcessor {
     // Create empty card_data, empty becaues a token was creted previousyl
     const emptyCardData = await this.evervault.encrypt(JSON.stringify({ cardData: JSON.stringify({}) }));
 
-    const chargeResult = await this.evervault.run('payments', {
+    const evResult = await this.evervault.run('payments', {
       proxy: encryptedProxy,
       card_data: emptyCardData
     });
 
-    if (chargeResult.failure_code) {
+    // Extract actual Clover response from Evervault SDK wrapper
+    const chargeResult = evResult.result || evResult;
+
+    if (chargeResult.failure_code || chargeResult.error) {
       return {
         success: false,
-        error: chargeResult.error.message || 'Charge failed',
+        error: chargeResult.error?.message || chargeResult.failure_message || 'Charge failed',
         status: 'failed',
         metadata: {
           cloverError: chargeResult.error
