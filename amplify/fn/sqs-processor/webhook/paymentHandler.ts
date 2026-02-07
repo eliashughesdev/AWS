@@ -1,6 +1,7 @@
 import { queryRecord } from '../../../utils/db'
 import { PaymentProcessorRegistry, PaymentProviderType } from '../../../utils/PaymentProviders'
 import { notifyPaymentResult } from '../../../utils/websocket'
+import { lookupBin, getProviderByCountry } from '../../../utils/binLookup'
 
 /**
  * Processes a payment with 3DS authentication in a single step
@@ -58,20 +59,41 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         };
         console.log('DEBUG: Payment processor configuration built.', JSON.stringify(processorConfig));
 
+        // Determine provider based on BIN lookup (US/CA → Clover, otherwise → Stripe)
+        let resolvedProvider = provider;
+        const bin = additionalParams.bin;
+
+        if (bin) {
+            console.log('DEBUG: Performing BIN lookup for:', bin);
+            const binResult = await lookupBin(bin, {
+                appId: processorConfig.evervaultAppId,
+                apiKey: processorConfig.evervaultApiKey,
+            });
+
+            if (binResult?.country) {
+                resolvedProvider = getProviderByCountry(binResult.country);
+                console.log(`DEBUG: BIN country: ${binResult.country}, resolved provider: ${resolvedProvider}`);
+            } else {
+                console.log('DEBUG: BIN lookup failed or no country, using default provider:', provider);
+            }
+        } else {
+            console.log('DEBUG: No BIN provided, using default provider:', provider);
+        }
+
         // Get payment processor from registry
-        console.log('DEBUG: Initializing payment processor for provider:', provider);
+        console.log('DEBUG: Initializing payment processor for provider:', resolvedProvider);
         const paymentProcessor = PaymentProcessorRegistry.getProcessor(
-            provider as PaymentProviderType,
+            resolvedProvider as PaymentProviderType,
             processorConfig
         );
 
         if (!paymentProcessor) {
-            console.error(`Failed to initialize payment processor for provider: ${provider}`);
+            console.error(`Failed to initialize payment processor for provider: ${resolvedProvider}`);
 
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
-                error: `Unsupported payment provider: ${provider}`,
+                error: `Unsupported payment provider: ${resolvedProvider}`,
             }, paymentId);
 
             return false;

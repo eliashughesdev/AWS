@@ -47,6 +47,7 @@ export default class ListPaymentsHandler {
                 return {
                     id: paymentId,
                     lastFour: cardData.lastFour || cardData.last4 || 'N/A',
+                    bin: cardData.bin || null,
                     cardType: cardData.cardType || cardData.brand || 'unknown',
                     createdAt: record.created_at
                 };

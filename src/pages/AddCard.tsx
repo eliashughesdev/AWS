@@ -30,8 +30,10 @@ export default function AddCard({ user }: AddCardProps) {
       return;
     }
 
-    const lastFour = cardNumber.slice(-4);
-    const cardType = detectCardType(cardNumber);
+    const cleanCardNumber = cardNumber.replace(/\s/g, '');
+    const lastFour = cleanCardNumber.slice(-4);
+    const bin = cleanCardNumber.slice(0, 6);
+    const cardType = detectCardType(cleanCardNumber);
 
     // const cardData = {
     //   number: cardNumber,
@@ -63,6 +65,7 @@ export default function AddCard({ user }: AddCardProps) {
       const response = await axios.post('https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1/payments/save', {
         paymentMethod: {
           lastFour: lastFour,
+          bin: bin,
           cardType: cardType,
           cardData: JSON.stringify(
             {

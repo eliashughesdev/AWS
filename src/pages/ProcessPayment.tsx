@@ -9,6 +9,7 @@ interface ProcessPaymentProps {
 interface PaymentMethod {
   id: string;
   lastFour: string;
+  bin?: string;
   cardType: string;
   expiryMonth?: string;
   expiryYear?: string;
@@ -191,6 +192,8 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
 
+      const selectedCard = paymentMethods.find(pm => pm.id === selectedPaymentId);
+
       await axios.post(
         'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process',
         {
@@ -200,6 +203,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
           currency: currency,
           provider: provider,
           transactionId: transactionPaymentId,
+          bin: selectedCard?.bin,
         },
         {
           headers: {

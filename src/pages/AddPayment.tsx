@@ -30,6 +30,8 @@ export default function AddPayment({ user }: AddPaymentProps) {
       const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
         cardData: cardData,
         userId: user.username,
+        bin: cardData.card?.bin,
+        lastFour: cardData.card?.lastFour,
       }, {
         headers: {
           'X-Project': 'e2e-hmac',
