@@ -30,14 +30,8 @@ export class StripePaymentProcessor implements PaymentProcessor {
     try {
       console.log('StripePaymentProcessor: Processing payment with params:', JSON.stringify(params, null, 2));
 
-      // Extract Stripe-specific metadata
-      const returnUrl = params.metadata?.returnUrl;
-      if (!returnUrl) {
-        return {
-          success: false,
-          error: 'returnUrl is required for Stripe payments'
-        };
-      }
+      // Use provided returnUrl or default to staging URL
+      const returnUrl = params.metadata?.returnUrl || 'https://my.staging.loudibly.com/';
 
       // Build the Stripe API request with placeholders
       const stripeRequest = {

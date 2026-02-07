@@ -32,7 +32,7 @@ export default function AddCard({ user }: AddCardProps) {
 
     const cleanCardNumber = cardNumber.replace(/\s/g, '');
     const lastFour = cleanCardNumber.slice(-4);
-    const bin = cleanCardNumber.slice(0, 6);
+    const bin = cleanCardNumber.slice(0, 8);
     const cardType = detectCardType(cleanCardNumber);
 
     // const cardData = {
