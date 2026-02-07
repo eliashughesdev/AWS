@@ -69,6 +69,7 @@ export const handlePayment = async (message: any): Promise<boolean> => {
                 appId: processorConfig.evervaultAppId,
                 apiKey: processorConfig.evervaultApiKey,
             });
+            console.log('DEBUG: BIN lookup completed:', JSON.stringify(binResult));
 
             if (binResult?.country) {
                 resolvedProvider = getProviderByCountry(binResult.country);
