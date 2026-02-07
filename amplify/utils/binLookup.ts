@@ -1,6 +1,6 @@
 import { getRecord, putItem } from './db';
 
-const BIN_CACHE_TABLE = 'v1BinCacheTable';
+const BIN_CACHE_TABLE = 'v2BinCacheTable';
 const CACHE_TTL_DAYS = 90;  // BIN info rarely changes, cache for 90 days
 
 export interface BinLookupResult {

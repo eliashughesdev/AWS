@@ -304,7 +304,7 @@ const v1BinCacheTable = new dynamo.Table(apiStack, 'BinCacheTable', {
 		type: dynamo.AttributeType.STRING,
 	},
 	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-	tableName: 'v1BinCacheTable',
+	tableName: 'v2BinCacheTable',
 	timeToLiveAttribute: 'ttl',
 })
 
