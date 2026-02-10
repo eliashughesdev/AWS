@@ -79,40 +79,68 @@ export class StripePaymentProcessor implements PaymentProcessor {
         };
       }
 
-      console.log('StripePaymentProcessor: PaymentIntent created:', paymentResult.id);
-      console.log('StripePaymentProcessor: PaymentIntent status:', paymentResult.status);
+      const stripeResponse = paymentResult.result || paymentResult;
+
+      console.log('StripePaymentProcessor: Stripe response:', JSON.stringify(stripeResponse));
+
+      // Check if the Stripe response itself contains an error
+      if (stripeResponse.error) {
+        console.error('StripePaymentProcessor: Stripe API error:', stripeResponse.error.message);
+        return {
+          success: false,
+          error: stripeResponse.error.message || 'Stripe API error',
+          status: 'error',
+          retryable: true,
+          metadata: {
+            stripeError: stripeResponse.error
+          }
+        };
+      }
+
+      if (!stripeResponse.id) {
+        console.error('StripePaymentProcessor: No PaymentIntent ID in Stripe response');
+        return {
+          success: false,
+          error: 'No PaymentIntent ID returned from Stripe',
+          status: 'failed',
+          retryable: true
+        };
+      }
+
+      console.log('StripePaymentProcessor: PaymentIntent created:', stripeResponse.id);
+      console.log('StripePaymentProcessor: PaymentIntent status:', stripeResponse.status);
 
       // Map Stripe-specific responses to generic PaymentResult
-      if (paymentResult.status === 'requires_action' &&
-          paymentResult.next_action?.type === 'redirect_to_url') {
+      if (stripeResponse.status === 'requires_action' &&
+          stripeResponse.next_action?.type === 'redirect_to_url') {
         // 3DS authentication required
         console.log('StripePaymentProcessor: 3DS authentication required');
         return {
           success: true,
-          transactionId: paymentResult.id,
+          transactionId: stripeResponse.id,
           status: 'requires_action',
           metadata: {
             requiresAction: true,
-            paymentIntentId: paymentResult.id,
-            authenticationUrl: paymentResult.next_action.redirect_to_url.url,
-            clientSecret: paymentResult.client_secret,
-            stripeStatus: paymentResult.status
+            paymentIntentId: stripeResponse.id,
+            authenticationUrl: stripeResponse.next_action.redirect_to_url.url,
+            clientSecret: stripeResponse.client_secret,
+            stripeStatus: stripeResponse.status
           }
         };
-      } else if (paymentResult.status === 'succeeded') {
+      } else if (stripeResponse.status === 'succeeded') {
         // Payment succeeded
         console.log('StripePaymentProcessor: Payment succeeded');
         return {
           success: true,
-          transactionId: paymentResult.id,
+          transactionId: stripeResponse.id,
           status: 'succeeded',
           metadata: {
-            amount: paymentResult.amount,
-            currency: paymentResult.currency,
-            stripeStatus: paymentResult.status
+            amount: stripeResponse.amount,
+            currency: stripeResponse.currency,
+            stripeStatus: stripeResponse.status
           }
         };
-      } else if (paymentResult.status === 'requires_payment_method') {
+      } else if (stripeResponse.status === 'requires_payment_method') {
         // Card was declined
         console.log('StripePaymentProcessor: Payment failed - card declined');
         return {
@@ -121,19 +149,19 @@ export class StripePaymentProcessor implements PaymentProcessor {
           status: 'declined',
           retryable: false,
           metadata: {
-            stripeStatus: paymentResult.status
+            stripeStatus: stripeResponse.status
           }
         };
       } else {
         // Other unexpected status
-        console.log('StripePaymentProcessor: Unexpected payment status:', paymentResult.status);
+        console.log('StripePaymentProcessor: Unexpected payment status:', stripeResponse.status);
         return {
           success: false,
-          error: `Unexpected payment status: ${paymentResult.status}`,
+          error: `Unexpected payment status: ${stripeResponse.status}`,
           status: 'unknown',
           retryable: true,
           metadata: {
-            stripeStatus: paymentResult.status
+            stripeStatus: stripeResponse.status
           }
         };
       }
