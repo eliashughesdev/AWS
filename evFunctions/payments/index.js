@@ -24,14 +24,6 @@ exports.handler = async (data, context) => {
         console.log('Proxy Method:', proxyConfig.method);
         console.log('Proxy Method:', proxyConfig);
 
-        const contentType = (proxyConfig.headers['Content-Type'] || proxyConfig.headers['content-type'] || '').toLowerCase();
-        let bodyString;
-        if (contentType.includes('application/x-www-form-urlencoded')) {
-            bodyString = new URLSearchParams(proxyConfig.body).toString();
-        } else {
-            bodyString = JSON.stringify(proxyConfig.body);
-        }
-
         // Only parse and substtiute card data if it's provded
         const hasCardData = card_data.cardData && card_data.cardData !== '' && card_data.cardData !== '{}';
 
@@ -55,12 +47,35 @@ exports.handler = async (data, context) => {
             const fullYear = exp_year.length === 2 ? `20${exp_year}` : exp_year;
 
             console.log('Replacing card data placeholders...');
-            bodyString = bodyString.replace('{{CARD_NUMBER}}', cardData.number);
-            bodyString = bodyString.replace('{{EXP_MONTH}}', exp_month);
-            bodyString = bodyString.replace('{{EXP_YEAR}}', fullYear);
-            bodyString = bodyString.replace('{{CVC}}', cardData.cvc);
+            const replacements = {
+                '{{CARD_NUMBER}}': cardData.number,
+                '{{EXP_MONTH}}': exp_month,
+                '{{EXP_YEAR}}': fullYear,
+                '{{CVC}}': cardData.cvc,
+            };
+            function replacePlaceholders(obj) {
+                for (const key of Object.keys(obj)) {
+                    if (typeof obj[key] === 'string') {
+                        for (const [placeholder, value] of Object.entries(replacements)) {
+                            obj[key] = obj[key].replace(placeholder, value);
+                        }
+                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                        replacePlaceholders(obj[key]);
+                    }
+                }
+            }
+            replacePlaceholders(proxyConfig.body);
         } else {
             console.log('No card data provided, skipping substitution (tokenized provider)');
+        }
+
+        // Serialize body after placeholder substitution
+        const contentType = (proxyConfig.headers['Content-Type'] || proxyConfig.headers['content-type'] || '').toLowerCase();
+        let bodyString;
+        if (contentType.includes('application/x-www-form-urlencoded')) {
+            bodyString = new URLSearchParams(proxyConfig.body).toString();
+        } else {
+            bodyString = JSON.stringify(proxyConfig.body);
         }
 
         console.log('Making request to payment provider:', proxyConfig.url);
