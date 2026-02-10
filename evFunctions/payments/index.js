@@ -24,7 +24,13 @@ exports.handler = async (data, context) => {
         console.log('Proxy Method:', proxyConfig.method);
         console.log('Proxy Method:', proxyConfig);
 
-        let bodyString = JSON.stringify(proxyConfig.body);
+        const contentType = (proxyConfig.headers['Content-Type'] || proxyConfig.headers['content-type'] || '').toLowerCase();
+        let bodyString;
+        if (contentType.includes('application/x-www-form-urlencoded')) {
+            bodyString = new URLSearchParams(proxyConfig.body).toString();
+        } else {
+            bodyString = JSON.stringify(proxyConfig.body);
+        }
 
         // Only parse and substtiute card data if it's provded
         const hasCardData = card_data.cardData && card_data.cardData !== '' && card_data.cardData !== '{}';
