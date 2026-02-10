@@ -11,6 +11,7 @@ export interface PaymentResult {
   transactionId?: string;
   error?: string;
   status?: string;
+  retryable?: boolean;
   metadata?: Record<string, any>;
 }
 

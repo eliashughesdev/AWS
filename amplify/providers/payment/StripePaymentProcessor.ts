@@ -74,7 +74,8 @@ export class StripePaymentProcessor implements PaymentProcessor {
         return {
           success: false,
           error: `Payment processing failed: ${JSON.stringify(paymentResult)}`,
-          status: 'failed'
+          status: 'failed',
+          retryable: true
         };
       }
 
@@ -118,6 +119,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           success: false,
           error: 'Card declined',
           status: 'declined',
+          retryable: false,
           metadata: {
             stripeStatus: paymentResult.status
           }
@@ -129,6 +131,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           success: false,
           error: `Unexpected payment status: ${paymentResult.status}`,
           status: 'unknown',
+          retryable: true,
           metadata: {
             stripeStatus: paymentResult.status
           }
@@ -141,7 +144,8 @@ export class StripePaymentProcessor implements PaymentProcessor {
       return {
         success: false,
         error: error.message,
-        status: 'error'
+        status: 'error',
+        retryable: true
       };
     }
   }

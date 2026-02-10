@@ -14,6 +14,11 @@ export class PaymentProcessorRegistry {
     clover: CloverPaymentProcessor,
   };
 
+  private static fallbackChains: Record<PaymentProviderType, PaymentProviderType[]> = {
+    stripe: ['stripe', 'clover'],
+    clover: ['clover', 'stripe'],
+  };
+
   static getProcessor(provider: PaymentProviderType, config: PaymentProcessorConfig): PaymentProcessor | null {
     const processorClass = this.processors[provider];
 
@@ -27,5 +32,9 @@ export class PaymentProcessorRegistry {
       console.error(`Failed to create processor for ${provider}:`, error.message);
       return null;
     }
+  }
+
+  static getFallbackChain(primaryProvider: PaymentProviderType): PaymentProviderType[] {
+    return this.fallbackChains[primaryProvider] || [primaryProvider];
   }
 }

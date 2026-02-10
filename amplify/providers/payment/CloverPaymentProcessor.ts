@@ -47,7 +47,8 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       return {
         success: false,
         error: error.message,
-        status: 'error'
+        status: 'error',
+        retryable: true
       };
     }
   }
@@ -131,10 +132,14 @@ export class CloverPaymentProcessor implements PaymentProcessor {
     const chargeResult = evResult.result || evResult;
 
     if (chargeResult.failure_code || chargeResult.error) {
+      const isDecline = chargeResult.failure_code === 'card_declined'
+        || chargeResult.failure_code === 'processing_error'
+        || chargeResult.failure_code === 'insufficient_funds';
       return {
         success: false,
         error: chargeResult.error?.message || chargeResult.failure_message || 'Charge failed',
         status: 'failed',
+        retryable: !isDecline,
         metadata: {
           cloverError: chargeResult.error
         }
@@ -159,6 +164,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         success: false,
         error: chargeResult.failure_message || 'Charge was not successful',
         status: 'failed',
+        retryable: false,
         metadata: {
           cloverChargeId: chargeResult.id,
           cloverStatus: chargeResult.status

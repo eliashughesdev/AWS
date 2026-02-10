@@ -1,5 +1,6 @@
 import { queryRecord } from '../../../utils/db'
-import { PaymentProcessorRegistry, PaymentProviderType } from '../../../utils/PaymentProviders'
+import { PaymentProviderType } from '../../../utils/PaymentProviders'
+import { PaymentOrchestrator } from '../../../utils/PaymentOrchestrator'
 import { notifyPaymentResult } from '../../../utils/websocket'
 import { lookupBin, getProviderByCountry } from '../../../utils/binLookup'
 
@@ -81,36 +82,21 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.log('DEBUG: No BIN provided, using default provider:', provider);
         }
 
-        // Get payment processor from registry
-        console.log('DEBUG: Initializing payment processor for provider:', resolvedProvider);
-        const paymentProcessor = PaymentProcessorRegistry.getProcessor(
+        // Process the payment with failover support
+        console.log('DEBUG: Processing payment with failover, primary provider:', resolvedProvider);
+        const paymentResult = await PaymentOrchestrator.processWithFailover(
             resolvedProvider as PaymentProviderType,
+            {
+                amount: amount,
+                currency: currency,
+                cardData: encryptedCardData,
+                userId: userId,
+                metadata: {
+                    ...additionalParams
+                }
+            },
             processorConfig
         );
-
-        if (!paymentProcessor) {
-            console.error(`Failed to initialize payment processor for provider: ${resolvedProvider}`);
-
-            await notifyPaymentResult(wsTransactionId, userId, {
-                success: false,
-                status: 'failed',
-                error: `Unsupported payment provider: ${resolvedProvider}`,
-            }, paymentId);
-
-            return false;
-        }
-
-        // Process the payment
-        console.log('DEBUG: Calling payment processor...');
-        const paymentResult = await paymentProcessor.processPayment({
-            amount: amount,
-            currency: currency,
-            cardData: encryptedCardData,
-            userId: userId,
-            metadata: {
-                ...additionalParams
-            }
-        });
 
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
 
