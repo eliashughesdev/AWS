@@ -143,6 +143,13 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
           if (message.type === 'PAYMENT_RESULT') {
             const data = message.data;
 
+            if (data.status === 'requires_action' && data.authenticationUrl) {
+              // 3DS authentication required — redirect user to challenge page
+              console.log('3DS required, redirecting to:', data.authenticationUrl);
+              window.location.href = data.authenticationUrl;
+              return;
+            }
+
             if (data.success) {
               setPaymentResult({
                 transactionId: data.transactionId || 'N/A',
