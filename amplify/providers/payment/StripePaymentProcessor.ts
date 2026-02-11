@@ -127,10 +127,18 @@ export class StripePaymentProcessor implements PaymentProcessor {
       console.log('StripePaymentProcessor: PaymentIntent status:', stripeResponse.status);
 
       // Map Stripe-specific responses to generic PaymentResult
-      if (stripeResponse.status === 'requires_action' &&
-          stripeResponse.next_action?.type === 'redirect_to_url') {
-        // 3DS authentication required
-        console.log('StripePaymentProcessor: 3DS authentication required');
+      // docs says that when 3ds is required the api will return requires_action status
+      // but it actually returns requires_source_action as a status... Weird.
+      // so i am checking for botsh status just to be safe.
+      const needs3DS = (stripeResponse.status === 'requires_action' && stripeResponse.next_action?.type === 'redirect_to_url')
+        || (stripeResponse.status === 'requires_source_action' && stripeResponse.next_source_action?.type === 'authorize_with_url');
+
+      if (needs3DS) {
+        // 3DS authentication required — extract URL from whichever field is present
+        const authenticationUrl = stripeResponse.next_action?.redirect_to_url?.url
+          || stripeResponse.next_source_action?.authorize_with_url?.url;
+
+        console.log('StripePaymentProcessor: 3DS authentication required, redirect URL:', authenticationUrl);
         return {
           success: true,
           transactionId: stripeResponse.id,
@@ -138,7 +146,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           metadata: {
             requiresAction: true,
             paymentIntentId: stripeResponse.id,
-            authenticationUrl: stripeResponse.next_action.redirect_to_url.url,
+            authenticationUrl,
             clientSecret: stripeResponse.client_secret,
             stripeStatus: stripeResponse.status
           }
