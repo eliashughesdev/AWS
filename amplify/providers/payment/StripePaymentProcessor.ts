@@ -33,7 +33,29 @@ export class StripePaymentProcessor implements PaymentProcessor {
       // Use provided returnUrl or default to staging URL
       const returnUrl = params.metadata?.returnUrl || 'https://my.staging.loudibly.com/';
 
-      // Build the Stripe API request with placeholders
+      // const stripeRequest = {
+      //   url: "https://api.stripe.com/v1/payment_intents",
+      //   method: "POST",
+      //   headers: {
+      //     "Authorization": `Bearer ${this.stripeApiKey}`,
+      //     "Content-Type": "application/x-www-form-urlencoded"
+      //   },
+      //   body: {
+      //     amount: params.amount.toString(),
+      //     currency: params.currency,
+      //     "payment_method_data[type]": "card",
+      //     "payment_method_data[card][number]": "{{CARD_NUMBER}}",
+      //     "payment_method_data[card][exp_month]": "{{EXP_MONTH}}",
+      //     "payment_method_data[card][exp_year]": "{{EXP_YEAR}}",
+      //     "payment_method_data[card][cvc]": "{{CVC}}",
+      //     "payment_method_options[card][request_three_d_secure]": "automatic",
+      //     return_url: returnUrl,
+      //     confirm: "true",
+      //     capture_method: "automatic"
+      //   }
+      // };
+
+      // 3DS test request using Stripe test payment method
       const stripeRequest = {
         url: "https://api.stripe.com/v1/payment_intents",
         method: "POST",
@@ -44,16 +66,10 @@ export class StripePaymentProcessor implements PaymentProcessor {
         body: {
           amount: params.amount.toString(),
           currency: params.currency,
-          "payment_method_data[type]": "card",
-          "payment_method_data[card][number]": "{{CARD_NUMBER}}",
-          "payment_method_data[card][exp_month]": "{{EXP_MONTH}}",
-          "payment_method_data[card][exp_year]": "{{EXP_YEAR}}",
-          "payment_method_data[card][cvc]": "{{CVC}}",
-          // Enable 3DS
-          "payment_method_options[card][request_three_d_secure]": "automatic",
-          return_url: returnUrl,
+          payment_method: "pm_card_threeDSecure2Required",
+          "payment_method_options[card][request_three_d_secure]": "any",
           confirm: "true",
-          capture_method: "automatic"
+          return_url: returnUrl
         }
       };
 
