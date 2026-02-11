@@ -76,6 +76,9 @@ export const notifyPaymentResult = async (
         status?: string
         error?: string
         paymentTransactionId?: string
+        authenticationUrl?: string
+        paymentIntentId?: string
+        clientSecret?: string
     },
     paymentId?: string
 ): Promise<{ success: boolean }> => {

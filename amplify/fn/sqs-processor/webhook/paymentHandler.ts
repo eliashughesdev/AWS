@@ -114,7 +114,20 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             return false;
         }
 
-        if (paymentResult.status === 'succeeded') {
+        if (paymentResult.status === 'requires_action') {
+            // 3DS authentication required — send redirect URL to client
+            console.log('DEBUG: 3DS authentication required');
+
+            await notifyPaymentResult(wsTransactionId, userId, {
+                success: true,
+                status: 'requires_action',
+                authenticationUrl: paymentResult.metadata?.authenticationUrl,
+                paymentIntentId: paymentResult.metadata?.paymentIntentId,
+                clientSecret: paymentResult.metadata?.clientSecret,
+            }, paymentId);
+
+            return true;
+        } else if (paymentResult.status === 'succeeded') {
             // Payment succeeded
             console.log('DEBUG: Payment succeeded');
 
