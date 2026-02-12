@@ -4,6 +4,7 @@ import accountsAccount from './routes/accounts/account'
 import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import webhookHandler from './routes/webhook/cb'
+import stripeWebhook from './routes/webhook/stripe'
 import savePayment from './routes/payments/save'
 import listPayments from './routes/payments/list'
 import processPayment from './routes/payments/process'
@@ -18,6 +19,7 @@ type RoutesMap = Map<string, {
 
 export const routes: RoutesMap = new Map([
     ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
+    ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
     ['/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
     ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
     ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
@@ -56,11 +58,17 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
     }
 
     try {
+        // Preserve raw body before parsing (needed for Stripe webhook signature verification)
+        const rawBody = event.body;
+
         // Handle API Gateway's proxy integration where body is a string
         if (event.body && typeof event.body === 'string') {
             console.log('DEBUG: Body is a string, attempting JSON.parse...');
             event.body = JSON.parse(event.body)
         }
+
+        // Attach raw body to event for handlers that need it (e.g. Stripe webhooks)
+        ;(event as any).rawBody = rawBody;
         console.log('DEBUG: Final Request Body:', JSON.stringify(event.body));
 
         // Parameter Validation

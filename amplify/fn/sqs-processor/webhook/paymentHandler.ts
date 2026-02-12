@@ -1,8 +1,15 @@
 import { queryRecord } from '../../../utils/db'
 import { PaymentProviderType } from '../../../utils/PaymentProviders'
-import { PaymentOrchestrator } from '../../../utils/PaymentOrchestrator'
+import { PaymentOrchestrator, AttemptLogEntry } from '../../../utils/PaymentOrchestrator'
 import { notifyPaymentResult } from '../../../utils/websocket'
 import { lookupBin, getProviderByCountry } from '../../../utils/binLookup'
+import {
+    generatePaymentOrderId,
+    createOrderLog,
+    logAttempt,
+    updateOrderStatus,
+    PaymentLogStatus,
+} from '../../../utils/paymentLogger'
 
 /**
  * Processes a payment with 3DS authentication in a single step
@@ -23,6 +30,9 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         console.log('DEBUG: Missing required parameters');
         return false;
     }
+
+    // Generate server-side payment order ID for transaction logging
+    const paymentOrderId = generatePaymentOrderId();
 
     try {
         // Retrieve the saved payment method
@@ -82,6 +92,47 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.log('DEBUG: No BIN provided, using default provider:', provider);
         }
 
+        // Create the ORDER#META log record
+        try {
+            await createOrderLog({
+                paymentOrderId,
+                userId,
+                clientTransactionId: wsTransactionId,
+                paymentId,
+                primaryProvider: resolvedProvider,
+                amount,
+                currency,
+            });
+        } catch (logErr) {
+            console.error('Failed to create order log:', logErr);
+        }
+
+        // Per-attempt logging callback for the orchestrator
+        const onAttempt = async (entry: AttemptLogEntry) => {
+            const mapStatus = (result: any): PaymentLogStatus => {
+                if (result.success && result.status === 'requires_action') return 'requires_action';
+                if (result.success && result.status === 'succeeded') return 'succeeded';
+                if (!result.success && result.status === 'declined') return 'declined';
+                if (!result.success && result.retryable) return 'error';
+                if (!result.success) return 'failed';
+                return 'processing';
+            };
+
+            await logAttempt({
+                paymentOrderId,
+                userId,
+                attemptNumber: entry.attemptNumber,
+                provider: entry.provider,
+                status: mapStatus(entry.result),
+                providerRef: entry.result.transactionId || entry.result.metadata?.paymentIntentId || '',
+                amount,
+                currency,
+                errorMessage: entry.result.error,
+                retryable: entry.result.retryable,
+                providerMetadata: entry.result.metadata,
+            });
+        };
+
         // Process the payment with failover support
         console.log('DEBUG: Processing payment with failover, primary provider:', resolvedProvider);
         const paymentResult = await PaymentOrchestrator.processWithFailover(
@@ -95,10 +146,31 @@ export const handlePayment = async (message: any): Promise<boolean> => {
                     ...additionalParams
                 }
             },
-            processorConfig
+            processorConfig,
+            onAttempt
         );
 
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
+
+        // Determine final status for the order log
+        const finalStatus: PaymentLogStatus =
+            paymentResult.success && paymentResult.status === 'requires_action' ? 'requires_action' :
+            paymentResult.success && paymentResult.status === 'succeeded' ? 'succeeded' :
+            !paymentResult.success && paymentResult.status === 'declined' ? 'declined' :
+            paymentResult.success ? 'succeeded' : 'failed';
+
+        // Update the ORDER#META with the final outcome
+        try {
+            await updateOrderStatus({
+                paymentOrderId,
+                finalStatus,
+                finalProvider: paymentResult.metadata?.provider,
+                providerRef: paymentResult.transactionId || paymentResult.metadata?.paymentIntentId || '',
+                totalAttempts: paymentResult.metadata?.attempts || 0,
+            });
+        } catch (logErr) {
+            console.error('Failed to update order status:', logErr);
+        }
 
         // Handle the payment result
         if (!paymentResult.success) {
@@ -156,6 +228,17 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     } catch (err: any) {
         console.error('FATAL ERROR: Payment processing error:', err);
         console.error('Error stack:', err.stack);
+
+        // Log the fatal error to the order record
+        try {
+            await updateOrderStatus({
+                paymentOrderId,
+                finalStatus: 'error',
+                totalAttempts: 0,
+            });
+        } catch (logErr) {
+            console.error('Failed to log fatal error to transaction logs:', logErr);
+        }
 
         // Notify via WebSocket about the error
         try {

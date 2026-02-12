@@ -314,6 +314,33 @@ v1WebSocketConnectionsTable.addGlobalSecondaryIndex({
 	sortKey: { name: 'connectionId', type: AttributeType.STRING },
 })
 
+const v1PaymentTransactionLogsTable = new dynamo.Table(apiStack, 'PaymentTransactionLogsTable', {
+	partitionKey: {
+		name: 'id',
+		type: dynamo.AttributeType.STRING,
+	},
+	sortKey: {
+		name: 'sk',
+		type: dynamo.AttributeType.STRING,
+	},
+	billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+	tableName: 'v1PaymentTransactionLogsTable',
+})
+
+v1PaymentTransactionLogsTable.addGlobalSecondaryIndex({
+	indexName: 'UserIdIndex',
+	partitionKey: { name: 'userId', type: AttributeType.STRING },
+	sortKey: { name: 'createdAt', type: AttributeType.STRING },
+	projectionType: dynamo.ProjectionType.ALL,
+})
+
+v1PaymentTransactionLogsTable.addGlobalSecondaryIndex({
+	indexName: 'ProviderRefIndex',
+	partitionKey: { name: 'providerRef', type: AttributeType.STRING },
+	sortKey: { name: 'sk', type: AttributeType.STRING },
+	projectionType: dynamo.ProjectionType.ALL,
+})
+
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
 const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
@@ -396,6 +423,7 @@ v1WebhookIPWhitelistTable.grantStreamRead(stream)
 
 v1WebSocketConnectionsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1BinCacheTable.grantReadWriteData(sqsV1WebhookProcessingFn)
+v1PaymentTransactionLogsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 
 v1WebhookQueue.grantSendMessages(apiGatewayRole)
 v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
@@ -405,6 +433,17 @@ v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+	actions: ['execute-api:ManageConnections'],
+	resources: [`arn:aws:execute-api:${Stack.of(apiStack).region}:${Stack.of(apiStack).account}:${webSocketApi.apiId}/*`],
+}))
+
+// mainApiFn needs WebSocket access for Stripe webhook handler notifications
+const mainApiLambda = backend.mainApiFn.resources.lambda as unknown as Function
+mainApiLambda.addEnvironment('CONNECTIONS_TABLE_NAME', 'v1WebSocketConnectionsTable')
+mainApiLambda.addEnvironment('WEBSOCKET_API_ID', webSocketApi.apiId)
+mainApiLambda.addEnvironment('WEBSOCKET_STAGE', 'v1')
+
+backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
 	actions: ['execute-api:ManageConnections'],
 	resources: [`arn:aws:execute-api:${Stack.of(apiStack).region}:${Stack.of(apiStack).account}:${webSocketApi.apiId}/*`],
 }))

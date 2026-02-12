@@ -129,7 +129,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
       // Map Stripe-specific responses to generic PaymentResult
       // docs says that when 3ds is required the api will return requires_action status
       // but it actually returns requires_source_action as a status... Weird.
-      // so i am checking for botsh status just to be safe.
+      // so i am checking for both statuses just to be safe.
       const needs3DS = (stripeResponse.status === 'requires_action' && stripeResponse.next_action?.type === 'redirect_to_url')
         || (stripeResponse.status === 'requires_source_action' && stripeResponse.next_source_action?.type === 'authorize_with_url');
 
