@@ -162,7 +162,12 @@ export default class StripeWebhookHandler {
 		}
 	}
 
-	private async notifyUser(paymentOrderId: string, result: Record<string, any>) {
+	private async notifyUser(paymentOrderId: string, result: {
+		success: boolean
+		status?: string
+		error?: string
+		paymentTransactionId?: string
+	}) {
 		const orderRecords = await queryRecord(
 			'v1PaymentTransactionLogsTable',
 			'id = :id AND sk = :sk',
