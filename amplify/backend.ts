@@ -438,14 +438,9 @@ sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
 }))
 
 // mainApiFn needs WebSocket access for Stripe webhook handler notifications
-const mainApiLambda = backend.mainApiFn.resources.lambda as unknown as Function
-mainApiLambda.addEnvironment('CONNECTIONS_TABLE_NAME', 'v1WebSocketConnectionsTable')
-mainApiLambda.addEnvironment('WEBSOCKET_API_ID', webSocketApi.apiId)
-mainApiLambda.addEnvironment('WEBSOCKET_STAGE', 'v1')
-
 backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
 	actions: ['execute-api:ManageConnections'],
-	resources: [`arn:aws:execute-api:${Stack.of(apiStack).region}:${Stack.of(apiStack).account}:${webSocketApi.apiId}/*`],
+	resources: ['*'],
 }))
 
 backend.addOutput({
