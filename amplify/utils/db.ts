@@ -107,7 +107,7 @@ export const queryItemFromIndex = async (q: IQueryItemFromIndexRequest) => {
 export const putItem = async (tableName: string | undefined, item: Record<string, any>) => {
 	const command = new PutItemCommand({
 		TableName: tableName,
-		Item: marshall(item)
+		Item: marshall(item, { removeUndefinedValues: true })
 	})
 	try {
 		const response = await db.send(command)
@@ -159,10 +159,10 @@ interface IUpdateItemRequest {
 export const updateItem = async (r: IUpdateItemRequest) => {
 	const command = new UpdateItemCommand({
 		TableName: r.tableName,
-		Key: marshall(r.key),
+		Key: marshall(r.key, { removeUndefinedValues: true }),
 		UpdateExpression: r.updateExpression,
 		ExpressionAttributeNames: r.attributeNames,
-		ExpressionAttributeValues: marshall(r.attributeValues)
+		ExpressionAttributeValues: marshall(r.attributeValues, { removeUndefinedValues: true })
 	})
 
 	try {
