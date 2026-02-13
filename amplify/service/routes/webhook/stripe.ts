@@ -180,10 +180,23 @@ export default class StripeWebhookHandler {
 		}
 
 		const order = orderRecords.res[0]
+
+		// Remove undefined fields from result to avoid DynamoDB marshalling errors
+		const cleanResult: {
+			success: boolean
+			status?: string
+			error?: string
+			paymentTransactionId?: string
+		} = { success: result.success }
+
+		if (result.status !== undefined) cleanResult.status = result.status
+		if (result.error !== undefined) cleanResult.error = result.error
+		if (result.paymentTransactionId !== undefined) cleanResult.paymentTransactionId = result.paymentTransactionId
+
 		await notifyPaymentResult(
 			order.clientTransactionId,
 			order.userId,
-			result,
+			cleanResult,
 			order.paymentId
 		)
 	}
