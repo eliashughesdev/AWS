@@ -1,4 +1,4 @@
-import { queryRecord } from '../../../utils/db'
+import { queryRecord, updateItem } from '../../../utils/db'
 import { PaymentProviderType } from '../../../utils/PaymentProviders'
 import { PaymentOrchestrator, AttemptLogEntry } from '../../../utils/PaymentOrchestrator'
 import { notifyPaymentResult } from '../../../utils/websocket'
@@ -57,8 +57,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         }
 
         const encryptedCardData = paymentRecord.res[0].cardData;
+        const storedStripeCustomerId = paymentRecord.res[0].stripeCustomerId as string | undefined;
+        const storedStripePaymentMethodId = paymentRecord.res[0].stripePaymentMethodId as string | undefined;
 
         console.log('DEBUG: Retrieved encrypted card data for processing.');
+        if (storedStripeCustomerId) {
+            console.log('DEBUG: Stored Stripe credentials found — customer:', storedStripeCustomerId);
+        }
 
         // Build configuration for payment processor
         const processorConfig = {
@@ -135,6 +140,7 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         // Process the payment with failover support
         console.log('DEBUG: Processing payment with failover, primary provider:', resolvedProvider);
+        const offSession = !!additionalParams.offSession;
         const paymentResult = await PaymentOrchestrator.processWithFailover(
             resolvedProvider as PaymentProviderType,
             {
@@ -142,6 +148,9 @@ export const handlePayment = async (message: any): Promise<boolean> => {
                 currency: currency,
                 cardData: encryptedCardData,
                 userId: userId,
+                offSession,
+                stripeCustomerId: storedStripeCustomerId,
+                stripePaymentMethodId: storedStripePaymentMethodId,
                 metadata: {
                     ...additionalParams
                 }
@@ -151,6 +160,28 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         );
 
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
+
+        // Persist Stripe credentials if the processor set them up for the first time
+        const newStripeCustomerId = paymentResult.metadata?.stripeCustomerId as string | undefined;
+        const newStripePaymentMethodId = paymentResult.metadata?.stripePaymentMethodId as string | undefined;
+        if (newStripeCustomerId && newStripePaymentMethodId && !storedStripeCustomerId) {
+            try {
+                await updateItem({
+                    tableName: 'v2CustomerTable',
+                    key: { id: userId, sk: `PAYMENT#${paymentId}` },
+                    updateExpression: 'SET stripeCustomerId = :cid, stripePaymentMethodId = :pmid, updated_at = :ts',
+                    attributeNames: undefined,
+                    attributeValues: {
+                        ':cid': newStripeCustomerId,
+                        ':pmid': newStripePaymentMethodId,
+                        ':ts': Date.now(),
+                    }
+                });
+                console.log('DEBUG: Stripe credentials saved to DynamoDB — customer:', newStripeCustomerId);
+            } catch (saveErr) {
+                console.error('Failed to save Stripe credentials to DynamoDB:', saveErr);
+            }
+        }
 
         // Determine final status for the order log
         const finalStatus: PaymentLogStatus =

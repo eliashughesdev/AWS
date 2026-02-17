@@ -11,7 +11,7 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
-        const { paymentId, userId, amount, currency, provider = 'stripe', transactionId, ...additionalParams } = event.body;
+        const { paymentId, userId, amount, currency, provider = 'stripe', transactionId, offSession, ...additionalParams } = event.body;
 
         console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
 
@@ -32,6 +32,7 @@ export default class ProcessPaymentHandler {
                 amount,
                 currency,
                 provider,
+                offSession: offSession || false,
                 timestamp: Date.now(),
                 ...additionalParams
             };

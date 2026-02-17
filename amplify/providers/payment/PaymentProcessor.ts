@@ -1,8 +1,11 @@
 export interface PaymentParams {
   amount: number;
   currency: string;
-  cardData: string;
+  cardData?: string;
   userId: string;
+  offSession?: boolean;
+  stripeCustomerId?: string;
+  stripePaymentMethodId?: string;
   metadata?: Record<string, any>;
 }
 
