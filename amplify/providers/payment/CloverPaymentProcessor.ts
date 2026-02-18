@@ -32,12 +32,10 @@ export class CloverPaymentProcessor implements PaymentProcessor {
   async processPayment(params: PaymentParams): Promise<PaymentResult> {
     const creds = params.storedCredentials;
 
-    // Recurring off-session charge using stored Clover Customer ID
     if (params.offSession && creds?.customerId) {
       return this.processRecurringPayment(params);
     }
 
-    // First-time H2H charge
     return this.processFirstTimePayment(params);
   }
 
@@ -84,9 +82,9 @@ export class CloverPaymentProcessor implements PaymentProcessor {
 
   /**
    * First-time H2H charge — three steps:
-   * 1. Tokenize card via Evervault → single-use CLV token (card data never touches our server)
+   * 1. Tokenize card via Evervault → single-use CLV token
    * 2. Create a Clover Customer with that token as source → customerId
-   *    Clover automatically vaults the card and links it to the customer.
+   *    Clover automatically saves the card and links it to the customer.
    * 3. Charge using the customerId as source (no stored_credentials needed for first charge)
    *
    * Returns credentialsToSave: { customerId } in metadata
@@ -100,8 +98,8 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       const singleUseToken = await this.tokenizeCard(params.cardData);
       console.log('CloverPaymentProcessor: Card tokenized');
 
-      // Step 2: Create Customer — automatically vaults the card
-      const customerId = await this.createCustomerWithCard(singleUseToken);
+      // Step 2: Create Customer
+      const customerId = await this.createCustomerWithCard(singleUseToken, params);
       console.log('CloverPaymentProcessor: Customer created:', customerId);
 
       // Step 3: Charge using the customer ID as source
@@ -180,8 +178,14 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    * Creates a Clover Customer with the card token as source.
    * Clover automatically vaults the card and links it — no separate vaulting call needed.
    */
-  private async createCustomerWithCard(singleUseToken: string): Promise<string> {
-    const response = await this.cloverPost('/v1/customers', { source: singleUseToken });
+  private async createCustomerWithCard(singleUseToken: string, params: PaymentParams): Promise<string> {
+    const body: Record<string, any> = { source: singleUseToken };
+
+    if (params.metadata?.email)     body.email     = params.metadata.email;
+    if (params.metadata?.firstName) body.firstName = params.metadata.firstName;
+    if (params.metadata?.lastName)  body.lastName  = params.metadata.lastName;
+
+    const response = await this.cloverPost('/v1/customers', body);
 
     if (!response.id) {
       throw new Error(`Clover customer creation failed: ${JSON.stringify(response)}`);

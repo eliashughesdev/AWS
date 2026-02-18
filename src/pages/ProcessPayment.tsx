@@ -211,6 +211,10 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
           provider: provider,
           transactionId: transactionPaymentId,
           bin: selectedCard?.bin,
+          // TODO: replace with values from Cognito (fetchUserAttributes) — hardcoded for testing purposes
+          email: 'test@example.com',
+          firstName: 'John',
+          lastName: 'Doe',
         },
         {
           headers: {
