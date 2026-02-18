@@ -50,7 +50,11 @@ export default class ListPaymentsHandler {
                     bin: cardData.bin || null,
                     cardType: cardData.cardType || cardData.brand || 'unknown',
                     createdAt: record.created_at,
-                    isRecurringReady: !!record.stripeCustomerId,
+                    // True when at least one processor has stored credentials for this card.
+                    // Processors save their credentials under a "{provider}Credentials" key
+                    // (e.g. stripeCredentials, cloverCredentials) so this check stays valid
+                    // as new processors are added without touching this file.
+                    isRecurringReady: Object.keys(record).some(k => k.endsWith('Credentials')),
                 };
             });
 

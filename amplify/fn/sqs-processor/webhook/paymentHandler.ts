@@ -57,13 +57,8 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         }
 
         const encryptedCardData = paymentRecord.res[0].cardData;
-        const storedStripeCustomerId = paymentRecord.res[0].stripeCustomerId as string | undefined;
-        const storedStripePaymentMethodId = paymentRecord.res[0].stripePaymentMethodId as string | undefined;
 
         console.log('DEBUG: Retrieved encrypted card data for processing.');
-        if (storedStripeCustomerId) {
-            console.log('DEBUG: Stored Stripe credentials found — customer:', storedStripeCustomerId);
-        }
 
         // Build configuration for payment processor
         const processorConfig = {
@@ -138,6 +133,14 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             });
         };
 
+        // Load stored credentials for the resolved provider (e.g. stripeCredentials, cloverCredentials).
+        // Each processor reads what it needs from this opaque bag.
+        const credentialsKey = `${resolvedProvider}Credentials`;
+        const storedCredentials = paymentRecord.res[0][credentialsKey] as Record<string, any> | undefined;
+        if (storedCredentials) {
+            console.log(`DEBUG: Stored credentials found for provider ${resolvedProvider}`);
+        }
+
         // Process the payment with failover support
         console.log('DEBUG: Processing payment with failover, primary provider:', resolvedProvider);
         const offSession = !!additionalParams.offSession;
@@ -149,8 +152,7 @@ export const handlePayment = async (message: any): Promise<boolean> => {
                 cardData: encryptedCardData,
                 userId: userId,
                 offSession,
-                stripeCustomerId: storedStripeCustomerId,
-                stripePaymentMethodId: storedStripePaymentMethodId,
+                storedCredentials,
                 metadata: {
                     ...additionalParams
                 }
@@ -161,25 +163,24 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
 
-        // Persist Stripe credentials if the processor set them up for the first time
-        const newStripeCustomerId = paymentResult.metadata?.stripeCustomerId as string | undefined;
-        const newStripePaymentMethodId = paymentResult.metadata?.stripePaymentMethodId as string | undefined;
-        if (newStripeCustomerId && newStripePaymentMethodId && !storedStripeCustomerId) {
+        // Persist credentials returned by the processor under the provider-specific key.
+        // Only save on the first successful setup (storedCredentials was empty before this charge).
+        const credentialsToSave = paymentResult.metadata?.credentialsToSave as Record<string, any> | undefined;
+        if (credentialsToSave && !storedCredentials) {
             try {
                 await updateItem({
                     tableName: 'v2CustomerTable',
                     key: { id: userId, sk: `PAYMENT#${paymentId}` },
-                    updateExpression: 'SET stripeCustomerId = :cid, stripePaymentMethodId = :pmid, updated_at = :ts',
-                    attributeNames: undefined,
+                    updateExpression: 'SET #credKey = :creds, updated_at = :ts',
+                    attributeNames: { '#credKey': credentialsKey },
                     attributeValues: {
-                        ':cid': newStripeCustomerId,
-                        ':pmid': newStripePaymentMethodId,
+                        ':creds': credentialsToSave,
                         ':ts': Date.now(),
                     }
                 });
-                console.log('DEBUG: Stripe credentials saved to DynamoDB — customer:', newStripeCustomerId);
+                console.log(`DEBUG: ${resolvedProvider} credentials saved to DynamoDB`);
             } catch (saveErr) {
-                console.error('Failed to save Stripe credentials to DynamoDB:', saveErr);
+                console.error('Failed to save credentials to DynamoDB:', saveErr);
             }
         }
 

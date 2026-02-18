@@ -12,7 +12,6 @@ export class StripePaymentProcessor implements PaymentProcessor {
     console.log("StripePaymentProcessor initialized");
   }
 
-  // Static factory method - this is what the factory calls
   static create(config: PaymentProcessorConfig): StripePaymentProcessor {
     const stripeApiKey = config.stripeApiKey;
 
@@ -28,8 +27,10 @@ export class StripePaymentProcessor implements PaymentProcessor {
   }
 
   async processPayment(params: PaymentParams): Promise<PaymentResult> {
-    // recurring off-session charge using stored Stripe credentials (customerid + paymentmethodid)
-    if (params.offSession && params.stripeCustomerId && params.stripePaymentMethodId) {
+    const creds = params.storedCredentials;
+
+    // recurring off-session charge using stored Stripe credentials (customerId + paymentMethodId)
+    if (params.offSession && creds?.customerId && creds?.paymentMethodId) {
       return this.processRecurringPayment(params);
     }
 
@@ -39,27 +40,27 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
   /**
    * Recurring charge — uses stored Stripe Customer + PaymentMethod.
+   * No card data is transmitted; Stripe applies MIT exemption to skip 3DS in most cases.
    */
   private async processRecurringPayment(params: PaymentParams): Promise<PaymentResult> {
+    const { customerId, paymentMethodId } = params.storedCredentials!;
+
     try {
-      console.log('StripePaymentProcessor: Processing recurring payment for customer:', params.stripeCustomerId);
+      console.log('StripePaymentProcessor: Processing recurring payment for customer:', customerId);
 
       const stripe = new Stripe(this.stripeApiKey);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: params.amount,
         currency: params.currency,
-        customer: params.stripeCustomerId,
-        payment_method: params.stripePaymentMethodId,
+        customer: customerId,
+        payment_method: paymentMethodId,
         off_session: true,
         confirm: true,
       });
 
       console.log('StripePaymentProcessor: Recurring PI created:', paymentIntent.id, 'status:', paymentIntent.status);
 
-      return this.mapStripeResponse(paymentIntent, {
-        stripeCustomerId: params.stripeCustomerId,
-        stripePaymentMethodId: params.stripePaymentMethodId,
-      });
+      return this.mapStripeResponse(paymentIntent, { customerId, paymentMethodId });
 
     } catch (error: any) {
       // Stripe throws an error (not a response) when off_session requires 3DS
@@ -80,8 +81,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
             authenticationUrl: authUrl,
             clientSecret,
             stripeStatus: 'requires_action',
-            stripeCustomerId: params.stripeCustomerId,
-            stripePaymentMethodId: params.stripePaymentMethodId,
+            credentialsToSave: { customerId, paymentMethodId },
           }
         };
       }
@@ -98,13 +98,13 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
   /**
    * First-time H2H charge via Evervault proxy.
-   * Adds setup_future_usage so Stripe stores the PaymentMethod.
+   * Adds setup_future_usage so Stripe creates a storable PaymentMethod.
    * After a successful or requires_action response, creates a Stripe Customer
-   * and attaches the PaymentMethod so future recurring charges can skip card data.
+   * and attaches the PaymentMethod — returned as credentialsToSave for the caller to persist.
    */
   private async processFirstTimePayment(params: PaymentParams): Promise<PaymentResult> {
     try {
-      console.log('StripePaymentProcessor: Processing first-time payment with params:', JSON.stringify(params, null, 2));
+      console.log('StripePaymentProcessor: Processing first-time payment');
 
       const returnUrl = params.metadata?.returnUrl || 'https://my.staging.loudibly.com/';
 
@@ -133,7 +133,6 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
       console.log('StripePaymentProcessor: Encrypting proxy request configuration...');
       const encryptedProxy = await this.evervault.encrypt(JSON.stringify(stripeRequest));
-      console.log('StripePaymentProcessor: Proxy request encrypted.');
 
       console.log('StripePaymentProcessor: Running Evervault payment-proxy function...');
       const paymentResult = await this.evervault.run('payments', {
@@ -164,9 +163,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           error: stripeResponse.error.message || 'Stripe API error',
           status: 'error',
           retryable: true,
-          metadata: {
-            stripeError: stripeResponse.error
-          }
+          metadata: { stripeError: stripeResponse.error }
         };
       }
 
@@ -182,25 +179,22 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
       console.log('StripePaymentProcessor: PaymentIntent created:', stripeResponse.id, 'status:', stripeResponse.status);
 
-      // Set up stored credentials for future recurring charges.
-      // The PI response always includes payment_method when card data was submitted.
-      let stripeCustomerId: string | undefined;
-      let stripePaymentMethodId: string | undefined;
-
+      // The PI response includes payment_method when card data was submitted.
+      // Create a Customer and attach the PM so future recurring charges need no card data.
+      let credentialsToSave: Record<string, any> | undefined;
       const pmId = stripeResponse.payment_method;
       if (pmId) {
         try {
-          const credentials = await this.setupStripeCredentials(pmId, params.userId);
-          stripeCustomerId = credentials.customerId;
-          stripePaymentMethodId = pmId;
-          console.log('StripePaymentProcessor: Stripe credentials set up — customer:', stripeCustomerId, 'pm:', stripePaymentMethodId);
+          const { customerId } = await this.setupStripeCredentials(pmId, params.userId);
+          credentialsToSave = { customerId, paymentMethodId: pmId };
+          console.log('StripePaymentProcessor: Stripe credentials ready to save — customer:', customerId);
         } catch (credErr: any) {
-          // Non-fatal: first-time payment can still succeed even if credential setup fails
+          // Non-fatal: first-time payment still succeeds even if credential setup fails
           console.error('StripePaymentProcessor: Failed to set up Stripe credentials:', credErr.message);
         }
       }
 
-      return this.mapStripeResponse(stripeResponse, { stripeCustomerId, stripePaymentMethodId });
+      return this.mapStripeResponse(stripeResponse, credentialsToSave);
 
     } catch (error: any) {
       console.error('StripePaymentProcessor: Payment processing error:', error);
@@ -216,7 +210,6 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
   /**
    * Creates a Stripe Customer and attaches the given PaymentMethod to it.
-   * Called after the first successful PI creation so future charges are credential-based.
    */
   private async setupStripeCredentials(paymentMethodId: string, userId: string): Promise<{ customerId: string }> {
     const stripe = new Stripe(this.stripeApiKey);
@@ -228,11 +221,11 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
   /**
    * Maps a Stripe PaymentIntent object to a generic PaymentResult.
-   * Works for both first-time and recurring PI responses.
+   * credentialsToSave is passed through opaquely — the caller (paymentHandler) persists it.
    */
   private mapStripeResponse(
     stripeResponse: any,
-    credentials: { stripeCustomerId?: string; stripePaymentMethodId?: string }
+    credentialsToSave?: Record<string, any>
   ): PaymentResult {
     // docs says that when 3ds is required the api will return requires_action status
     // but it actually returns requires_source_action as a status... Weird.
@@ -255,7 +248,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           authenticationUrl,
           clientSecret: stripeResponse.client_secret,
           stripeStatus: stripeResponse.status,
-          ...credentials
+          credentialsToSave,
         }
       };
     }
@@ -270,7 +263,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           amount: stripeResponse.amount,
           currency: stripeResponse.currency,
           stripeStatus: stripeResponse.status,
-          ...credentials
+          credentialsToSave,
         }
       };
     }
@@ -282,9 +275,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
         error: 'Card declined',
         status: 'declined',
         retryable: false,
-        metadata: {
-          stripeStatus: stripeResponse.status
-        }
+        metadata: { stripeStatus: stripeResponse.status }
       };
     }
 
@@ -294,9 +285,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
       error: `Unexpected payment status: ${stripeResponse.status}`,
       status: 'unknown',
       retryable: true,
-      metadata: {
-        stripeStatus: stripeResponse.status
-      }
+      metadata: { stripeStatus: stripeResponse.status }
     };
   }
 }
