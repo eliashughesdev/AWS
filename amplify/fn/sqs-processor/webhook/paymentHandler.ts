@@ -164,21 +164,24 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
 
         // Persist credentials returned by the processor under the provider-specific key.
+        // Use the actual provider that processed the payment (may differ from resolvedProvider after failover).
         // Only save on the first successful setup (storedCredentials was empty before this charge).
         const credentialsToSave = paymentResult.metadata?.credentialsToSave as Record<string, any> | undefined;
+        const actualProvider = paymentResult.metadata?.provider || resolvedProvider;
+        const actualCredentialsKey = `${actualProvider}Credentials`;
         if (credentialsToSave && !storedCredentials) {
             try {
                 await updateItem({
                     tableName: 'v2CustomerTable',
                     key: { id: userId, sk: `PAYMENT#${paymentId}` },
                     updateExpression: 'SET #credKey = :creds, updated_at = :ts',
-                    attributeNames: { '#credKey': credentialsKey },
+                    attributeNames: { '#credKey': actualCredentialsKey },
                     attributeValues: {
                         ':creds': credentialsToSave,
                         ':ts': Date.now(),
                     }
                 });
-                console.log(`DEBUG: ${resolvedProvider} credentials saved to DynamoDB`);
+                console.log(`DEBUG: ${actualProvider} credentials saved to DynamoDB`);
             } catch (saveErr) {
                 console.error('Failed to save credentials to DynamoDB:', saveErr);
             }
