@@ -6,6 +6,7 @@ import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from "@evervault/react";
 import AddCard from './pages/AddCard'
 import ProcessPayment from './pages/ProcessPayment'
+import PaymentWidget from './pages/PaymentWidget'
 
 Amplify.configure(outputs)
 
@@ -25,6 +26,9 @@ function App() {
           }
           if (path === '/payment/process') {
             return <ProcessPayment user={user} />
+          }
+          if (path === '/payment/widget') {
+            return <PaymentWidget user={user} />
           }
 
           return (
