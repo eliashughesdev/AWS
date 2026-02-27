@@ -11,31 +11,44 @@ export default class ProcessPaymentHandler {
         console.log('DEBUG: Incoming Event:', JSON.stringify(event));
         console.log('DEBUG: Event Body:', JSON.stringify(event.body));
 
-        const { paymentId, userId, amount, currency, provider = 'stripe', transactionId, offSession, ...additionalParams } = event.body;
+        const { paymentId, cardData, userId, amount, currency, provider = 'stripe', transactionId, offSession, ...additionalParams } = event.body;
 
-        console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
+        // guestMode: card data arrives inline (widget flow), no saved paymentId
+        const guestMode = paymentId ? false : true;
+        const effectiveTransactionId = transactionId || paymentId || `txn_${Date.now()}`;
+        const effectivePaymentId = paymentId ? paymentId : `WIDGET#${effectiveTransactionId}`;
 
-        // Validate required parameters
-        if (!paymentId || !userId || !amount || !currency) {
-            return processError(100029, 'Missing required parameters: paymentId, userId, amount, or currency');
+        console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', effectivePaymentId, 'transactionId:', effectiveTransactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider, 'guestMode:', guestMode);
+
+        // Validate required parameters — need either a saved paymentId or inline cardData
+        if (!paymentId && !cardData) {
+            return processError(100029, 'Missing required parameters: provide paymentId or cardData');
+        }
+        if (!userId || !amount || !currency) {
+            return processError(100029, 'Missing required parameters: userId, amount, or currency');
         }
 
         try {
             // Prepare message for queue
             // transactionId is used for WebSocket correlation (what frontend uses to connect)
-            // paymentId is used to look up the saved payment method
-            const queueMessage = {
+            // paymentId is used to look up the saved payment method (or a synthetic WIDGET# key for guest payments)
+            const queueMessage: Record<string, any> = {
                 queue: 'v1-payment-processing-queue',
-                paymentId,
-                transactionId: transactionId || paymentId, // fallback to paymentId if not provided
+                paymentId: effectivePaymentId,
+                transactionId: effectiveTransactionId,
                 userId,
                 amount,
                 currency,
                 provider,
                 offSession: offSession || false,
+                guestMode,
                 timestamp: Date.now(),
-                ...additionalParams
+                ...additionalParams,
             };
+
+            if (guestMode && cardData) {
+                queueMessage.cardData = cardData;
+            }
 
             // Send to SQS queue
             console.log('DEBUG: Sending payment job to SQS queue:', process.env.PAYMENT_PROCESSING_QUEUE_URL);
@@ -55,7 +68,7 @@ export default class ProcessPaymentHandler {
                         message: 'Payment is being processed',
                         res: {
                             jobId: jobId,
-                            paymentId,
+                            paymentId: effectivePaymentId,
                             status: 'queued'
                         }
                     }

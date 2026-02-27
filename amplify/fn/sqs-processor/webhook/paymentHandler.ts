@@ -18,13 +18,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     console.log('DEBUG: ProcessPaymentHandler execution started.');
     console.log('DEBUG: Incoming Message:', JSON.stringify(message));
 
-    const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', ...additionalParams } = message;
+    const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', guestMode, ...additionalParams } = message;
 
     // transactionId is used for WebSocket lookup (what frontend uses to connect)
-    // paymentId is used to look up the saved payment method
+    // paymentId is used to look up the saved payment method (or a synthetic WIDGET# key for guest payments)
     const wsTransactionId = transactionId || paymentId;
 
-    console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', wsTransactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider);
+    console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', wsTransactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider, 'guestMode:', guestMode);
 
     if (!paymentId || !userId || !amount || !currency) {
         console.log('DEBUG: Missing required parameters');
@@ -34,8 +34,28 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     // Generate server-side payment order ID for transaction logging
     const paymentOrderId = generatePaymentOrderId();
 
-    try {
-        // Retrieve the saved payment method
+    // Resolve card data and stored credentials based on mode
+    let encryptedCardData: any;
+    let storedCredentials: Record<string, any> | undefined;
+
+    if (guestMode) {
+        // Widget/guest path — card data arrives inline, already encrypted by Evervault relay.
+        // No DB lookup and no credentials to persist.
+        console.log('DEBUG: Guest mode — using inline card data, skipping DB lookup.');
+        encryptedCardData = additionalParams.cardData;
+        storedCredentials = undefined;
+
+        if (!encryptedCardData) {
+            console.log('DEBUG: Guest mode but no cardData provided');
+            await notifyPaymentResult(wsTransactionId, userId, {
+                success: false,
+                status: 'failed',
+                error: 'No card data provided',
+            }, paymentId);
+            return false;
+        }
+    } else {
+        // Saved-card path — retrieve encrypted card data and stored credentials from DynamoDB
         console.log('DEBUG: Querying for payment record...');
         const paymentRecord = await queryRecord('v2CustomerTable', 'id = :id AND sk = :sk', {
             ':id': userId,
@@ -46,20 +66,26 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
         if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
             console.log('DEBUG: Payment method not found');
-
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
                 error: 'Payment method not found',
             }, paymentId);
-
             return false;
         }
 
-        const encryptedCardData = paymentRecord.res[0].cardData;
+        encryptedCardData = paymentRecord.res[0].cardData;
 
-        console.log('DEBUG: Retrieved encrypted card data for processing.');
+        const credentialsKey = `${provider}Credentials`;
+        storedCredentials = paymentRecord.res[0][credentialsKey] as Record<string, any> | undefined;
+    }
 
+    console.log('DEBUG: Card data ready for processing. guestMode:', guestMode);
+    if (storedCredentials) {
+        console.log(`DEBUG: Stored credentials found for provider ${provider}`);
+    }
+
+    try {
         // Build configuration for payment processor
         const processorConfig = {
             evervaultAppId: "app_322d8e2bc10b",
@@ -133,14 +159,6 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             });
         };
 
-        // Load stored credentials for the resolved provider (e.g. stripeCredentials, cloverCredentials).
-        // Each processor reads what it needs from this opaque bag.
-        const credentialsKey = `${resolvedProvider}Credentials`;
-        const storedCredentials = paymentRecord.res[0][credentialsKey] as Record<string, any> | undefined;
-        if (storedCredentials) {
-            console.log(`DEBUG: Stored credentials found for provider ${resolvedProvider}`);
-        }
-
         // Process the payment with failover support
         console.log('DEBUG: Processing payment with failover, primary provider:', resolvedProvider);
         const offSession = !!additionalParams.offSession;
@@ -164,12 +182,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         console.log('DEBUG: Payment processor result:', JSON.stringify(paymentResult));
 
         // Persist credentials returned by the processor under the provider-specific key.
-        // Use the actual provider that processed the payment (may differ from resolvedProvider after failover).
-        // Only save on the first successful setup (storedCredentials was empty before this charge).
+        // Only for saved-card payments — guest/widget payments must never write to DynamoDB.
         const credentialsToSave = paymentResult.metadata?.credentialsToSave as Record<string, any> | undefined;
         const actualProvider = paymentResult.metadata?.provider || resolvedProvider;
         const actualCredentialsKey = `${actualProvider}Credentials`;
-        if (credentialsToSave && !storedCredentials) {
+        if (credentialsToSave && !storedCredentials && !guestMode) {
             try {
                 await updateItem({
                     tableName: 'v2CustomerTable',
@@ -211,7 +228,6 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         if (!paymentResult.success) {
             console.error('Payment processing failed:', paymentResult.error);
 
-            // Notify via WebSocket about the failure
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: 'failed',
@@ -235,10 +251,8 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
             return true;
         } else if (paymentResult.status === 'succeeded') {
-            // Payment succeeded
             console.log('DEBUG: Payment succeeded');
 
-            // Notify via WebSocket
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: true,
                 status: 'succeeded',
@@ -247,10 +261,8 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
             return true;
         } else {
-            // Other status (declined, error, etc.)
             console.log('DEBUG: Payment status:', paymentResult.status);
 
-            // Notify via WebSocket
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
                 status: paymentResult.status,
@@ -264,7 +276,6 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         console.error('FATAL ERROR: Payment processing error:', err);
         console.error('Error stack:', err.stack);
 
-        // Log the fatal error to the order record
         try {
             await updateOrderStatus({
                 paymentOrderId,
@@ -275,7 +286,6 @@ export const handlePayment = async (message: any): Promise<boolean> => {
             console.error('Failed to log fatal error to transaction logs:', logErr);
         }
 
-        // Notify via WebSocket about the error
         try {
             await notifyPaymentResult(wsTransactionId, userId, {
                 success: false,
