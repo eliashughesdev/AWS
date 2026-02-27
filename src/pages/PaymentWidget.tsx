@@ -4,13 +4,21 @@ interface PaymentWidgetProps {
   user?: any;
 }
 
-type PaymentMethodId = 'credit-card' | 'ideal' | 'paypal' | 'sofort';
+type PaymentMethodId = 'credit-card' | 'ideal' | 'paypal' | 'sofort' | 'epay';
 
-const paymentMethods: { id: PaymentMethodId; icon: string; label: string }[] = [
+interface SidebarMethod {
+  id: PaymentMethodId;
+  label: string;
+  icon?: string;
+  image?: string;
+}
+
+const paymentMethods: SidebarMethod[] = [
   { id: 'credit-card', icon: 'credit_card', label: 'Credit Card' },
   { id: 'ideal', icon: 'account_balance', label: 'iDEAL' },
   { id: 'paypal', icon: 'payments', label: 'PayPal' },
   { id: 'sofort', icon: 'bolt', label: 'Sofort' },
+  { id: 'epay', image: '/src/assets/epay-logo.png', label: 'ePay' },
 ];
 
 const PaymentWidget = ({ user: _user }: PaymentWidgetProps) => {
@@ -67,7 +75,10 @@ const PaymentWidget = ({ user: _user }: PaymentWidgetProps) => {
                       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
-                  <span className="material-symbols-outlined">{method.icon}</span>
+                  {method.image
+                    ? <img src={method.image} alt={method.label} className="h-6 w-auto object-contain" />
+                    : <span className="material-symbols-outlined">{method.icon}</span>
+                  }
                   <span className="text-sm font-semibold">{method.label}</span>
                 </a>
               ))}
