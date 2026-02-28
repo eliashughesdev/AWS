@@ -25,7 +25,7 @@ const paymentMethods: SidebarMethod[] = [
   { id: 'epay', image: '/src/assets/epay-logo.png', label: 'ePay' },
 ];
 
-const RELAY_URL = 'https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1/payments/process';
+const API_URL = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process';
 const WS_URL = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1';
 const AMOUNT = 149.00;
 const CURRENCY = 'USD';
@@ -145,22 +145,24 @@ const PaymentWidget = ({ user }: PaymentWidgetProps) => {
       const session = await fetchAuthSession();
       const token = session.tokens?.accessToken?.toString();
 
+      // Encrypt sensitive card fields client-side — same token format the relay produces for saved cards
+      const encryptedCardFields = await evervault.encrypt({
+        number: cleanNumber,
+        cvc,
+        expiry: { month, year },
+      });
+
       const paymentMethodPayload = {
         lastFour: cleanNumber.slice(-4),
         bin: cleanNumber.slice(0, 8),
         cardType: detectCardType(cleanNumber),
-        cardData: JSON.stringify({
-          number: cleanNumber,
-          cvc,
-          expiry: { month, year },
-        }),
+        cardData: JSON.stringify(encryptedCardFields),
       };
 
       await axios.post(
-        RELAY_URL,
+        API_URL,
         {
           cardData: paymentMethodPayload,
-          bin: paymentMethodPayload.bin,
           userId,
           amount: AMOUNT,
           currency: CURRENCY,
