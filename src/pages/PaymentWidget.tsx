@@ -25,7 +25,7 @@ const paymentMethods: SidebarMethod[] = [
   { id: 'epay', image: '/src/assets/epay-logo.png', label: 'ePay' },
 ];
 
-const API_URL = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process';
+const API_URL = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process/guest';
 const WS_URL = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1';
 const AMOUNT = 149.00;
 const CURRENCY = 'USD';

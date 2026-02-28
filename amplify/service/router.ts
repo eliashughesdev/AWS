@@ -8,6 +8,7 @@ import stripeWebhook from './routes/webhook/stripe'
 import savePayment from './routes/payments/save'
 import listPayments from './routes/payments/list'
 import processPayment from './routes/payments/process'
+import processGuestPayment from './routes/payments/processGuest'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
 
@@ -27,6 +28,7 @@ export const routes: RoutesMap = new Map([
     ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
     ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
     ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
+    ['/payments/process/guest', { handler: processGuestPayment, requiredParams: ['cardData', 'userId', 'amount', 'currency'], method: 'POST' }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string }, context: any) => {
