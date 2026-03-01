@@ -1,39 +1,39 @@
-import { useState } from "react";
-import { useEvervault } from "@evervault/react";
-import axios from "axios";
-import { fetchAuthSession } from 'aws-amplify/auth';
+import { useState } from 'react'
+import { useEvervault } from '@evervault/react'
+import axios from 'axios'
+import { fetchAuthSession } from 'aws-amplify/auth'
 
 interface AddCardProps {
   user: any;
 }
 
 export default function AddCard({ user }: AddCardProps) {
-  const evervault = useEvervault();
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvc, setCvc] = useState("");
+  const evervault = useEvervault()
+  const [cardNumber, setCardNumber] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [cvc, setCvc] = useState('')
 
   const handleSave = async () => {
     if (!cardNumber || !expiry || !cvc) {
-      alert("Please fill all fields");
-      return;
+      alert('Please fill all fields')
+      return
     }
 
-    const [month, year] = expiry.split('/');
+    const [month, year] = expiry.split('/')
     if (!month || !year || month.length !== 2 || year.length !== 2) {
-      alert("Invalid expiry format. Use MM/YY");
-      return;
+      alert('Invalid expiry format. Use MM/YY')
+      return
     }
 
     if (!evervault) {
-      alert("Encryption service not available");
-      return;
+      alert('Encryption service not available')
+      return
     }
 
-    const cleanCardNumber = cardNumber.replace(/\s/g, '');
-    const lastFour = cleanCardNumber.slice(-4);
-    const bin = cleanCardNumber.slice(0, 8);
-    const cardType = detectCardType(cleanCardNumber);
+    const cleanCardNumber = cardNumber.replace(/\s/g, '')
+    const lastFour = cleanCardNumber.slice(-4)
+    const bin = cleanCardNumber.slice(0, 8)
+    const cardType = detectCardType(cleanCardNumber)
 
     // const cardData = {
     //   number: cardNumber,
@@ -58,22 +58,22 @@ export default function AddCard({ user }: AddCardProps) {
       //     }));
       // console.log("Encryption successful");
 
-      const session = await fetchAuthSession();
-      const token = session.tokens?.accessToken?.toString();
+      const session = await fetchAuthSession()
+      const token = session.tokens?.accessToken?.toString()
 
-      console.log("Sending request to backend...");
+      console.log('Sending request to backend...')
       const response = await axios.post('https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1/payments/save', {
         paymentMethod: {
-          lastFour: lastFour,
-          bin: bin,
-          cardType: cardType,
+          lastFour,
+          bin,
+          cardType,
           cardData: JSON.stringify(
             {
               number: cardNumber,
-              cvc: cvc,
+              cvc,
               expiry: {
-                month: month,
-                year: year
+                month,
+                year
               }
             })
         },
@@ -83,15 +83,15 @@ export default function AddCard({ user }: AddCardProps) {
           'X-Project': 'e2e-hmac',
           Authorization: `Bearer ${token}`,
         },
-      });
+      })
 
-      console.log("Payment saved:", response.data);
-      alert("Payment method saved successfully!");
+      console.log('Payment saved:', response.data)
+      alert('Payment method saved successfully!')
     } catch (error: any) {
-      console.error("Error saving payment:", error);
-      alert("Failed to save payment method: " + (error?.message || "Unknown error"));
+      console.error('Error saving payment:', error)
+      alert('Failed to save payment method: ' + (error?.message || 'Unknown error'))
     }
-  };
+  }
 
   // Helper function to detect card type
   function detectCardType(number: string): string {
@@ -100,14 +100,14 @@ export default function AddCard({ user }: AddCardProps) {
       mastercard: /^5[1-5]/,
       amex: /^3[47]/,
       discover: /^6(?:011|5)/,
-    };
+    }
 
     for (const [type, pattern] of Object.entries(patterns)) {
       if (pattern.test(number)) {
-        return type;
+        return type
       }
     }
-    return 'unknown';
+    return 'unknown'
   };
 
   return (
@@ -116,33 +116,33 @@ export default function AddCard({ user }: AddCardProps) {
       <div>
         <label>Card Number:</label>
         <input
-          type="text"
+          type='text'
           value={cardNumber}
           onChange={(e) => setCardNumber(e.target.value)}
-          placeholder="1234 5678 9012 3456"
+          placeholder='1234 5678 9012 3456'
         />
       </div>
       <div>
         <label>Expiration Date (MM/YY):</label>
         <input
-          type="text"
+          type='text'
           value={expiry}
           onChange={(e) => setExpiry(e.target.value)}
-          placeholder="12/25"
+          placeholder='12/25'
         />
       </div>
       <div>
         <label>CVC:</label>
         <input
-          type="text"
+          type='text'
           value={cvc}
           onChange={(e) => setCvc(e.target.value)}
-          placeholder="123"
+          placeholder='123'
         />
       </div>
       <button onClick={handleSave}>
         Save
       </button>
     </div>
-  );
+  )
 }

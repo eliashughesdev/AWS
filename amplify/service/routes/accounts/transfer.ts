@@ -26,18 +26,18 @@ export default class TransferFundsHandler {
       const vaProvider = ProviderRegistry.getProvider(provider as ProviderName)
       const result = await vaProvider.transferFunds({ senderAccountId, recipientAccountId, amount})
 
-      	return response({
-			statusCode: 200,
-			headers: null,
-			bodyObject: {
-				success: true,
-				res: {
-					data: {
-						transactionId: result.reference,
-					}
-				}
-			}
-		})
+      return response({
+        statusCode: 200,
+        headers: null,
+        bodyObject: {
+          success: true,
+          res: {
+            data: {
+              transactionId: result.reference,
+            }
+          }
+        }
+      })
     } catch (err) {
       console.error('Funds transfer error:', err)
       return processError(100004, 'Failed to transfer funds')

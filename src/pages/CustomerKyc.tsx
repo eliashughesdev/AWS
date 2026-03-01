@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import Persona from 'persona'
 import axios from 'axios'
-import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
+import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth'
 
 export default function CustomerKyc() {
   const clientRef = useRef<any>(null)
@@ -9,13 +9,13 @@ export default function CustomerKyc() {
   useEffect(() => {
     if (clientRef.current) return
     const init = async () => {
-      const user = await getCurrentUser();
-      const session = await fetchAuthSession();
-      console.log(user);
-      console.log(user.userId);
+      const user = await getCurrentUser()
+      const session = await fetchAuthSession()
+      console.log(user)
+      console.log(user.userId)
       console.log(session)
-      console.log(session.tokens?.idToken?.toString());
-      const token = session.tokens?.accessToken?.toString();
+      console.log(session.tokens?.idToken?.toString())
+      const token = session.tokens?.accessToken?.toString()
 
       const client = new Persona.Client({
         templateId: 'itmpl_1sUZyGnyr37FxJVbcJioqM6x',
@@ -25,7 +25,7 @@ export default function CustomerKyc() {
         onComplete: async ({ inquiryId, status, fields }: any) => {
           try {
             // const API_URL = process.env.API_URL
-            await axios.post(`https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc`,
+            await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc',
               { inquiryId, status, fields },
               {
                 headers: {

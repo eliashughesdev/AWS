@@ -4,7 +4,7 @@ import {ProviderName} from '../providers/ledger/ProviderName'
 
 
 const providerMap: Record<ProviderName, () => AccountProvider> = {
-    [ProviderName.Tatum]: () => new TatumProvider()
+  [ProviderName.Tatum]: () => new TatumProvider()
 }
 
 export class ProviderRegistry {

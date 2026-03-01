@@ -43,24 +43,24 @@ export interface CustomerAccount {
 }
 
 export interface AssignDepositAddressParams {
-    accountId: string;
-    address: string;
+  accountId: string;
+  address: string;
 }
 
 export interface AssignDepositAddressResponse {
-    address: string;
+  address: string;
 }
 
 export interface GenerateDepositAddressResponse {
-    xpub: string;
-    derivationKey: number;
-    address: string;
-    currency: string;
+  xpub: string;
+  derivationKey: number;
+  address: string;
+  currency: string;
 }
 
 
 export interface AccountProvider {
-  getXpub(chainName: string): Promise<{xpub: string}>
+  getXpub(chainName: string): Promise<{ xpub: string }>
   createVaAccount(params: CreateAccountParams): Promise<{ accountId: string }>;
   getCustomerAccounts(accountId: string): Promise<{ accounts: CustomerAccount[] }>;
   transferFunds(params: TransferFundsParams): Promise<{ reference: string }>;

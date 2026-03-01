@@ -10,12 +10,12 @@ const paymentId = 'fe4fa0d6-1f80-4a23-81ee-b7e2692d91b0'
 const userId = '210b5590-3041-7060-f7c6-2fb484965a71'
 
 const body = JSON.stringify({
-    paymentId,
-    userId,
-    amount: 1000,
-    currency: 'USD',
-    provider: 'clover',
-    offSession: true,
+  paymentId,
+  userId,
+  amount: 1000,
+  currency: 'USD',
+  provider: 'clover',
+  offSession: true,
 })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')

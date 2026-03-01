@@ -5,7 +5,7 @@ const key = 'b54dac72de7044e894615f8fccdc6bde3687827ee3cd43e8b701af7bee74f8d5'
 const path = '/v1/accounts/details'
 console.log('path: ', path)
 
-const body = JSON.stringify({ foo: "bar", baz: 1 })
+const body = JSON.stringify({ foo: 'bar', baz: 1 })
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
 console.log('bodyHash', bodyHash)
 

@@ -33,7 +33,7 @@ const privateKey = '-----BEGIN PRIVATE KEY-----\n' +
 const path = '/v1/accounts/details'
 console.log('path: ', path)
 
-const body = JSON.stringify({ foo: "bar", baz: 1 })
+const body = JSON.stringify({ foo: 'bar', baz: 1 })
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
 console.log('bodyHash', bodyHash)
 

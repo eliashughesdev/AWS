@@ -1,24 +1,24 @@
-import Evervault from '@evervault/sdk';
-import { PaymentProcessor, PaymentParams, PaymentResult, PaymentProcessorConfig } from './PaymentProcessor';
+import Evervault from '@evervault/sdk'
+import { PaymentProcessor, PaymentParams, PaymentResult, PaymentProcessorConfig } from './PaymentProcessor'
 
 export class CloverPaymentProcessor implements PaymentProcessor {
-  private cloverPrivateToken: string;
-  private cloverPublicKey: string;
-  private evervault: Evervault;
-  private readonly baseUrl = 'https://scl-sandbox.dev.clover.com';
+  private cloverPrivateToken: string
+  private cloverPublicKey: string
+  private evervault: Evervault
+  private readonly baseUrl = 'https://scl-sandbox.dev.clover.com'
 
   private constructor(cloverPrivateToken: string, cloverPublicKey: string, evervaultAppId: string, evervaultApiKey: string) {
-    this.cloverPrivateToken = cloverPrivateToken;
-    this.cloverPublicKey = cloverPublicKey;
-    this.evervault = new Evervault(evervaultAppId, evervaultApiKey);
-    console.log("CloverPaymentProcessor initialized");
+    this.cloverPrivateToken = cloverPrivateToken
+    this.cloverPublicKey = cloverPublicKey
+    this.evervault = new Evervault(evervaultAppId, evervaultApiKey)
+    console.log('CloverPaymentProcessor initialized')
   }
 
   static create(config: PaymentProcessorConfig): CloverPaymentProcessor {
-    const { cloverPrivateToken, cloverPublicKey } = config;
+    const { cloverPrivateToken, cloverPublicKey } = config
 
     if (!cloverPrivateToken || !cloverPublicKey) {
-      throw new Error('CloverPaymentProcessor requires cloverPrivateToken and cloverPublicKey');
+      throw new Error('CloverPaymentProcessor requires cloverPrivateToken and cloverPublicKey')
     }
 
     return new CloverPaymentProcessor(
@@ -26,17 +26,17 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       cloverPublicKey,
       config.evervaultAppId,
       config.evervaultApiKey
-    );
+    )
   }
 
   async processPayment(params: PaymentParams): Promise<PaymentResult> {
-    const creds = params.storedCredentials;
+    const creds = params.storedCredentials
 
     if (params.offSession && creds?.customerId) {
-      return this.processRecurringPayment(params);
+      return this.processRecurringPayment(params)
     }
 
-    return this.processFirstTimePayment(params);
+    return this.processFirstTimePayment(params)
   }
 
   /**
@@ -45,10 +45,10 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    * stored_credentials SUBSEQUENT is required for card-network MIT compliance.
    */
   private async processRecurringPayment(params: PaymentParams): Promise<PaymentResult> {
-    const { customerId } = params.storedCredentials!;
+    const { customerId } = params.storedCredentials!
 
     try {
-      console.log('CloverPaymentProcessor: Processing recurring payment for customer:', customerId);
+      console.log('CloverPaymentProcessor: Processing recurring payment for customer:', customerId)
 
       const chargeBody = {
         ecomind: 'ecom',
@@ -62,21 +62,20 @@ export class CloverPaymentProcessor implements PaymentProcessor {
           initiator: 'MERCHANT',
           is_scheduled: true,
         },
-      };
+      }
 
-      const chargeResult = await this.cloverPost('/v1/charges', chargeBody, params.metadata?.clientIp);
-      console.log('CloverPaymentProcessor: Recurring charge result:', JSON.stringify(chargeResult));
+      const chargeResult = await this.cloverPost('/v1/charges', chargeBody, params.metadata?.clientIp)
+      console.log('CloverPaymentProcessor: Recurring charge result:', JSON.stringify(chargeResult))
 
-      return this.mapCloverResponse(chargeResult);
-
+      return this.mapCloverResponse(chargeResult)
     } catch (error: any) {
-      console.error('CloverPaymentProcessor: Recurring payment error:', error);
+      console.error('CloverPaymentProcessor: Recurring payment error:', error)
       return {
         success: false,
         error: error.message,
         status: 'error',
         retryable: true
-      };
+      }
     }
   }
 
@@ -92,15 +91,15 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    */
   private async processFirstTimePayment(params: PaymentParams): Promise<PaymentResult> {
     try {
-      console.log('CloverPaymentProcessor: Processing first-time payment');
+      console.log('CloverPaymentProcessor: Processing first-time payment')
 
       // Step 1: Tokenize via Evervault (only step where raw card data is in play)
-      const singleUseToken = await this.tokenizeCard(params.cardData);
-      console.log('CloverPaymentProcessor: Card tokenized');
+      const singleUseToken = await this.tokenizeCard(params.cardData)
+      console.log('CloverPaymentProcessor: Card tokenized')
 
       // Step 2: Create Customer
-      const customerId = await this.createCustomerWithCard(singleUseToken, params);
-      console.log('CloverPaymentProcessor: Customer created:', customerId);
+      const customerId = await this.createCustomerWithCard(singleUseToken, params)
+      console.log('CloverPaymentProcessor: Customer created:', customerId)
 
       // Step 3: Charge using the customer ID as source
       const chargeBody = {
@@ -109,24 +108,23 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         capture: true,
         source: customerId,
         external_reference_id: `payment_${Date.now()}`.slice(0, 12),
-      };
+      }
 
-      const chargeResult = await this.cloverPost('/v1/charges', chargeBody, params.metadata?.clientIp);
-      console.log('CloverPaymentProcessor: First-time charge result:', JSON.stringify(chargeResult));
+      const chargeResult = await this.cloverPost('/v1/charges', chargeBody, params.metadata?.clientIp)
+      console.log('CloverPaymentProcessor: First-time charge result:', JSON.stringify(chargeResult))
 
       // On success, save customerId so future recurring charges skip tokenization entirely
-      const credentialsToSave = chargeResult.paid ? { customerId } : undefined;
+      const credentialsToSave = chargeResult.paid ? { customerId } : undefined
 
-      return this.mapCloverResponse(chargeResult, credentialsToSave);
-
+      return this.mapCloverResponse(chargeResult, credentialsToSave)
     } catch (error: any) {
-      console.error('CloverPaymentProcessor: First-time payment error:', error);
+      console.error('CloverPaymentProcessor: First-time payment error:', error)
       return {
         success: false,
         error: error.message,
         status: 'error',
         retryable: true
-      };
+      }
     }
   }
 
@@ -136,42 +134,42 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    */
   private async tokenizeCard(encryptedCardData: any): Promise<string> {
     const tokenizeRequest = {
-      url: "https://token-sandbox.dev.clover.com/v1/tokens",
-      method: "POST",
+      url: 'https://token-sandbox.dev.clover.com/v1/tokens',
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "apikey": this.cloverPublicKey
+        'Content-Type': 'application/json',
+        'apikey': this.cloverPublicKey
       },
       body: {
         card: {
-          number: "{{CARD_NUMBER}}",
-          exp_month: "{{EXP_MONTH}}",
-          exp_year: "{{EXP_YEAR}}",
-          cvv: "{{CVC}}"
+          number: '{{CARD_NUMBER}}',
+          exp_month: '{{EXP_MONTH}}',
+          exp_year: '{{EXP_YEAR}}',
+          cvv: '{{CVC}}'
         }
       }
-    };
+    }
 
-    const encryptedProxy = await this.evervault.encrypt(JSON.stringify(tokenizeRequest));
+    const encryptedProxy = await this.evervault.encrypt(JSON.stringify(tokenizeRequest))
 
     const tokenResult = await this.evervault.run('payments', {
       proxy: encryptedProxy,
       card_data: encryptedCardData
-    });
+    })
 
-    console.log('CloverPaymentProcessor: Tokenization result:', JSON.stringify(tokenResult));
+    console.log('CloverPaymentProcessor: Tokenization result:', JSON.stringify(tokenResult))
 
     if (tokenResult.error) {
-      throw new Error(`Clover tokenization failed: ${tokenResult.error.message || tokenResult.error}`);
+      throw new Error(`Clover tokenization failed: ${tokenResult.error.message || tokenResult.error}`)
     }
 
     // Evervault may wrap the response under .result; normalise both shapes
-    const token = tokenResult.result?.id || tokenResult.id;
+    const token = tokenResult.result?.id || tokenResult.id
     if (!token) {
-      throw new Error('Clover tokenization did not return a token');
+      throw new Error('Clover tokenization did not return a token')
     }
 
-    return token;
+    return token
   }
 
   /**
@@ -179,19 +177,19 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    * Clover automatically vaults the card and links it — no separate vaulting call needed.
    */
   private async createCustomerWithCard(singleUseToken: string, params: PaymentParams): Promise<string> {
-    const body: Record<string, any> = { source: singleUseToken };
+    const body: Record<string, any> = { source: singleUseToken }
 
-    if (params.metadata?.email)     body.email     = params.metadata.email;
-    if (params.metadata?.firstName) body.firstName = params.metadata.firstName;
-    if (params.metadata?.lastName)  body.lastName  = params.metadata.lastName;
+    if (params.metadata?.email) body.email = params.metadata.email
+    if (params.metadata?.firstName) body.firstName = params.metadata.firstName
+    if (params.metadata?.lastName) body.lastName = params.metadata.lastName
 
-    const response = await this.cloverPost('/v1/customers', body);
+    const response = await this.cloverPost('/v1/customers', body)
 
     if (!response.id) {
-      throw new Error(`Clover customer creation failed: ${JSON.stringify(response)}`);
+      throw new Error(`Clover customer creation failed: ${JSON.stringify(response)}`)
     }
 
-    return response.id;
+    return response.id
   }
 
   /**
@@ -199,7 +197,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    * Used for customer creation and all charges (no card data involved).
    */
   private async cloverPost(path: string, body: Record<string, any>, clientIp?: string): Promise<any> {
-    const url = `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}${path}`
 
     const response = await fetch(url, {
       method: 'POST',
@@ -209,11 +207,11 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         'X-Forwarded-For': clientIp || '127.0.0.1',
       },
       body: JSON.stringify(body),
-    });
+    })
 
-    const result = await response.json() as any;
-    console.log(`CloverPaymentProcessor: POST ${path} →`, JSON.stringify(result));
-    return result;
+    const result = await response.json() as any
+    console.log(`CloverPaymentProcessor: POST ${path} →`, JSON.stringify(result))
+    return result
   }
 
   /**
@@ -222,9 +220,9 @@ export class CloverPaymentProcessor implements PaymentProcessor {
    */
   private mapCloverResponse(chargeResult: any, credentialsToSave?: Record<string, any>): PaymentResult {
     if (chargeResult.failure_code || chargeResult.error) {
-      const isDecline = chargeResult.failure_code === 'card_declined'
-        || chargeResult.failure_code === 'processing_error'
-        || chargeResult.failure_code === 'insufficient_funds';
+      const isDecline = chargeResult.failure_code === 'card_declined' ||
+        chargeResult.failure_code === 'processing_error' ||
+        chargeResult.failure_code === 'insufficient_funds'
 
       return {
         success: false,
@@ -232,7 +230,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         status: isDecline ? 'declined' : 'failed',
         retryable: !isDecline,
         metadata: { cloverError: chargeResult.error }
-      };
+      }
     }
 
     if (chargeResult.paid) {
@@ -247,7 +245,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
           captured: chargeResult.captured,
           credentialsToSave,
         }
-      };
+      }
     }
 
     return {
@@ -259,6 +257,6 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         cloverChargeId: chargeResult.id,
         cloverStatus: chargeResult.status
       }
-    };
+    }
   }
 }
