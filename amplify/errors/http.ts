@@ -2,6 +2,8 @@ import { response } from '../utils/http'
 
 const httpErrors: any = {
   100001: () => 'this account id does not exist or not active',
+  100005: () => 'this account does not belong to the provided user',
+  100006: () => 'currency does not match account currency',
   100029: (params: any) => `required parameters for this request are ${params}`,
 }
 

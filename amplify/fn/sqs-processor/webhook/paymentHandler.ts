@@ -10,6 +10,7 @@ import {
   updateOrderStatus,
   PaymentLogStatus,
 } from '../../../utils/paymentLogger'
+import { handleBalanceUpdate } from './balanceUpdateHandler'
 
 /**
  * Processes a payment with 3DS authentication in a single step
@@ -18,7 +19,7 @@ export const handlePayment = async (message: any): Promise<boolean> => {
   console.log('DEBUG: ProcessPaymentHandler execution started.')
   console.log('DEBUG: Incoming Message:', JSON.stringify(message))
 
-  const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', guestMode, ...additionalParams } = message
+  const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', guestMode, depositMode, vAccountId, ...additionalParams } = message
 
   // transactionId is used for WebSocket lookup (what frontend uses to connect)
   // paymentId is used to look up the saved payment method (or a synthetic WIDGET# key for guest payments)
@@ -256,10 +257,21 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     } else if (paymentResult.status === 'succeeded') {
       console.log('DEBUG: Payment succeeded')
 
+      if (depositMode && vAccountId) {
+        console.log('DEBUG: Deposit mode — crediting balance for vAccountId:', vAccountId)
+        await handleBalanceUpdate({
+          accountId: vAccountId,
+          amount: String(amount),
+          currency,
+          txId: paymentResult.transactionId || paymentOrderId,
+        })
+      }
+
       await notifyPaymentResult(wsTransactionId, userId, {
         success: true,
         status: 'succeeded',
         paymentTransactionId: paymentResult.transactionId,
+        ...(depositMode ? { depositCredited: true } : {}),
       }, paymentId)
 
       return true
