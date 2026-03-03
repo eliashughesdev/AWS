@@ -1,4 +1,3 @@
-import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
@@ -9,11 +8,11 @@ import { sendToQueue } from '../../../utils/sqs'
  * Charges the user's saved card and credits the target account balance on success.
  */
 export default class DepositHandler {
-  async execute(event: any, context: Context) {
+  async execute(event: any) {
     console.log('DEBUG: DepositHandler execution started.')
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const { accountNumber, currency, amount, paymentId, userId, transactionId } = event.body
+    const { accountNumber, currency, amount, paymentId, userId, transactionId, email } = event.body
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({
@@ -65,6 +64,7 @@ export default class DepositHandler {
         vAccountId,
         offSession: false,
         timestamp: Date.now(),
+        ...(email ? { email } : {}),
       }
 
       const queueUrl = process.env.PAYMENT_PROCESSING_QUEUE_URL || 'https://sqs.us-east-2.amazonaws.com/129364817855/v1-payment-processing-queue'

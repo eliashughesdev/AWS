@@ -5,11 +5,13 @@ const path = '/v1/accounts/deposit'
 console.log('path: ', path)
 
 const body = JSON.stringify({
-  accountNumber: 'your-account-number-here',
+  accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4',
   currency: 'USD',
   amount: 50.00,
-  paymentId: '2b987037-5b9b-472c-93e3-c29e2e5c99c2',  // saved card reference from /payments/save
-  userId: '210b5590-3041-7060-f7c6-2fb484965a71',
+  paymentId: '2b987037-5b9b-472c-93e3-c29e2e5c99c2',
+  userId: 'a1bd5b77-bd4a-4d39-b65b-db371299ae26',
+  depositMode: true,
+  email: 'user@example.com',
 })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
