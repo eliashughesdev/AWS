@@ -2,6 +2,7 @@ import { response } from '../../../utils/http'
 import { queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
+import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 
 /**
  * Queues a deposit for async processing.
@@ -40,14 +41,26 @@ export default class DepositHandler {
       return processError(100005)
     }
 
-    // Validate currency matches the account
-    if (accountRecord.currency && accountRecord.currency !== currency) {
+    // Validate currency matches — only for fiat accounts; crypto accounts always receive a fiat payment
+    if (!accountRecord.chain && accountRecord.currency && accountRecord.currency !== currency) {
       console.error(`ERROR: Currency mismatch. Account currency: ${accountRecord.currency}, requested: ${currency}`)
       return processError(100006)
     }
 
     const vAccountId = accountRecord.vAccountId
+    const accountChain = accountRecord.chain  // e.g. 'BTC', 'SOL', 'ETH' — only present for crypto accounts
     const effectiveTransactionId = transactionId || `dep_${Date.now()}`
+
+    // For crypto accounts, convert fiat amount → crypto units using Binance rate
+    let cryptoAmount: number | undefined
+    let exchangeRate: number | undefined
+
+    if (accountChain) {
+      console.log(`DEBUG: Crypto account detected (chain: ${accountChain}). Fetching exchange rate ${accountChain}/${currency}`)
+      exchangeRate = await fetchCryptoPrice(accountChain, currency)
+      cryptoAmount = parseFloat((amount / exchangeRate).toFixed(8))
+      console.log(`DEBUG: Exchange rate: 1 ${accountChain} = ${exchangeRate} ${currency} → crediting ${cryptoAmount} ${accountChain}`)
+    }
 
     console.log('DEBUG: Account verified. vAccountId:', vAccountId, 'userId:', userId, 'amount:', amount, 'currency:', currency)
 
@@ -65,6 +78,7 @@ export default class DepositHandler {
         offSession: false,
         timestamp: Date.now(),
         ...(email ? { email } : {}),
+        ...(cryptoAmount !== undefined ? { cryptoAmount, cryptoCurrency: accountChain } : {}),
       }
 
       const queueUrl = process.env.PAYMENT_PROCESSING_QUEUE_URL || 'https://sqs.us-east-2.amazonaws.com/129364817855/v1-payment-processing-queue'
@@ -86,7 +100,8 @@ export default class DepositHandler {
             res: {
               jobId,
               transactionId: effectiveTransactionId,
-              status: 'queued'
+              status: 'queued',
+              ...(cryptoAmount !== undefined ? { cryptoAmount, cryptoCurrency: accountChain, exchangeRate } : {}),
             }
           }
         })

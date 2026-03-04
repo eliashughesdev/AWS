@@ -19,7 +19,7 @@ export const handlePayment = async (message: any): Promise<boolean> => {
   console.log('DEBUG: ProcessPaymentHandler execution started.')
   console.log('DEBUG: Incoming Message:', JSON.stringify(message))
 
-  const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', guestMode, depositMode, vAccountId, ...additionalParams } = message
+  const { paymentId, transactionId, userId, amount, currency, provider = 'stripe', guestMode, depositMode, vAccountId, cryptoAmount, cryptoCurrency, ...additionalParams } = message
 
   // transactionId is used for WebSocket lookup (what frontend uses to connect)
   // paymentId is used to look up the saved payment method (or a synthetic WIDGET# key for guest payments)
@@ -258,11 +258,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
       console.log('DEBUG: Payment succeeded')
 
       if (depositMode && vAccountId) {
-        console.log('DEBUG: Deposit mode — crediting balance for vAccountId:', vAccountId)
+        const creditAmount = cryptoAmount !== undefined ? String(cryptoAmount) : String(amount)
+        const creditCurrency = cryptoCurrency || currency
+        console.log(`DEBUG: Deposit mode — crediting ${creditAmount} ${creditCurrency} to vAccountId: ${vAccountId}`)
         await handleBalanceUpdate({
           accountId: vAccountId,
-          amount: String(amount),
-          currency,
+          amount: creditAmount,
+          currency: creditCurrency,
           txId: paymentResult.transactionId || paymentOrderId,
         })
       }
