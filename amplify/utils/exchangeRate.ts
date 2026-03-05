@@ -7,7 +7,7 @@
  */
 export const fetchCryptoPrice = async (crypto: string, fiat: string): Promise<number> => {
   const symbol = `${crypto.toUpperCase()}${fiat.toUpperCase()}`
-  const url = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`
+  const url = `https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`
   console.log(`EXCHANGE_RATE: Fetching price for ${symbol} from Binance`)
 
   const res = await fetch(url)
