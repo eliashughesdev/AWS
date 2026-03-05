@@ -75,6 +75,12 @@ const v1PaymentProcessingQueue = new sqs.Queue(apiStack, 'v1PaymentProcessingQue
   retentionPeriod: Duration.days(14),
 })
 
+const v1WithdrawalProcessingQueue = new sqs.Queue(apiStack, 'v1WithdrawalProcessingQueue', {
+  queueName: 'v1-withdrawal-processing-queue',
+  visibilityTimeout: Duration.seconds(300),
+  retentionPeriod: Duration.days(14),
+})
+
 const webSocketApi = new apigatewayv2.WebSocketApi(apiStack, 'PaymentWebSocketApi', {
   apiName: 'PaymentWebSocketApi',
 })
@@ -87,6 +93,7 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
   environment: {
     V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
     PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
+    WITHDRAWAL_QUEUE_URL: v1WithdrawalProcessingQueue.queueUrl,
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
@@ -103,6 +110,14 @@ sqsV1WebhookProcessingFn.addEventSource(
 
 sqsV1WebhookProcessingFn.addEventSource(
   new eventsources.SqsEventSource(v1PaymentProcessingQueue, {
+    batchSize: 1,
+    maxBatchingWindow: Duration.seconds(0),
+    reportBatchItemFailures: true,
+  })
+)
+
+sqsV1WebhookProcessingFn.addEventSource(
+  new eventsources.SqsEventSource(v1WithdrawalProcessingQueue, {
     batchSize: 1,
     maxBatchingWindow: Duration.seconds(0),
     reportBatchItemFailures: true,
@@ -144,6 +159,7 @@ const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
       V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
       V1_GENERAL_QUEUE_URL: v1GeneralQueue.queueUrl,
       PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
+      WITHDRAWAL_QUEUE_URL: v1WithdrawalProcessingQueue.queueUrl,
     }
   },
   defaultCorsPreflightOptions: {
@@ -431,6 +447,8 @@ v1GeneralQueue.grantSendMessages(apiGatewayRole)
 v1GeneralQueue.grantConsumeMessages(sqsV1GeneralProcessingFn)
 v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
+v1WithdrawalProcessingQueue.grantSendMessages(apiGatewayRole)
+v1WithdrawalProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['execute-api:ManageConnections'],
@@ -460,6 +478,7 @@ backend.addOutput({
       v1WebhookQueue: v1WebhookQueue.queueUrl,
       v1GeneralQueue: v1GeneralQueue.queueUrl,
       v1PaymentProcessingQueue: v1PaymentProcessingQueue.queueUrl,
+      v1WithdrawalProcessingQueue: v1WithdrawalProcessingQueue.queueUrl,
     }
   },
 })

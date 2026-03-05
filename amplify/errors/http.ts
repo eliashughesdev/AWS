@@ -4,6 +4,8 @@ const httpErrors: any = {
   100001: () => 'this account id does not exist or not active',
   100005: () => 'this account does not belong to the provided user',
   100006: () => 'currency does not match account currency',
+  100007: () => 'insufficient balance for this withdrawal',
+  100008: () => 'destination address required for crypto withdrawal',
   100029: (params: any) => `required parameters for this request are ${params}`,
 }
 

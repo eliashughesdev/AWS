@@ -136,6 +136,7 @@ interface IUpdateItemRequest {
   tableName: string | undefined
   key: Record<string, any>
   updateExpression: string | undefined
+  conditionExpression?: string
   attributeNames: Record<string, string> | undefined
   attributeValues: Record<string, any>
 }
@@ -161,16 +162,17 @@ export const updateItem = async (r: IUpdateItemRequest) => {
     TableName: r.tableName,
     Key: marshall(r.key, { removeUndefinedValues: true }),
     UpdateExpression: r.updateExpression,
+    ConditionExpression: r.conditionExpression,
     ExpressionAttributeNames: r.attributeNames,
     ExpressionAttributeValues: marshall(r.attributeValues, { removeUndefinedValues: true })
   })
 
   try {
     const response = await db.send(command)
-    return { success: true, res: response }
-  } catch (e) {
+    return { success: true, res: response, error: null }
+  } catch (e: any) {
     console.log(e)
-    return { success: false, res: null }
+    return { success: false, res: null, error: e }
   }
 }
 

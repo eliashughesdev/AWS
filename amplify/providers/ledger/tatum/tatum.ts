@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse } from '../provider'
+import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -109,6 +109,26 @@ export class TatumProvider implements AccountProvider {
     } catch (error) {
       console.error('ERROR (TatumProvider): Failed to generate deposit address:', error)
       throw new Error('Unable to generate deposit address')
+    }
+  }
+
+  async withdrawFunds({ accountId, address, amount, currency }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+    const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
+    const payload = { senderAccountId: accountId, address, amount, currency }
+
+    console.log('DEBUG (TatumProvider): Calling withdrawFunds.')
+    console.log(`DEBUG (TatumProvider): POST URL: ${url}`)
+    console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`)
+
+    try {
+      const res = await axios.post(url, payload, {
+        headers: { 'x-api-key': this.apiKey }
+      })
+      console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Withdrawal ID: ${res.data?.id}`)
+      return { withdrawalId: res.data.id }
+    } catch (error) {
+      console.error('ERROR (TatumProvider): Failed to withdraw funds.', error)
+      throw error
     }
   }
 

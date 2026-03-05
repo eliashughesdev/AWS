@@ -4,6 +4,7 @@ import accountsAccount from './routes/accounts/account'
 import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import accountDeposit from './routes/accounts/deposit'
+import accountWithdraw from './routes/accounts/withdraw'
 import webhookHandler from './routes/webhook/cb'
 import stripeWebhook from './routes/webhook/stripe'
 import savePayment from './routes/payments/save'
@@ -27,6 +28,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
   ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST' }],
+  ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'amount', 'userId', 'destinationAddress'], method: 'POST' }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
   ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],

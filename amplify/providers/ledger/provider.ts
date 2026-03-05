@@ -59,6 +59,17 @@ export interface GenerateDepositAddressResponse {
 }
 
 
+export interface WithdrawFundsParams {
+  accountId: string
+  address: string
+  amount: string
+  currency: string
+}
+
+export interface WithdrawFundsResponse {
+  withdrawalId: string
+}
+
 export interface AccountProvider {
   getXpub(chainName: string): Promise<{ xpub: string }>
   createVaAccount(params: CreateAccountParams): Promise<{ accountId: string }>;
@@ -66,4 +77,5 @@ export interface AccountProvider {
   transferFunds(params: TransferFundsParams): Promise<{ reference: string }>;
   generateDepositAddress(accountId: string): Promise<GenerateDepositAddressResponse>;
   assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
+  withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
 }
