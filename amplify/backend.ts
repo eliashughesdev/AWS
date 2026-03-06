@@ -97,7 +97,7 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
     V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
     PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
     WITHDRAWAL_QUEUE_URL: v1WithdrawalProcessingQueue.queueUrl,
-    TATUM_API_KEY: tatumApiKeySecret.secretValue.unsafeUnwrap(),
+    TATUM_API_KEY: tatumApiKeySecret.secretValueFromJson('TATUM_API_KEY').unsafeUnwrap(),
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
