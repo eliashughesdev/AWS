@@ -21,6 +21,7 @@ import * as sns from 'aws-cdk-lib/aws-sns'
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import { Code, Function, Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda'
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs'
 import { mainApiFn } from './fn/api/resource'
@@ -85,6 +86,8 @@ const webSocketApi = new apigatewayv2.WebSocketApi(apiStack, 'PaymentWebSocketAp
   apiName: 'PaymentWebSocketApi',
 })
 
+const tatumApiKeySecret = secretsmanager.Secret.fromSecretNameV2(apiStack, 'TatumApiKeySecret', 'TATUM_API_KEY')
+
 const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1WebhookProcessingFn', {
   entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
   runtime: Runtime.NODEJS_20_X,
@@ -94,6 +97,7 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
     V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
     PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
     WITHDRAWAL_QUEUE_URL: v1WithdrawalProcessingQueue.queueUrl,
+    TATUM_API_KEY: tatumApiKeySecret.secretValue.unsafeUnwrap(),
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
@@ -449,6 +453,7 @@ v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1WithdrawalProcessingQueue.grantSendMessages(apiGatewayRole)
 v1WithdrawalProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
+tatumApiKeySecret.grantRead(sqsV1WebhookProcessingFn)
 
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['execute-api:ManageConnections'],
