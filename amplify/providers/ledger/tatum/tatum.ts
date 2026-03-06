@@ -119,6 +119,7 @@ export class TatumProvider implements AccountProvider {
     console.log('DEBUG (TatumProvider): Calling withdrawFunds.')
     console.log(`DEBUG (TatumProvider): POST URL: ${url}`)
     console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`)
+    console.log(`DEBUG (TatumProvider): API Key: ${this.apiKey}`)
 
     try {
       const res = await axios.post(url, payload, {
