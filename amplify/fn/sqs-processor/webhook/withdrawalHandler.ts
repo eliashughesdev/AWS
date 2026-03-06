@@ -1,5 +1,6 @@
 import { updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
+import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { notifyPaymentResult } from '../../../utils/websocket'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
@@ -16,7 +17,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
   console.log(`Sending ${cryptoAmount} ${chain} to ${destinationAddress}`)
 
   try {
-    const provider = ProviderRegistry.getProvider('PCF0001')
+    const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
     const { withdrawalId } = await provider.withdrawFunds({
       accountId: vAccountId,
       address: destinationAddress,
@@ -29,8 +30,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     await notifyPaymentResult(transactionId, userId, {
       success: true,
       status: 'withdrawal_complete',
-      amount: cryptoAmount,
-      currency: chain,
+      paymentTransactionId: withdrawalId,
     })
 
     return true
