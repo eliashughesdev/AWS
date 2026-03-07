@@ -1,0 +1,18 @@
+{
+  "name": "tatum-kms-api",
+  "version": "1.0.0",
+  "description": "Node.js API for Tatum KMS operations",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
