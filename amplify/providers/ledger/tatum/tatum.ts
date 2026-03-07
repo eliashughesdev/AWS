@@ -112,21 +112,45 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  async withdrawFunds({ accountId, address, amount, currency }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
-    const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
-    const payload = { senderAccountId: accountId, address, amount, currency }
+  // Chain-specific offchain transfer endpoints.
+  // These endpoints debit the VA ledger AND create a KMS pending transaction in one call.
+  // The KMS daemon picks it up, signs, broadcasts, and marks it complete.
+  private readonly OFFCHAIN_TRANSFER_PATHS: Record<string, string> = {
+    TRON: 'offchain/tron/transfer',
+    BTC: 'offchain/bitcoin/transfer',
+    ETH: 'offchain/ethereum/transfer',
+    SOL: 'offchain/solana/transfer',
+    MATIC: 'offchain/matic/transfer',
+  }
 
-    console.log('DEBUG (TatumProvider): Calling withdrawFunds.')
-    console.log(`DEBUG (TatumProvider): POST URL: ${url}`)
+  // Minimum fees required by some chains.
+  private readonly WITHDRAWAL_FEES: Record<string, string> = {
+    TRON: '1',
+    BTC: '0.0005',
+    ETH: '0.003',
+  }
+
+  async withdrawFunds({ accountId, address, amount, currency, signatureId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+    const chain = currency.toUpperCase()
+    const path = this.OFFCHAIN_TRANSFER_PATHS[chain]
+
+    if (!path) {
+      throw new Error(`No offchain transfer path configured for chain: ${chain}`)
+    }
+
+    const url = `${this.TATUM_BASE_URL}/${path}`
+    const fee = this.WITHDRAWAL_FEES[chain]
+    const payload: Record<string, string> = { senderAccountId: accountId, address, amount, signatureId }
+    if (fee) payload.fee = fee
+
+    console.log(`DEBUG (TatumProvider): Calling offchain transfer. chain=${chain}`)
     console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`)
-    console.log(`DEBUG (TatumProvider): API Key: ${this.apiKey}`)
 
     try {
-      const res = await axios.post(url, payload, {
-        headers: { 'x-api-key': this.apiKey }
-      })
-      console.log(`DEBUG (TatumProvider): Response status: ${res.status}. Withdrawal ID: ${res.data?.id}`)
-      return { withdrawalId: res.data.id }
+      const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
+      const withdrawalId: string = res.data.id
+      console.log(`DEBUG (TatumProvider): Offchain transfer queued for KMS signing. withdrawalId=${withdrawalId}`)
+      return { withdrawalId }
     } catch (error) {
       console.error('ERROR (TatumProvider): Failed to withdraw funds.', error)
       throw error

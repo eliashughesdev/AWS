@@ -64,6 +64,7 @@ export interface WithdrawFundsParams {
   address: string
   amount: string
   currency: string
+  signatureId: string
 }
 
 export interface WithdrawFundsResponse {

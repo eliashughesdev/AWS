@@ -42,9 +42,15 @@ export default class WithdrawHandler {
 
     const accountChain = accountRecord.chain  // e.g. 'BTC', 'SOL', 'ETH', 'TRON'
     const vAccountId = accountRecord.vAccountId
+    const signatureId = accountRecord.signatureId
 
     if (!accountChain) {
       console.error(`ERROR: Account ${accountNumber} is not a crypto account`)
+      return processError(100006)
+    }
+
+    if (!signatureId) {
+      console.error(`ERROR: Account ${accountNumber} has no signatureId — cannot create KMS signing request`)
       return processError(100006)
     }
 
@@ -97,6 +103,7 @@ export default class WithdrawHandler {
         chain: accountChain,
         cryptoAmount,
         destinationAddress,
+        signatureId,
         exchangeRate,
         originalAmount: amount,
         originalCurrency: currency,
