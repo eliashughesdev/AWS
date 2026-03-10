@@ -139,7 +139,7 @@ export class TatumProvider implements AccountProvider {
     MATIC: 18,
   }
 
-  async withdrawFunds({ accountId, address, amount, currency, signatureId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+  async withdrawFunds({ accountId, address, amount, currency, signatureId, senderAddress }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
     const path = this.OFFCHAIN_TRANSFER_PATHS[chain]
 
@@ -151,7 +151,7 @@ export class TatumProvider implements AccountProvider {
     const fee = this.WITHDRAWAL_FEES[chain]
     const decimals = this.DECIMAL_PLACES[chain] ?? 8
     const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
-    const payload: Record<string, string> = { senderAccountId: accountId, address, amount: roundedAmount, signatureId }
+    const payload: Record<string, string> = { senderAccountId: accountId, address, amount: roundedAmount, signatureId, from: senderAddress }
     if (fee) payload.fee = fee
 
     console.log(`DEBUG (TatumProvider): Calling offchain transfer. chain=${chain}, originalAmount=${amount}, roundedAmount=${roundedAmount}`)

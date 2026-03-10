@@ -6,7 +6,7 @@ import { notifyPaymentResult } from '../../../utils/websocket'
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 export const handleWithdrawal = async (message: any): Promise<boolean> => {
-  const { transactionId, userId, vAccountId, chain, cryptoAmount, destinationAddress, signatureId } = message
+  const { transactionId, userId, vAccountId, chain, cryptoAmount, destinationAddress, signatureId, senderAddress } = message
 
   if (!vAccountId || !chain || !cryptoAmount || !destinationAddress || !signatureId) {
     console.error('VALIDATION_ERROR: Missing required fields for withdrawal processing', message)
@@ -24,6 +24,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       amount: String(cryptoAmount),
       currency: chain,
       signatureId,
+      senderAddress,
     })
 
     console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${transactionId}`)
