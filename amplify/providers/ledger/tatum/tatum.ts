@@ -159,7 +159,8 @@ export class TatumProvider implements AccountProvider {
 
     try {
       const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
-      const withdrawalId: string = res.data.id
+      console.log(`DEBUG (TatumProvider): Offchain transfer raw response: ${JSON.stringify(res.data)}`)
+      const withdrawalId: string = res.data.id ?? res.data.withdrawal?.id ?? res.data.signatureId
       console.log(`DEBUG (TatumProvider): Offchain transfer queued for KMS signing. withdrawalId=${withdrawalId}`)
       return { withdrawalId }
     } catch (error) {
