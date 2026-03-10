@@ -123,11 +123,20 @@ export class TatumProvider implements AccountProvider {
     MATIC: 'offchain/matic/transfer',
   }
 
-  // Minimum fees required by some chains.
+  // Minimum fees required by some chains
   private readonly WITHDRAWAL_FEES: Record<string, string> = {
-    TRON: '1',
     BTC: '0.0005',
     ETH: '0.003',
+  }
+
+  // Maximum decimal places accepted by each chain.
+  private readonly DECIMAL_PLACES: Record<string, number> = {
+    TRON: 6,
+    USDT_TRON: 6,
+    BTC: 8,
+    ETH: 18,
+    SOL: 9,
+    MATIC: 18,
   }
 
   async withdrawFunds({ accountId, address, amount, currency, signatureId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
@@ -140,10 +149,12 @@ export class TatumProvider implements AccountProvider {
 
     const url = `${this.TATUM_BASE_URL}/${path}`
     const fee = this.WITHDRAWAL_FEES[chain]
-    const payload: Record<string, string> = { senderAccountId: accountId, address, amount, signatureId }
+    const decimals = this.DECIMAL_PLACES[chain] ?? 8
+    const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
+    const payload: Record<string, string> = { senderAccountId: accountId, address, amount: roundedAmount, signatureId }
     if (fee) payload.fee = fee
 
-    console.log(`DEBUG (TatumProvider): Calling offchain transfer. chain=${chain}`)
+    console.log(`DEBUG (TatumProvider): Calling offchain transfer. chain=${chain}, originalAmount=${amount}, roundedAmount=${roundedAmount}`)
     console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`)
 
     try {
