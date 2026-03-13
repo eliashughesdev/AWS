@@ -4,7 +4,7 @@ import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-import { TatumKmsClient } from '../../../providers/ledger/tatum/TatumKmsClient'
+import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 
 /**
@@ -28,54 +28,34 @@ export default class AccountHandler {
     console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(data))
 
     try {
-      // create wallent in kms
-      console.log('DEBUG: Initializing TatumKmsClient...')
-      const kmsClient = new TatumKmsClient()
       const chain = event.body.chain
+      const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
 
-      console.log(`DEBUG: Calling kmsClient.generateWallet for chain: ${chain}`)
-      const { signatureId, xpub, address: kmsAddress } = await kmsClient.generateWallet(chain)
+      // Create key in AWS KMS and derive deposit address
+      console.log(`DEBUG: Creating AWS KMS key for chain: ${chain}, accountId: ${accountNumber}`)
+      const { kmsKeyId, address: depositAddress } = await createBlockchainKey(chain, accountNumber)
+      console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
 
-      const identifier = xpub || kmsAddress
-      console.log(`DEBUG: Wallet generated. signatureId: ${signatureId}, Identifier: ${identifier}`)
-
-      // create virtual account
+      // Create virtual account in Tatum (needed for webhook subscriptions on incoming deposits)
       console.log(`DEBUG: Getting provider: ${event.body.provider}`)
       const vaProvider = ProviderRegistry.getProvider(event.body.provider as ProviderName)
       const userId = data.id
 
-      console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, xpub: ${xpub}, address: ${kmsAddress} accountingCurrency: ${event.body.accounting_currency}`)
-
+      console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, accountingCurrency: ${event.body.accounting_currency}`)
       const vaCreationPayload: CreateAccountParams = {
         userId,
         currency: chain,
         accountingCurrency: event.body.accounting_currency,
-        xpub,
-        address: kmsAddress
+        address: depositAddress,
       }
       const { accountId } = await vaProvider.createVaAccount(vaCreationPayload)
       console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`)
 
-      // 3. Generate or Assign Deposit Address
-      let depositAddress: string = ''
+      // Link the derived address to the Tatum virtual account
+      console.log(`DEBUG: Assigning deposit address ${depositAddress} to accountId: ${accountId}`)
+      const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
+      console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
 
-      if (kmsAddress) {
-        // If KMS returned a direct address
-        console.log(`DEBUG: KMS returned direct address. Calling vaProvider.assignDepositAddress for accountId: ${accountId}`)
-        const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: kmsAddress })
-        depositAddress = assignedAddress
-      } else if (xpub) {
-        // If KMS returned an xpub (HD chain), generate the next address.
-        console.log(`DEBUG: KMS returned xpub. Calling vaProvider.generateDepositAddress for accountId: ${accountId}`)
-        const { address } = (await vaProvider.generateDepositAddress(accountId))
-        depositAddress = address
-      } else {
-        throw new Error("one of 'xpub' or 'address' is needed to generate deposit address")
-      }
-
-      console.log(`DEBUG: Final Deposit address confirmed: ${depositAddress}`)
-
-      const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
       const newAccount: Record<string, any> = {
         id: userId,
         sk: `ACCOUNT#${accountNumber}`,
@@ -83,17 +63,13 @@ export default class AccountHandler {
         provider: event.body.provider,
         accountNo: accountNumber,
         chain,
-        signatureId,
-        depositAddress,
+        kmsKeyId,
+        depositAddress: assignedAddress,
         vAccountId: accountId,
         created_at: Date.now(),
         fees: 'default',
         providerId: event.body.provider || 'default',
         status: 'active',
-      }
-
-      if (xpub) {
-        newAccount.xpub = xpub
       }
 
       const newAccountBalance: Record<string, any> = {
@@ -133,7 +109,7 @@ export default class AccountHandler {
               id: data.id,
               accountNo: accountNumber,
               depositAddress,
-              signatureId
+              kmsKeyId
             }
           }
         }

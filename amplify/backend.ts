@@ -45,6 +45,13 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
   })
 )
 
+backend.mainApiFn.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['kms:CreateKey', 'kms:GetPublicKey', 'kms:DescribeKey', 'kms:TagResource'],
+    resources: ['*']
+  })
+)
+
 const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
   functionName: 'custom-authorizer-fn',
   runtime: Runtime.NODEJS_20_X,
