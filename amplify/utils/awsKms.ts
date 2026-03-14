@@ -52,7 +52,7 @@ export async function createBlockchainKey(
   const derPublicKey = pubKeyResult.PublicKey
   if (!derPublicKey) throw new Error('KMS GetPublicKey did not return a public key')
 
-  const address = deriveAddress(chain, new Uint8Array(derPublicKey as ArrayBuffer))
+  const address = deriveAddress(chain, new Uint8Array(derPublicKey as unknown as ArrayBuffer))
 
   return { kmsKeyId, address }
 }
