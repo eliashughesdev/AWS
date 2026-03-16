@@ -4,7 +4,7 @@ import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-import { createKmsKey } from '../../../utils/awsKms'
+import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 
 /**
@@ -31,10 +31,10 @@ export default class AccountHandler {
       const chain = event.body.chain
       const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
 
-      // Create key in AWS KMS (needed for withdrawal signing via signatureId)
+      // Create key in AWS KMS and derive deposit address
       console.log(`DEBUG: Creating AWS KMS key for chain: ${chain}, accountId: ${accountNumber}`)
-      const kmsKeyId = await createKmsKey(chain, accountNumber)
-      console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}`)
+      const { kmsKeyId, address: depositAddress } = await createBlockchainKey(chain, accountNumber)
+      console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
 
       // Create virtual account in Tatum (needed for webhook subscriptions on incoming deposits)
       console.log(`DEBUG: Getting provider: ${event.body.provider}`)
@@ -46,14 +46,15 @@ export default class AccountHandler {
         userId,
         currency: chain,
         accountingCurrency: event.body.accounting_currency,
+        address: depositAddress,
       }
       const { accountId } = await vaProvider.createVaAccount(vaCreationPayload)
       console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`)
 
-      // Let Tatum generate and link the deposit address
-      console.log(`DEBUG: Calling generateDepositAddress for accountId: ${accountId}`)
-      const { address: depositAddress } = await vaProvider.generateDepositAddress(accountId)
-      console.log(`DEBUG: Deposit address generated: ${depositAddress}`)
+      // Link the derived address to the Tatum virtual account
+      console.log(`DEBUG: Assigning deposit address ${depositAddress} to accountId: ${accountId}`)
+      const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
+      console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
 
       const newAccount: Record<string, any> = {
         id: userId,
@@ -63,7 +64,7 @@ export default class AccountHandler {
         accountNo: accountNumber,
         chain,
         kmsKeyId,
-        depositAddress,
+        depositAddress: assignedAddress,
         vAccountId: accountId,
         created_at: Date.now(),
         fees: 'default',

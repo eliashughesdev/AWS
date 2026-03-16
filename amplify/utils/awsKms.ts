@@ -18,30 +18,6 @@ const ADDRESS_DERIVER: Record<SupportedChain, (derPublicKey: Uint8Array) => stri
 }
 
 /**
- * Creates an AWS KMS asymmetric key for the given chain and returns its ID.
- * The private key never leaves AWS KMS — signing happens on-demand via
- * KMS.Sign() during withdrawals.
- */
-export async function createKmsKey(chain: SupportedChain, accountId: string): Promise<string> {
-  const keySpec = CHAIN_KEY_SPEC[chain]
-  const createResult = await kmsClient.send(
-    new CreateKeyCommand({
-      KeySpec: keySpec,
-      KeyUsage: KeyUsageType.SIGN_VERIFY,
-      Description: `Blockchain key for ${chain} account ${accountId}`,
-      Tags: [
-        { TagKey: 'chain', TagValue: chain },
-        { TagKey: 'accountId', TagValue: accountId },
-        { TagKey: 'service', TagValue: 'loudibly' },
-      ],
-    })
-  )
-  const kmsKeyId = createResult.KeyMetadata?.KeyId
-  if (!kmsKeyId) throw new Error('KMS CreateKey did not return a KeyId')
-  return kmsKeyId
-}
-
-/**
  * Creates an AWS KMS asymmetric key for the given chain and derives the
  * corresponding blockchain deposit address from the public key.
  *
