@@ -18,6 +18,7 @@ type RoutesMap = Map<string, {
   handler: any
   requiredParams: string[]
   method: string
+  allowedRoles?: ('admin' | 'user')[]
 }>
 
 export const routes: RoutesMap = new Map([
@@ -26,8 +27,8 @@ export const routes: RoutesMap = new Map([
   ['/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
-  ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST' }],
-  ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST' }],
+  ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST', allowedRoles: ['admin'] }],
+  ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'amount', 'userId', 'destinationAddress'], method: 'POST' }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
@@ -76,6 +77,16 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
     // Attach raw body to event for handlers that need it (e.g. Stripe webhooks)
     ;(event as any).rawBody = rawBody
     console.log('DEBUG: Final Request Body:', JSON.stringify(event.body))
+
+    // RBAC: enforce allowedRoles if defined on the route
+    if (route.allowedRoles) {
+      const role = (event as any).requestContext?.authorizer?.role
+      console.log('DEBUG: RBAC check — route allowedRoles:', route.allowedRoles, 'caller role:', role)
+      if (!route.allowedRoles.includes(role)) {
+        console.log('DEBUG: RBAC denied for role:', role)
+        return { statusCode: 403, body: JSON.stringify({ message: 'Forbidden' }) }
+      }
+    }
 
     // Parameter Validation
     const _check = checkForRequiredParameters(event.body, route.requiredParams)

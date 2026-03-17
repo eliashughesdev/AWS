@@ -3,8 +3,8 @@ const crypto = require('crypto')
 const { getRecord } = require('./db')
 const jwkToPem = require('jwk-to-pem')
 
-const generatePolicy = (principalId, effect, resource) => {
-  console.log('DEBUG: Generating policy:', { principalId, effect, resource })
+const generatePolicy = (principalId, effect, resource, role = 'user') => {
+  console.log('DEBUG: Generating policy:', { principalId, effect, resource, role })
   return {
     principalId,
     policyDocument: {
@@ -16,7 +16,8 @@ const generatePolicy = (principalId, effect, resource) => {
       }]
     },
     context: {
-      userId: principalId
+      userId: principalId,
+      role,
     }
   }
 }
@@ -45,7 +46,10 @@ const handler = async (event) => {
       console.log('DEBUG: Auth Type: Bearer (JWT)')
       const res = await authenticateWithJWT({ event })
       console.log('DEBUG: JWT Result:', res.isValid)
-      return generatePolicy(res.claim.sub, res.isValid ? 'Allow' : 'Deny', resource)
+      const groups = res.claim?.['cognito:groups'] ?? []
+      const role = groups.includes('admin') ? 'admin' : 'user'
+      console.log('DEBUG: JWT Role resolved:', role)
+      return generatePolicy(res.claim.sub, res.isValid ? 'Allow' : 'Deny', resource, role)
     } else if (auth?.includes('Signature')) {
       console.log('DEBUG: Auth Type: Signature (HMAC/RSA)')
       const keys = await getRecord('v1UserKeysTable', project)
@@ -80,7 +84,8 @@ const handler = async (event) => {
       console.log('DEBUG: Authentication Type:', keys.res.type)
       const res = types[keys.res.type]()
       console.log('res: ', res)
-      return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource)
+      // HMAC/RSA keys are B2B service clients — treated as admin
+      return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource, 'admin')
     }
   } catch (e) {
     console.log('DEBUG: Catch block executed. Error:', e)
