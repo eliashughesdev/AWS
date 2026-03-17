@@ -56,7 +56,10 @@ const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
   functionName: 'custom-authorizer-fn',
   runtime: Runtime.NODEJS_20_X,
   handler: 'index.handler',
-  code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer'))
+  code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer')),
+  environment: {
+    COGNITO_USER_POOL_ID: backend.auth.resources.userPool.userPoolId,
+  },
 })
 
 customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({

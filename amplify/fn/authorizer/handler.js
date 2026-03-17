@@ -45,11 +45,12 @@ const handler = async (event) => {
     if (auth?.includes('Bearer')) {
       console.log('DEBUG: Auth Type: Bearer (JWT)')
       const res = await authenticateWithJWT({ event })
-      console.log('DEBUG: JWT Result:', res.isValid)
-      const groups = res.claim?.['cognito:groups'] ?? []
+      console.log('DEBUG: JWT Result:', res.isValid, res.message ?? '')
+      if (!res.isValid) return generatePolicy(sourceIp, 'Deny', resource)
+      const groups = res.claim['cognito:groups'] ?? []
       const role = groups.includes('admin') ? 'admin' : 'user'
       console.log('DEBUG: JWT Role resolved:', role)
-      return generatePolicy(res.claim.sub, res.isValid ? 'Allow' : 'Deny', resource, role)
+      return generatePolicy(res.claim.sub, 'Allow', resource, role)
     } else if (auth?.includes('Signature')) {
       console.log('DEBUG: Auth Type: Signature (HMAC/RSA)')
       const keys = await getRecord('v1UserKeysTable', project)

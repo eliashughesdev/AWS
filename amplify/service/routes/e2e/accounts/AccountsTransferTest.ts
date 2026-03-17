@@ -5,7 +5,7 @@ const path = '/v1/accounts/transfer'
 console.log('path: ', path)
 
 const body = JSON.stringify({
-  provider: 'TATUM',
+  provider: 'PCF0001',
   senderAccountId: '69082f6e1a9794c78f868330',
   recipientAccountId: '690c2049b32e1bdb41d8cf78',
   amount: '120.30',
