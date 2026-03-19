@@ -56,6 +56,12 @@ export default class AccountHandler {
       const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
       console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
 
+      // Subscribe for real-time deposit notifications so the VA is credited immediately
+      const webhookUrl = process.env.TATUM_WEBHOOK_URL!
+      console.log(`DEBUG: Creating ADDRESS_TRANSACTION subscription. webhookUrl: ${webhookUrl}`)
+      const { subscriptionId } = await vaProvider.createSubscription({ accountId, chain, webhookUrl })
+      console.log(`DEBUG: Subscription created. subscriptionId: ${subscriptionId}`)
+
       const newAccount: Record<string, any> = {
         id: userId,
         sk: `ACCOUNT#${accountNumber}`,

@@ -72,6 +72,16 @@ export interface WithdrawFundsResponse {
   withdrawalId: string
 }
 
+export interface CreateSubscriptionParams {
+  accountId: string
+  chain: string
+  webhookUrl: string
+}
+
+export interface CreateSubscriptionResponse {
+  subscriptionId: string
+}
+
 export interface AccountProvider {
   getXpub(chainName: string): Promise<{ xpub: string }>
   createVaAccount(params: CreateAccountParams): Promise<{ accountId: string }>;
@@ -79,5 +89,6 @@ export interface AccountProvider {
   transferFunds(params: TransferFundsParams): Promise<{ reference: string }>;
   generateDepositAddress(accountId: string): Promise<GenerateDepositAddressResponse>;
   assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
+  createSubscription(params: CreateSubscriptionParams): Promise<CreateSubscriptionResponse>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
 }

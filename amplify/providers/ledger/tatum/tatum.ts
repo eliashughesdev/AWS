@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
+import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -165,6 +165,29 @@ export class TatumProvider implements AccountProvider {
       return { withdrawalId }
     } catch (error) {
       console.error('ERROR (TatumProvider): Failed to withdraw funds.', error)
+      throw error
+    }
+  }
+
+  async createSubscription({ accountId, chain, webhookUrl }: CreateSubscriptionParams): Promise<CreateSubscriptionResponse> {
+    const url = `${this.TATUM_BASE_URL}/subscription`
+    const payload = {
+      type: 'ADDRESS_TRANSACTION',
+      attr: {
+        id: accountId,
+        chain: chain.toUpperCase(),
+        url: webhookUrl,
+      },
+    }
+
+    console.log(`DEBUG (TatumProvider): Creating ADDRESS_TRANSACTION subscription for accountId: ${accountId}, chain: ${chain}`)
+
+    try {
+      const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
+      console.log(`DEBUG (TatumProvider): Subscription created. subscriptionId: ${res.data?.id}`)
+      return { subscriptionId: res.data.id }
+    } catch (error) {
+      console.error(`ERROR (TatumProvider): Failed to create subscription for accountId: ${accountId}`, error)
       throw error
     }
   }
