@@ -6,8 +6,8 @@ console.log('path: ', path)
 
 const body = JSON.stringify({
   provider: 'PCF0001',
-  senderAccountId: '69082f6e1a9794c78f868330',
-  recipientAccountId: '690c2049b32e1bdb41d8cf78',
+  senderAccountNumber: 'PCF0001dd8701f8ede1456d987ac215fbd37f62',
+  recipientAccountNumber: 'PCF0001abc87b1a27d44fb6a794229f60987020',
   amount: '120.30',
 })
 

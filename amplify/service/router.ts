@@ -27,7 +27,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
-  ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountId', 'recipientAccountId', 'amount'], method: 'POST', allowedRoles: ['admin'] }],
+  ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'amount', 'userId', 'destinationAddress'], method: 'POST' }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
