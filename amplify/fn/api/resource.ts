@@ -17,6 +17,6 @@ export const mainApiFn = defineFunction({
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: process.env.WEBSOCKET_API_ID || 'DEFINE THE WEBSOCKET API ID IN THE ENVIRONMENT VARIABLES',
     WEBSOCKET_STAGE: 'v1',
-    TATUM_WEBHOOK_URL: process.env.TATUM_WEBHOOK_URL || 'DEFINE THE TATUM WEBHOOK URL IN THE ENVIRONMENT VARIABLES',
+    TATUM_WEBHOOK_URL: process.env.TATUM_WEBHOOK_URL || 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/webhook',
   },
 })
