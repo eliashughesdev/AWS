@@ -169,18 +169,18 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  async createSubscription({ accountId, chain, webhookUrl }: CreateSubscriptionParams): Promise<CreateSubscriptionResponse> {
+  async createSubscription({ accountId, address, chain, webhookUrl }: CreateSubscriptionParams): Promise<CreateSubscriptionResponse> {
     const url = `${this.TATUM_BASE_URL}/subscription`
     const payload = {
       type: 'ADDRESS_TRANSACTION',
       attr: {
-        id: accountId,
+        address,
         chain: chain.toUpperCase(),
         url: webhookUrl,
       },
     }
 
-    console.log(`DEBUG (TatumProvider): Creating ADDRESS_TRANSACTION subscription for accountId: ${accountId}, chain: ${chain}`)
+    console.log(`DEBUG (TatumProvider): Creating ADDRESS_TRANSACTION subscription for accountId: ${accountId}, address: ${address}, chain: ${chain}`)
 
     try {
       const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })

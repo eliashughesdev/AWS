@@ -74,6 +74,7 @@ export interface WithdrawFundsResponse {
 
 export interface CreateSubscriptionParams {
   accountId: string
+  address: string
   chain: string
   webhookUrl: string
 }
