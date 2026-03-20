@@ -476,6 +476,9 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
   resources: ['*'],
 }))
 
+const mainLambda = backend.mainApiFn.resources.lambda as Function
+mainLambda.addEnvironment('TATUM_WEBHOOK_URL', `${loudiblyRestApi.url}webhook`)
+
 backend.addOutput({
   custom: {
     API: {
