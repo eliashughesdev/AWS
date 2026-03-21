@@ -154,9 +154,10 @@ export async function signTronTransaction(
     try {
       const sig = new secp256k1.Signature(
         BigInt('0x' + r.toString('hex')),
-        BigInt('0x' + s.toString('hex'))
+        BigInt('0x' + s.toString('hex')),
+        recovery
       )
-      const recoveredPubKey = sig.recoverPublicKey(msgHash, recovery)
+      const recoveredPubKey = sig.recoverPublicKey(msgHash)
       // recoverPublicKey returns a Point; get uncompressed 65-byte form
       const uncompressed = recoveredPubKey.toRawBytes(false) // 65 bytes: 04 || x || y
       const recoveredAddress = deriveTronAddress(uncompressed)
