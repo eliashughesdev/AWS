@@ -114,8 +114,7 @@ export default class AccountHandler {
             data: {
               id: data.id,
               accountNo: accountNumber,
-              depositAddress,
-              kmsKeyId
+              depositAddress
             }
           }
         }
