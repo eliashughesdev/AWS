@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
+import { signTronTransaction } from '../../../utils/awsKms'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -112,61 +113,129 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  // Chain-specific offchain transfer endpoints.
-  // These endpoints debit the VA ledger AND create a KMS pending transaction in one call.
-  // The KMS daemon picks it up, signs, broadcasts, and marks it complete.
-  private readonly OFFCHAIN_TRANSFER_PATHS: Record<string, string> = {
-    TRON: 'offchain/tron/transfer',
-    BTC: 'offchain/bitcoin/transfer',
-    ETH: 'offchain/ethereum/transfer',
-    SOL: 'offchain/solana/transfer',
-    MATIC: 'offchain/matic/transfer',
-  }
-
-  // Minimum fees required by some chains
-  private readonly WITHDRAWAL_FEES: Record<string, string> = {
-    BTC: '0.0005',
-    ETH: '0.003',
-  }
-
   // Maximum decimal places accepted by each chain.
   private readonly DECIMAL_PLACES: Record<string, number> = {
     TRON: 6,
-    USDT_TRON: 6,
-    BTC: 8,
-    ETH: 18,
     SOL: 9,
-    MATIC: 18,
   }
 
-  async withdrawFunds({ accountId, address, amount, currency, signatureId, senderAddress }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+  // Chain-specific Tatum broadcast endpoints.
+  // Used as the final step in the custom signing flow — submit externally-signed tx.
+  private readonly BROADCAST_PATHS: Record<string, string> = {
+    TRON: 'tron/broadcast',
+    SOL: 'solana/broadcast',
+  }
+
+  /**
+   * Withdraws funds from a Tatum virtual account to an on-chain address.
+   *
+   * Uses the custom signing mechanism — avoids Tatum KMS polling entirely:
+   *   1. Create offchain withdrawal record in Tatum ledger (debits the VA)
+   *   2. Build an unsigned blockchain transaction via Tatum's node proxy
+   *   3. Sign the transaction hash with AWS KMS (on-demand)
+   *   4. Broadcast the signed transaction via Tatum's broadcast endpoint
+   *   5. Mark the withdrawal complete in Tatum's ledger
+   */
+  async withdrawFunds({ accountId, address, amount, currency, kmsKeyId, senderAddress }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
-    const path = this.OFFCHAIN_TRANSFER_PATHS[chain]
-
-    if (!path) {
-      throw new Error(`No offchain transfer path configured for chain: ${chain}`)
-    }
-
-    const url = `${this.TATUM_BASE_URL}/${path}`
-    const fee = this.WITHDRAWAL_FEES[chain]
-    const decimals = this.DECIMAL_PLACES[chain] ?? 8
+    const decimals = this.DECIMAL_PLACES[chain] ?? 6
     const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
-    const payload: Record<string, string> = { senderAccountId: accountId, address, amount: roundedAmount, signatureId, from: senderAddress }
-    if (fee) payload.fee = fee
 
-    console.log(`DEBUG (TatumProvider): Calling offchain transfer. chain=${chain}, originalAmount=${amount}, roundedAmount=${roundedAmount}`)
-    console.log(`DEBUG (TatumProvider): Payload: ${JSON.stringify(payload)}`)
+    console.log(`DEBUG (TatumProvider): withdrawFunds started. chain=${chain}, amount=${roundedAmount}, from=${senderAddress}, to=${address}`)
 
-    try {
-      const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
-      console.log(`DEBUG (TatumProvider): Offchain transfer raw response: ${JSON.stringify(res.data)}`)
-      const withdrawalId: string = res.data.id ?? res.data.withdrawal?.id ?? res.data.signatureId
-      console.log(`DEBUG (TatumProvider): Offchain transfer queued for KMS signing. withdrawalId=${withdrawalId}`)
-      return { withdrawalId }
-    } catch (error) {
-      console.error('ERROR (TatumProvider): Failed to withdraw funds.', error)
-      throw error
+    // Step 1: Create withdrawal record — debits the VA
+    const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain })
+    console.log(`DEBUG (TatumProvider): Step 1 done — withdrawal record created. withdrawalId=${withdrawalId}`)
+
+    // Steps 2 + 3: Build unsigned tx, sign with AWS KMS
+    const signedTxData = await this._buildAndSignTransaction({ chain, senderAddress, recipientAddress: address, amount: roundedAmount, kmsKeyId })
+    console.log(`DEBUG (TatumProvider): Steps 2+3 done — transaction built and signed.`)
+
+    // Step 4: Broadcast the signed transaction via Tatum's broadcast endpoint
+    const txId = await this._broadcastTransaction(chain, signedTxData)
+    console.log(`DEBUG (TatumProvider): Step 4 done — transaction broadcast. txId=${txId}`)
+
+    // Step 5: Mark the withdrawal complete in Tatum's ledger
+    await this._completeWithdrawal(withdrawalId, txId)
+    console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
+
+    return { withdrawalId }
+  }
+
+  /**
+   * Step 1: Creates a pending withdrawal record in Tatum's offchain ledger.
+   * Debits the virtual account balance atomically.
+   */
+  private async _createOffchainWithdrawal({ accountId, address, amount, currency }: {
+    accountId: string; address: string; amount: string; currency: string
+  }): Promise<string> {
+    const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
+    const payload = { senderAccountId: accountId, address, amount, currency }
+    console.log(`DEBUG (TatumProvider): POST ${url}`)
+    const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
+    const withdrawalId: string = res.data.id
+    if (!withdrawalId) throw new Error('Tatum offchain withdrawal did not return an id')
+    return withdrawalId
+  }
+
+  /**
+   * Steps 2 + 3: Builds an unsigned blockchain transaction via Tatum's node
+   * proxy, then signs it with AWS KMS.
+   */
+  private async _buildAndSignTransaction({ chain, senderAddress, recipientAddress, amount, kmsKeyId }: {
+    chain: string; senderAddress: string; recipientAddress: string; amount: string; kmsKeyId: string
+  }): Promise<any> {
+    if (chain === 'TRON') {
+      // Build unsigned TRON transaction via Tatum's TronGrid node proxy
+      const nodeUrl = `${this.TATUM_BASE_URL}/blockchain/node/TRON/wallet/createtransaction`
+      const amountInSun = Math.round(parseFloat(amount) * 1_000_000) // TRX → SUN
+      const buildRes = await axios.post(
+        nodeUrl,
+        { owner_address: senderAddress, to_address: recipientAddress, amount: amountInSun, visible: true },
+        { headers: { 'x-api-key': this.apiKey } }
+      )
+      const unsignedTx = buildRes.data
+      if (!unsignedTx.txID) throw new Error('TRON node did not return a txID for the unsigned transaction')
+
+      // Sign the txID (32-byte hash) with AWS KMS secp256k1
+      const signatureHex = await signTronTransaction(kmsKeyId, unsignedTx.txID, senderAddress)
+      return { ...unsignedTx, signature: [signatureHex] }
     }
+
+    if (chain === 'SOL') {
+      // TODO: build Solana transaction bytes with @solana/web3.js,
+      // then call signSolTransaction(kmsKeyId, txBytes) from awsKms.ts
+      throw new Error('SOL withdrawal signing not yet implemented')
+    }
+
+    throw new Error(`Unsupported chain for withdrawal: ${chain}`)
+  }
+
+  /**
+   * Step 4: Broadcasts the signed transaction to the blockchain via Tatum's
+   * broadcast endpoint (designed for custom signing mechanisms).
+   */
+  private async _broadcastTransaction(chain: string, signedTxData: any): Promise<string> {
+    const broadcastPath = this.BROADCAST_PATHS[chain]
+    if (!broadcastPath) throw new Error(`No broadcast path configured for chain: ${chain}`)
+
+    const url = `${this.TATUM_BASE_URL}/${broadcastPath}`
+    const payload = { txData: typeof signedTxData === 'string' ? signedTxData : JSON.stringify(signedTxData) }
+    console.log(`DEBUG (TatumProvider): POST ${url} — broadcasting signed transaction`)
+    const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
+
+    const txId: string = res.data.txId ?? res.data.id ?? res.data.hash
+    if (!txId) throw new Error(`Broadcast succeeded but no txId returned for chain: ${chain}`)
+    return txId
+  }
+
+  /**
+   * Step 5: Marks a pending offchain withdrawal as complete in Tatum's ledger.
+   */
+  private async _completeWithdrawal(withdrawalId: string, txId: string): Promise<void> {
+    const url = `${this.TATUM_BASE_URL}/offchain/withdrawal/${withdrawalId}/${txId}`
+    console.log(`DEBUG (TatumProvider): PUT ${url} — marking withdrawal complete`)
+    await axios.put(url, {}, { headers: { 'x-api-key': this.apiKey } })
   }
 
   async createSubscription({ accountId, address, chain, webhookUrl }: CreateSubscriptionParams): Promise<CreateSubscriptionResponse> {

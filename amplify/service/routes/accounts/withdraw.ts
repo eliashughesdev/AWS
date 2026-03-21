@@ -42,7 +42,7 @@ export default class WithdrawHandler {
 
     const accountChain = accountRecord.chain  // e.g. 'BTC', 'SOL', 'ETH', 'TRON'
     const vAccountId = accountRecord.vAccountId
-    const signatureId = accountRecord.signatureId
+    const kmsKeyId = accountRecord.kmsKeyId
     const senderAddress = accountRecord.depositAddress
 
     if (!accountChain) {
@@ -50,8 +50,8 @@ export default class WithdrawHandler {
       return processError(100006)
     }
 
-    if (!signatureId) {
-      console.error(`ERROR: Account ${accountNumber} has no signatureId — cannot create KMS signing request`)
+    if (!kmsKeyId) {
+      console.error(`ERROR: Account ${accountNumber} has no kmsKeyId — cannot create AWS KMS signing request`)
       return processError(100006)
     }
 
@@ -104,7 +104,7 @@ export default class WithdrawHandler {
         chain: accountChain,
         cryptoAmount,
         destinationAddress,
-        signatureId,
+        kmsKeyId,
         senderAddress,
         exchangeRate,
         originalAmount: amount,

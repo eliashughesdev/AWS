@@ -138,6 +138,13 @@ sqsV1WebhookProcessingFn.addEventSource(
   })
 )
 
+sqsV1WebhookProcessingFn.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['kms:Sign', 'kms:GetPublicKey', 'dynamodb:*', 'sqs:*', 'execute-api:*'],
+    resources: ['*']
+  })
+)
+
 const sqsV1GeneralProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1GeneralProcessingFn', {
   entry: url.fileURLToPath(new URL('./fn/sqs-processor/general/handler.ts', import.meta.url)),
   runtime: Runtime.NODEJS_20_X,

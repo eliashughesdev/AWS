@@ -1,7 +1,8 @@
-import { KMSClient, CreateKeyCommand, GetPublicKeyCommand, KeySpec, KeyUsageType } from '@aws-sdk/client-kms'
+import { KMSClient, CreateKeyCommand, GetPublicKeyCommand, SignCommand, SigningAlgorithmSpec, MessageType, KeySpec, KeyUsageType } from '@aws-sdk/client-kms'
 import { keccak256 } from 'js-sha3'
 import bs58 from 'bs58'
 import { createHash } from 'crypto'
+import * as secp256k1 from '@noble/secp256k1'
 
 const kmsClient = new KMSClient({})
 
@@ -113,4 +114,103 @@ function deriveSolAddress(derPublicKey: Uint8Array): string {
   // Last 32 bytes of the DER are the raw Ed25519 public key
   const rawKey = derPublicKey.slice(-32)
   return bs58.encode(rawKey)
+}
+
+// ---------------------------------------------------------------------------
+// On-demand signing (used by the withdrawal handler)
+// ---------------------------------------------------------------------------
+
+/**
+ * Signs a TRON transaction hash with AWS KMS (secp256k1 / ECDSA_SHA_256).
+ *
+ * AWS KMS returns a DER-encoded signature. TRON expects r(32) + s(32) + v(1)
+ * where v = 27 or 28. We derive the correct recovery byte by comparing the
+ * ecrecover result for each candidate against the known sender address.
+ *
+ * @param kmsKeyId      AWS KMS key ID stored on the account record
+ * @param txId          hex string — the 32-byte transaction hash from TronGrid
+ * @param senderAddress TRON base58 address of the sending account
+ * @returns 65-byte signature as a hex string (r + s + v)
+ */
+export async function signTronTransaction(
+  kmsKeyId: string,
+  txId: string,
+  senderAddress: string
+): Promise<string> {
+  const msgHash = Buffer.from(txId, 'hex')
+
+  const result = await kmsClient.send(new SignCommand({
+    KeyId: kmsKeyId,
+    Message: msgHash,
+    SigningAlgorithm: SigningAlgorithmSpec.ECDSA_SHA_256,
+    MessageType: MessageType.DIGEST,
+  }))
+
+  const derSig = Buffer.from(result.Signature as Uint8Array)
+  const { r, s } = parseDerSignature(derSig)
+
+  // Try recovery values 0 and 1; pick whichever produces the expected address
+  for (const recovery of [0, 1]) {
+    try {
+      const sig = new secp256k1.Signature(
+        BigInt('0x' + r.toString('hex')),
+        BigInt('0x' + s.toString('hex'))
+      )
+      const recoveredPubKey = sig.recoverPublicKey(msgHash, recovery)
+      // recoverPublicKey returns a Point; get uncompressed 65-byte form
+      const uncompressed = recoveredPubKey.toRawBytes(false) // 65 bytes: 04 || x || y
+      const recoveredAddress = deriveTronAddress(uncompressed)
+      if (recoveredAddress === senderAddress) {
+        const sigBytes = Buffer.concat([r, s, Buffer.from([recovery + 27])])
+        return sigBytes.toString('hex')
+      }
+    } catch {
+      // recovery failed for this value — try the other one
+    }
+  }
+
+  throw new Error(`Could not determine TRON signature recovery byte for sender ${senderAddress}`)
+}
+
+/**
+ * Signs a Solana transaction message with AWS KMS (Ed25519 / EDDSA).
+ * AWS KMS added native EdDSA support in November 2025.
+ *
+ * @param kmsKeyId   AWS KMS key ID stored on the account record
+ * @param txBytes    raw transaction bytes to sign (Uint8Array or Buffer)
+ * @returns 64-byte Ed25519 signature as a hex string
+ */
+export async function signSolTransaction(
+  kmsKeyId: string,
+  txBytes: Uint8Array
+): Promise<string> {
+  const result = await kmsClient.send(new SignCommand({
+    KeyId: kmsKeyId,
+    Message: txBytes,
+    SigningAlgorithm: 'EDDSA' as SigningAlgorithmSpec,
+    MessageType: MessageType.RAW,
+  }))
+
+  return Buffer.from(result.Signature as Uint8Array).toString('hex')
+}
+
+/**
+ * Parses a DER-encoded ECDSA signature into its r and s components (32 bytes each).
+ * DER format: 0x30 [total-len] 0x02 [r-len] [r] 0x02 [s-len] [s]
+ */
+function parseDerSignature(der: Buffer): { r: Buffer; s: Buffer } {
+  let offset = 2 // skip 0x30 and total length
+  const rLen = der[offset + 1]
+  const rRaw = der.subarray(offset + 2, offset + 2 + rLen)
+  offset = offset + 2 + rLen
+  const sLen = der[offset + 1]
+  const sRaw = der.subarray(offset + 2, offset + 2 + sLen)
+
+  // DER may prefix a 0x00 byte when the high bit is set — strip it and pad to 32
+  const r = Buffer.alloc(32)
+  const s = Buffer.alloc(32)
+  rRaw.subarray(-32).copy(r, 32 - Math.min(rRaw.length, 32))
+  sRaw.subarray(-32).copy(s, 32 - Math.min(sRaw.length, 32))
+
+  return { r, s }
 }

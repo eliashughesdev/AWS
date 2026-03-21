@@ -64,7 +64,7 @@ export interface WithdrawFundsParams {
   address: string
   amount: string
   currency: string
-  signatureId: string
+  kmsKeyId: string
   senderAddress: string
 }
 
