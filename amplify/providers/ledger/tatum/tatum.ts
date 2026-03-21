@@ -119,6 +119,12 @@ export class TatumProvider implements AccountProvider {
     SOL: 9,
   }
 
+  // Network fees required by Tatum's offchain withdrawal endpoint (in native currency).
+  private readonly WITHDRAWAL_FEES: Record<string, string> = {
+    TRON: '1',
+    SOL: '0.000005',
+  }
+
   // Chain-specific Tatum broadcast endpoints.
   // Used as the final step in the custom signing flow — submit externally-signed tx.
   private readonly BROADCAST_PATHS: Record<string, string> = {
@@ -170,7 +176,9 @@ export class TatumProvider implements AccountProvider {
     accountId: string; address: string; amount: string; currency: string
   }): Promise<string> {
     const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
-    const payload = { senderAccountId: accountId, address, amount, currency }
+    const fee = this.WITHDRAWAL_FEES[currency]
+    const payload: Record<string, string> = { senderAccountId: accountId, address, amount, currency }
+    if (fee) payload.fee = fee
     console.log(`DEBUG (TatumProvider): POST ${url}`)
     const res = await axios.post(url, payload, { headers: { 'x-api-key': this.apiKey } })
     const withdrawalId: string = res.data.id
