@@ -2,6 +2,7 @@ import { Amplify } from 'aws-amplify'
 import { Authenticator } from '@aws-amplify/ui-react'
 import outputs from '../amplify_outputs.json'
 import CustomerKyc from './pages/CustomerKyc'
+import KycComplete from './pages/KycComplete'
 import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from '@evervault/react'
 import AddCard from './pages/AddCard'
@@ -18,8 +19,11 @@ function App() {
     <EvervaultProvider teamId='team_8a2d3693584f' appId='app_322d8e2bc10b'>
       <Authenticator>
         {({ signOut, user }) => {
-          if (path === '/customer/kyc/') {
+          if (path === '/customer/kyc/' || path === '/customer/kyc') {
             return <CustomerKyc />
+          }
+          if (path === '/customer/kyc/complete') {
+            return <KycComplete />
           }
           if (path === '/payment/add') {
             return <AddCard user={user} />

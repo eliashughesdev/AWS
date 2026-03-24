@@ -1,4 +1,6 @@
-import accountsKyc from './routes/accounts/kyc'
+import accountsKycSession from './routes/accounts/kyc'
+import accountsKycWebhook from './routes/accounts/kyc-webhook'
+import accountsKycStatus from './routes/accounts/kyc-status'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
 import transferFunds from './routes/accounts/transfer'
@@ -24,7 +26,9 @@ type RoutesMap = Map<string, {
 export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
-  ['/accounts/kyc', { handler: accountsKyc, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/session', { handler: accountsKycSession, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/webhook', { handler: accountsKycWebhook, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin'] }],

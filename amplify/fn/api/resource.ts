@@ -18,5 +18,9 @@ export const mainApiFn = defineFunction({
     WEBSOCKET_API_ID: process.env.WEBSOCKET_API_ID || 'DEFINE THE WEBSOCKET API ID IN THE ENVIRONMENT VARIABLES',
     WEBSOCKET_STAGE: 'v1',
     TATUM_WEBHOOK_URL: process.env.TATUM_WEBHOOK_URL || 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/webhook',
+    DIDIT_API_KEY: secret('DIDIT_API_KEY'),
+    DIDIT_WEBHOOK_SECRET: secret('DIDIT_WEBHOOK_SECRET'),
+    DIDIT_WORKFLOW_ID: process.env.DIDIT_WORKFLOW_ID || 'DEFINE DIDIT_WORKFLOW_ID',
+    DIDIT_CALLBACK_URL: 'https://my.staging.loudibly.com/customer/kyc/complete',
   },
 })
