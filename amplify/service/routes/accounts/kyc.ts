@@ -28,6 +28,7 @@ export default class KycSessionHandler {
       })
     }
 
+    console.log('DEBUG KYC: Creating Didit session. workflowId:', workflowId, 'userId:', userId)
     const diditResponse = await axios.post(
       'https://verification.didit.me/v3/session/',
       {
@@ -43,6 +44,7 @@ export default class KycSessionHandler {
       }
     )
 
+    console.log('DEBUG KYC: Didit response:', JSON.stringify(diditResponse.data))
     const { session_id, verification_url } = diditResponse.data
 
     await updateItem({

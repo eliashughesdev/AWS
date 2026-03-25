@@ -19,7 +19,6 @@ export default function CustomerKyc() {
         }
       )
 
-      console.log('KYC session response:', data)
       if (data.verification_url) {
         window.location.href = data.verification_url
       }
