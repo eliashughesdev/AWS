@@ -12574,11 +12574,6 @@ lodash.isstring@^4.0.1:
   resolved "https://registry.npmjs.org/lodash.isstring/-/lodash.isstring-4.0.1.tgz"
   integrity sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==
 
-lodash.kebabcase@^4.1.1:
-  version "4.1.1"
-  resolved "https://registry.npmjs.org/lodash.kebabcase/-/lodash.kebabcase-4.1.1.tgz"
-  integrity sha512-N8XRTIMMqqDgSy4VLKPnJ/+hpGZN+PHQiJnSenYqPaVV/NCqEogTnAdZLQiGKhxX+JCs8waWq2t1XHWKOmlY8g==
-
 lodash.merge@^4.6.2:
   version "4.6.2"
   resolved "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz"
@@ -13276,14 +13271,6 @@ peowly@^1.3.2:
   resolved "https://registry.yarnpkg.com/peowly/-/peowly-1.3.3.tgz#049bfb91494c6a25b1f04896506378fce2453e9f"
   integrity sha512-5UmUtvuCv3KzBX2NuQw2uF28o0t8Eq4KkPRZfUCzJs+DiNVKw7OaYn29vNDgrt/Pggs23CPlSTqgzlhHJfpT0A==
 
-persona@^5.4.0:
-  version "5.4.0"
-  resolved "https://registry.npmjs.org/persona/-/persona-5.4.0.tgz"
-  integrity sha512-nWsGYPVQ2l3k6oBvXvSnx6877IIIIu36Q1vI/REYS0Hk+/tCyoGLwuVtjMQT+SS6LLvaPCAGunC6GQuN30xZyw==
-  dependencies:
-    lodash.kebabcase "^4.1.1"
-    qs "^6.11.2"
-
 pg-cloudflare@^1.1.1:
   version "1.2.7"
   resolved "https://registry.npmjs.org/pg-cloudflare/-/pg-cloudflare-1.2.7.tgz"
@@ -13495,13 +13482,6 @@ qrcode@1.5.0:
     encode-utf8 "^1.0.3"
     pngjs "^5.0.0"
     yargs "^15.3.1"
-
-qs@^6.11.2:
-  version "6.14.0"
-  resolved "https://registry.npmjs.org/qs/-/qs-6.14.0.tgz"
-  integrity sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==
-  dependencies:
-    side-channel "^1.1.0"
 
 qs@^6.14.1:
   version "6.14.1"
