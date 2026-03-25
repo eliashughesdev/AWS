@@ -235,7 +235,11 @@ webhooksPath.addMethod('POST', lambdaIntegration)
 
 accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
-webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
+webhooksPath.addProxy({
+  anyMethod: true,
+  defaultIntegration: lambdaIntegration,
+  defaultMethodOptions: { authorizationType: AuthorizationType.NONE },
+})
 
 const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
   statements: [
