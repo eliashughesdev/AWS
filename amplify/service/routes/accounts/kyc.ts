@@ -45,7 +45,8 @@ export default class KycSessionHandler {
     )
 
     console.log('DEBUG KYC: Didit response:', JSON.stringify(diditResponse.data))
-    const { session_id, verification_url } = diditResponse.data
+    // Didit returns the session URL as 'url', not 'verification_url' as said in the documentation
+    const { session_id, url: verification_url } = diditResponse.data
 
     await updateItem({
       tableName: 'v2CustomerTable',
