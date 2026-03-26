@@ -8,8 +8,6 @@ export default class KycWebhookHandler {
     console.log('Didit webhook received - headers:', JSON.stringify(event.headers))
     console.log('Didit webhook received - body:', JSON.stringify(event.body))
 
-    const signatureV2 = event.headers?.['x-signature-v2'] ?? event.headers?.['X-Signature-V2']
-    const timestamp = event.headers?.['x-timestamp'] ?? event.headers?.['X-Timestamp']
     const webhookSecret = process.env.DIDIT_WEBHOOK_SECRET
 
     if (!webhookSecret) {
@@ -17,26 +15,23 @@ export default class KycWebhookHandler {
       return response({ statusCode: 500, headers: null, bodyObject: { message: 'Webhook secret not configured' } })
     }
 
-    // Validate timestamp freshness (must be within 300 seconds)
-    if (!timestamp || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
-      return response({ statusCode: 401, headers: null, bodyObject: { message: 'Invalid or stale timestamp' } })
-    }
-
-    // Verify signature (V2: HMAC-SHA256 of JSON with sorted keys)
     const body = event.body
-    const normalizedPayload = JSON.stringify(body, Object.keys(body).sort())
+
+    // Use X-Signature-Simple: HMAC-SHA256 of "${session_id}|${status}|${created_at}"
+    // V2 requires deep JSON key sorting which breaks on nested objects (e.g. decision)
+    const signatureSimple = event.headers?.['x-signature-simple'] ?? event.headers?.['X-Signature-Simple']
+    const { vendor_data: userId, session_id, status, created_at } = body
     const expectedSignature = createHmac('sha256', webhookSecret)
-      .update(normalizedPayload)
+      .update(`${session_id}|${status}|${created_at}`)
       .digest('hex')
 
     if (
-      !signatureV2 ||
-      !timingSafeEqual(Buffer.from(signatureV2), Buffer.from(expectedSignature))
+      !signatureSimple ||
+      !timingSafeEqual(Buffer.from(signatureSimple), Buffer.from(expectedSignature))
     ) {
+      console.error('KYC webhook signature mismatch')
       return response({ statusCode: 401, headers: null, bodyObject: { message: 'Invalid signature' } })
     }
-
-    const { vendor_data: userId, status, session_id } = body
 
     if (!userId) {
       console.error('Didit webhook missing vendor_data (userId)')

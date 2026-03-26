@@ -232,13 +232,10 @@ const accountsPath = loudiblyRestApi.root.addResource('accounts')
 const paymentsPath = loudiblyRestApi.root.addResource('payments')
 const webhooksPath = loudiblyRestApi.root.addResource('webhook')
 webhooksPath.addMethod('POST', lambdaIntegration)
-// Explicit no-auth POST methods for external webhooks — same pattern as Tatum above
-webhooksPath.addResource('kyc').addMethod('POST', lambdaIntegration)
-webhooksPath.addResource('stripe').addMethod('POST', lambdaIntegration)
 
 accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
-webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, defaultMethodOptions: { authorizationType: AuthorizationType.NONE } })
+webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
 
 const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
   statements: [
