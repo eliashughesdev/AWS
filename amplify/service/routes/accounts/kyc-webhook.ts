@@ -17,25 +17,16 @@ export default class KycWebhookHandler {
 
     const body = event.body
 
-    // Use X-Signature-Simple: HMAC-SHA256 of "${session_id}|${status}|${created_at}"
-    // V2 requires deep JSON key sorting which breaks on nested objects (e.g. decision)
+    // X-Signature-Simple: HMAC-SHA256 of "${timestamp}:${session_id}:${status}:${webhook_type}"
     const signatureSimple = event.headers?.['x-signature-simple'] ?? event.headers?.['X-Signature-Simple']
-    const { vendor_data: userId, session_id, status, created_at, timestamp: bodyTimestamp } = body
-    // Try both created_at and timestamp — for subsequent webhooks these diverge
-    const sigStringCreatedAt = `${session_id}|${status}|${created_at}`
-    const sigStringTimestamp = `${session_id}|${status}|${bodyTimestamp}`
-    const expectedSigCreatedAt = createHmac('sha256', webhookSecret).update(sigStringCreatedAt).digest('hex')
-    const expectedSigTimestamp = createHmac('sha256', webhookSecret).update(sigStringTimestamp).digest('hex')
-
-    console.log('Signature debug — simple header:', signatureSimple)
-    console.log('Signature debug — using created_at:', expectedSigCreatedAt)
-    console.log('Signature debug — using timestamp:', expectedSigTimestamp)
+    const xTimestamp = event.headers?.['x-timestamp'] ?? event.headers?.['X-Timestamp']
+    const { vendor_data: userId, session_id, status, webhook_type } = body
+    const sigString = `${xTimestamp}:${session_id}:${status}:${webhook_type}`
+    const expectedSig = createHmac('sha256', webhookSecret).update(sigString).digest('hex')
 
     const signatureValid =
-      signatureSimple && (
-        timingSafeEqual(Buffer.from(signatureSimple), Buffer.from(expectedSigCreatedAt)) ||
-        timingSafeEqual(Buffer.from(signatureSimple), Buffer.from(expectedSigTimestamp))
-      )
+      signatureSimple &&
+      timingSafeEqual(Buffer.from(signatureSimple), Buffer.from(expectedSig))
 
     if (!signatureValid) {
       console.error('KYC webhook signature mismatch')
