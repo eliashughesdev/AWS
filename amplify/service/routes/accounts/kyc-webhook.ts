@@ -5,6 +5,9 @@ import { updateItem } from '../../../utils/db'
 
 export default class KycWebhookHandler {
   async execute(event: any, context: Context) {
+    console.log('Didit webhook received - headers:', JSON.stringify(event.headers))
+    console.log('Didit webhook received - body:', JSON.stringify(event.body))
+
     const signatureV2 = event.headers?.['x-signature-v2'] ?? event.headers?.['X-Signature-V2']
     const timestamp = event.headers?.['x-timestamp'] ?? event.headers?.['X-Timestamp']
     const webhookSecret = process.env.DIDIT_WEBHOOK_SECRET
