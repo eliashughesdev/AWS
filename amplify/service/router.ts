@@ -1,5 +1,5 @@
-import accountsKycSession from './routes/accounts/kyc'
-import accountsKycWebhook from './routes/accounts/kyc-webhook'
+import accountsKycDiditSession from './routes/accounts/kyc-didit-session'
+import accountsKycWebhookDidit from './routes/accounts/kyc-webhook-didit'
 import accountsKycStatus from './routes/accounts/kyc-status'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
@@ -26,8 +26,8 @@ type RoutesMap = Map<string, {
 export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
-  ['/accounts/kyc/session', { handler: accountsKycSession, requiredParams: [], method: 'POST' }],
-  ['/webhook/kyc', { handler: accountsKycWebhook, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, requiredParams: [], method: 'POST' }],
+  ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
