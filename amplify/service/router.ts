@@ -1,5 +1,6 @@
 import accountsKycDiditSession from './routes/accounts/kyc-didit-session'
 import accountsKycWebhookDidit from './routes/accounts/kyc-webhook-didit'
+import accountsKycDiditIdVerify from './routes/accounts/kyc-didit-id-verify'
 import accountsKycStatus from './routes/accounts/kyc-status'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
@@ -27,6 +28,7 @@ export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, requiredParams: [], method: 'POST' }],
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],

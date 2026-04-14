@@ -3,6 +3,7 @@ import { Authenticator } from '@aws-amplify/ui-react'
 import outputs from '../amplify_outputs.json'
 import CustomerKyc from './pages/CustomerKyc'
 import KycComplete from './pages/KycComplete'
+import KycIdUpload from './pages/KycIdUpload'
 import '@aws-amplify/ui-react/styles.css'
 import { EvervaultProvider } from '@evervault/react'
 import AddCard from './pages/AddCard'
@@ -25,6 +26,9 @@ function App() {
           if (path === '/customer/kyc/complete') {
             return <KycComplete />
           }
+          if (path === '/customer/kyc/id-upload') {
+            return <KycIdUpload />
+          }
           if (path === '/payment/add') {
             return <AddCard user={user} />
           }
@@ -41,6 +45,8 @@ function App() {
                 <h1>Hello {user?.username}!</h1>
                 <p>🥳 App successfully hosted.</p>
                 <a href='/customer/kyc'>Open KYC</a>
+                <br />
+                <a href='/customer/kyc/id-upload'>KYC ID Upload Test</a>
                 <br />
                 <a href='/payment/add'>Add Payment</a>
                 <br />

@@ -61,4 +61,19 @@ export class DiditKycProvider {
     const { vendor_data: userId, session_id: sessionId, status } = event.body
     return { userId, sessionId, status }
   }
+
+  async verifyIdDocument(frontImageBase64: string, backImageBase64?: string): Promise<any> {
+    const form = new FormData()
+    form.append('front_image', new Blob([Buffer.from(frontImageBase64, 'base64')], { type: 'image/jpeg' }), 'front.jpg')
+    if (backImageBase64) {
+      form.append('back_image', new Blob([Buffer.from(backImageBase64, 'base64')], { type: 'image/jpeg' }), 'back.jpg')
+    }
+    form.append('perform_document_liveness', 'false')
+
+    const result = await axios.post('https://verification.didit.me/v3/id-verification/', form, {
+      headers: { 'x-api-key': this.apiKey }
+    })
+
+    return result.data
+  }
 }
