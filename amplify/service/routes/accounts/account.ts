@@ -17,7 +17,7 @@ export default class AccountHandler {
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const data: any = {
-      id: crypto.randomUUID(),
+      id: event.requestContext?.authorizer?.userId ?? crypto.randomUUID(),
       sk: 'USERPROFILE',
       created_at: Date.now(),
       deleted_at: null,
