@@ -6,6 +6,7 @@ import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
+import { sendWelcomeEmail } from '../../../utils/email'
 
 /**
  * Creates new account (internal)
@@ -22,6 +23,7 @@ export default class AccountHandler {
       created_at: Date.now(),
       deleted_at: null,
       name: event.body.account_name,
+      email: event.body.email ?? null,
       updated_at: Date.now(),
     }
 
@@ -103,6 +105,15 @@ export default class AccountHandler {
         return processError(100003)
       }
       console.log('DEBUG: atomic transaction save attempt result:', JSON.stringify(transactionResult))
+
+      if (data.email) {
+        try {
+          await sendWelcomeEmail(data.email, accountNumber)
+          console.log(`DEBUG: Welcome email sent to ${data.email}`)
+        } catch (err) {
+          console.error('SES email send failed (non-fatal):', err)
+        }
+      }
 
       console.log('DEBUG: Account creation flow successful. Returning 200 response.')
       return response({

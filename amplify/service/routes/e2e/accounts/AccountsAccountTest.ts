@@ -8,7 +8,8 @@ const body = JSON.stringify({
   account_name: `Account ${Date.now().toString()}`,
   chain: 'TRON',
   provider: 'PCF0001',
-  accounting_currency: 'USD'
+  accounting_currency: 'USD',
+  email: 'teodoro641@hotmail.com'
 })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
