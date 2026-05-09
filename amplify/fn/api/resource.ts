@@ -22,6 +22,7 @@ export const mainApiFn = defineFunction({
     DIDIT_WEBHOOK_SECRET: secret('DIDIT_WEBHOOK_SECRET'),
     DIDIT_WORKFLOW_ID: process.env.DIDIT_WORKFLOW_ID || 'DEFINE DIDIT_WORKFLOW_ID',
     DIDIT_CALLBACK_URL: 'https://my.staging.loudibly.com/customer/kyc/complete',
-    SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || 'DEFINE AN EMIL ADDRESS'
+    SES_FROM_EMAIL: process.env.SES_FROM_EMAIL || 'DEFINE AN EMIL ADDRESS',
+    EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || 'AWS_SIMPLE_EMAIL_SERVICE',
   },
 })

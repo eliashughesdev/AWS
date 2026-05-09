@@ -6,7 +6,7 @@ import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
-import { sendWelcomeEmail } from '../../../utils/email'
+import { getEmailProvider } from '../../../utils/EmailProvider'
 
 /**
  * Creates new account (internal)
@@ -108,10 +108,15 @@ export default class AccountHandler {
 
       if (data.email) {
         try {
-          await sendWelcomeEmail(data.email, accountNumber)
+          const emailProvider = getEmailProvider()
+          await emailProvider.sendEmail(
+            data.email,
+            'Welcome to Loudibly — your account is ready',
+            `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
+          )
           console.log(`DEBUG: Welcome email sent to ${data.email}`)
         } catch (err) {
-          console.error('SES email send failed (non-fatal):', err)
+          console.error('Email send failed (non-fatal):', err)
         }
       }
 
