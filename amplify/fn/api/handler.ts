@@ -1,7 +1,9 @@
 import type { APIGatewayProxyHandler } from 'aws-lambda'
 import { router } from '../../service/router'
+import { loadConfig } from '../../utils/config'
 
 export const handler: APIGatewayProxyHandler = async (event, context) => {
+  await loadConfig()
   console.log('event: ', event)
   return await router(event, context)
   // return {
