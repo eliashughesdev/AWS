@@ -59,6 +59,13 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
   })
 )
 
+backend.mainApiFn.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['sns:Publish'],
+    resources: ['*']
+  })
+)
+
 const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
   functionName: 'custom-authorizer-fn',
   runtime: Runtime.NODEJS_20_X,

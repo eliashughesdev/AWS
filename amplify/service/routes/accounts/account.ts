@@ -7,6 +7,7 @@ import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
+import { getSmsProvider } from '../../../utils/SmsProvider'
 
 /**
  * Creates new account (internal)
@@ -117,6 +118,19 @@ export default class AccountHandler {
           console.log(`DEBUG: Welcome email sent to ${data.email}`)
         } catch (err) {
           console.error('Email send failed (non-fatal):', err)
+        }
+      }
+
+      if (event.body.phone) {
+        try {
+          const smsProvider = getSmsProvider()
+          await smsProvider.sendSms(
+            event.body.phone,
+            `Your Loudibly account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
+          )
+          console.log(`DEBUG: Welcome SMS sent to ${event.body.phone}`)
+        } catch (err) {
+          console.error('SMS send failed (non-fatal):', err)
         }
       }
 
