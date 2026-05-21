@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
@@ -45,20 +45,49 @@ async function handleSignIn() {
 }
 
 // ─── Sign Up ───────────────────────────────────────────────────────────────────
-const suEmail    = ref('')
-const suPassword = ref('')
-// Keep suEmail in scope for the confirm step auto-fill
+const suFirstName   = ref('')
+const suLastName    = ref('')
+const suEmail       = ref('')
+const suPassword    = ref('')
+const suConfirmPass = ref('')
+const showSuPass    = ref(false)
+const showSuConfirm = ref(false)
 const pendingEmail    = ref('')
 const pendingPassword = ref('')
 
+const passwordBars = computed((): number => {
+  const p = suPassword.value
+  if (!p) return 0
+  let score = 0
+  if (p.length >= 8) score++
+  if (/[A-Z]/.test(p)) score++
+  if (/[0-9]/.test(p)) score++
+  if (/[^A-Za-z0-9]/.test(p)) score++
+  return score
+})
+
+const passwordStrengthLabel = computed((): string => {
+  return (['', 'Weak', 'Fair', 'Good', 'Strong'] as const)[passwordBars.value] ?? ''
+})
+
 async function handleSignUp() {
   clearError()
+  if (suPassword.value !== suConfirmPass.value) {
+    error.value = 'Passwords do not match.'
+    return
+  }
   loading.value = true
   try {
     const { nextStep: ns } = await signUp({
       username: suEmail.value.trim(),
       password: suPassword.value,
-      options: { userAttributes: { email: suEmail.value.trim() } },
+      options: {
+        userAttributes: {
+          email: suEmail.value.trim(),
+          given_name: suFirstName.value.trim(),
+          family_name: suLastName.value.trim(),
+        },
+      },
     })
     if (ns.signUpStep === 'CONFIRM_SIGN_UP') {
       pendingEmail.value    = suEmail.value.trim()
@@ -118,37 +147,36 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center p-margin-mobile md:p-margin-desktop">
-    <main class="w-full max-w-[390px] flex flex-col gap-space-8">
+  <div class="min-h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
+    <main class="w-full max-w-[390px] mx-auto flex flex-col gap-space-8 relative z-10">
 
-      <!-- ── Header: logo mark + tagline ─────────────────────────────────── -->
-      <header class="flex flex-col items-center text-center gap-space-4 pt-space-8">
-        <!-- Geometric mark -->
+      <!-- ── Header ─────────────────────────────────────────────────────── -->
+      <header class="text-center flex flex-col items-center gap-space-4">
         <div
-          class="w-16 h-16 bg-surface-container-high rounded-xl border border-border-subtle
-                 flex items-center justify-center relative overflow-hidden"
+          class="h-12 w-12 rounded-xl bg-surface-container-high border border-border-subtle
+                 flex items-center justify-center text-accent-lime
+                 shadow-[0_0_15px_rgba(204,255,0,0.1)]"
           aria-hidden="true"
         >
-          <div class="absolute inset-0 bg-gradient-to-br from-accent-lime/20 to-transparent"></div>
-          <div class="w-8 h-8 border-2 border-accent-lime rounded-full relative z-10 flex items-center justify-center">
-            <div class="w-2 h-2 bg-text-primary rounded-full"></div>
-          </div>
+          <span class="material-symbols-outlined" style="font-size: 24px;">deployed_code</span>
         </div>
-
-        <div class="flex flex-col gap-space-2">
-          <h1 class="font-headline-h1-mobile text-headline-h1-mobile text-text-primary font-semibold">
-            FintechOS
+        <div>
+          <h1 class="font-headline-h1-mobile text-headline-h1-mobile text-text-primary font-semibold mb-space-2">
+            <template v-if="activeTab === 'signUp' && step === 'form'">Create account</template>
+            <template v-else>Loudibly</template>
           </h1>
-          <p class="font-body-large text-body-large text-text-secondary">
-            Your account, your assets.
+          <p class="font-body-base text-body-base text-text-secondary">
+            <template v-if="step === 'confirm'">Check your inbox</template>
+            <template v-else-if="activeTab === 'signUp'">Join Loudibly Infrastructure</template>
+            <template v-else>Your account, your assets.</template>
           </p>
         </div>
       </header>
 
       <!-- ── Auth card ────────────────────────────────────────────────────── -->
       <section
-        class="bg-[#141517] border border-border-subtle rounded-xl p-space-6
-               flex flex-col gap-space-6 shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+        class="bg-surface-container-low border border-border-subtle rounded-lg p-space-8
+               flex flex-col gap-space-6 shadow-2xl shadow-black/50"
       >
 
         <!-- ── Confirm step (email verification code) ─────────────────────── -->
@@ -164,17 +192,15 @@ onMounted(async () => {
           </div>
 
           <CForm @submit.prevent="handleConfirm" class="flex flex-col gap-space-4">
-            <!-- Error -->
             <p v-if="error" role="alert" class="font-body-base text-body-base text-status-danger text-center">
               {{ error }}
             </p>
 
-            <!-- Code field -->
             <div class="flex flex-col gap-space-2">
-              <CFormLabel for="confirm-code" class="font-body-base text-body-base text-text-primary">
+              <CFormLabel for="confirm-code" class="font-body-base text-body-base text-text-secondary">
                 Verification code
               </CFormLabel>
-              <div class="relative flex items-center bg-[#141517] border border-border-subtle rounded input-focus-ring transition-all duration-200">
+              <div class="relative flex items-center bg-surface-container-high border border-border-subtle rounded input-focus-ring transition-all duration-200">
                 <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                   pin
                 </span>
@@ -194,7 +220,6 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- Submit -->
             <CButton
               type="submit"
               :disabled="loading"
@@ -205,7 +230,6 @@ onMounted(async () => {
               {{ loading ? 'Verifying…' : 'Verify email' }}
             </CButton>
 
-            <!-- Resend -->
             <p class="text-center font-body-base text-body-base text-text-secondary">
               Didn't receive it?
               <button
@@ -265,18 +289,16 @@ onMounted(async () => {
             aria-labelledby="tab-signin"
           >
             <CForm @submit.prevent="handleSignIn" class="flex flex-col gap-space-4">
-              <!-- Error -->
               <p v-if="error && activeTab === 'signIn'" role="alert"
                  class="font-body-base text-body-base text-status-danger">
                 {{ error }}
               </p>
 
-              <!-- Email -->
               <div class="flex flex-col gap-space-2">
-                <CFormLabel for="si-email" class="font-body-base text-body-base text-text-primary">
+                <CFormLabel for="si-email" class="font-body-base text-body-base text-text-secondary">
                   Email Address
                 </CFormLabel>
-                <div class="relative flex items-center bg-[#141517] border border-border-subtle rounded input-focus-ring transition-all duration-200">
+                <div class="relative flex items-center bg-surface-container-high border border-border-subtle rounded input-focus-ring transition-all duration-200">
                   <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                     mail
                   </span>
@@ -294,10 +316,9 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- Password -->
               <div class="flex flex-col gap-space-2">
                 <div class="flex justify-between items-baseline">
-                  <CFormLabel for="si-password" class="font-body-base text-body-base text-text-primary">
+                  <CFormLabel for="si-password" class="font-body-base text-body-base text-text-secondary">
                     Password
                   </CFormLabel>
                   <a
@@ -307,7 +328,7 @@ onMounted(async () => {
                     Forgot password?
                   </a>
                 </div>
-                <div class="relative flex items-center bg-[#141517] border border-border-subtle rounded input-focus-ring transition-all duration-200">
+                <div class="relative flex items-center bg-surface-container-high border border-border-subtle rounded input-focus-ring transition-all duration-200">
                   <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                     lock
                   </span>
@@ -325,7 +346,6 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- Submit -->
               <CButton
                 type="submit"
                 :disabled="loading"
@@ -346,68 +366,173 @@ onMounted(async () => {
             aria-labelledby="tab-signup"
           >
             <CForm @submit.prevent="handleSignUp" class="flex flex-col gap-space-4">
-              <!-- Error -->
               <p v-if="error && activeTab === 'signUp'" role="alert"
                  class="font-body-base text-body-base text-status-danger">
                 {{ error }}
               </p>
 
-              <!-- Email -->
-              <div class="flex flex-col gap-space-2">
-                <CFormLabel for="su-email" class="font-body-base text-body-base text-text-primary">
-                  Email Address
-                </CFormLabel>
-                <div class="relative flex items-center bg-[#141517] border border-border-subtle rounded input-focus-ring transition-all duration-200">
-                  <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
-                    mail
-                  </span>
-                  <CFormInput
-                    id="su-email"
-                    v-model="suEmail"
-                    type="email"
-                    autocomplete="email"
-                    placeholder="operator@domain.com"
+              <!-- Name row -->
+              <div class="grid grid-cols-2 gap-space-4">
+                <div class="flex flex-col gap-space-2">
+                  <label for="su-first-name"
+                         class="font-body-base text-[13px] font-medium text-text-secondary">
+                    First name
+                  </label>
+                  <input
+                    id="su-first-name"
+                    v-model="suFirstName"
+                    type="text"
+                    autocomplete="given-name"
+                    placeholder="Jane"
                     required
-                    class="w-full bg-transparent border-none shadow-none ring-0 text-text-primary
-                           font-label-mono-base text-label-mono-base py-space-3 pl-10 pr-space-3
-                           placeholder:text-text-secondary/50 focus:ring-0 focus:shadow-none"
+                    class="w-full bg-surface-container-high border border-border-subtle rounded
+                           text-text-primary font-label-mono-base text-label-mono-base
+                           px-space-4 py-space-3 placeholder:text-text-muted/80
+                           focus:outline-none focus:border-accent-lime
+                           focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                  />
+                </div>
+                <div class="flex flex-col gap-space-2">
+                  <label for="su-last-name"
+                         class="font-body-base text-[13px] font-medium text-text-secondary">
+                    Last name
+                  </label>
+                  <input
+                    id="su-last-name"
+                    v-model="suLastName"
+                    type="text"
+                    autocomplete="family-name"
+                    placeholder="Doe"
+                    required
+                    class="w-full bg-surface-container-high border border-border-subtle rounded
+                           text-text-primary font-label-mono-base text-label-mono-base
+                           px-space-4 py-space-3 placeholder:text-text-muted/80
+                           focus:outline-none focus:border-accent-lime
+                           focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
                   />
                 </div>
               </div>
 
-              <!-- Password -->
+              <!-- Email -->
               <div class="flex flex-col gap-space-2">
-                <CFormLabel for="su-password" class="font-body-base text-body-base text-text-primary">
+                <label for="su-email"
+                       class="font-body-base text-[13px] font-medium text-text-secondary">
+                  Email address
+                </label>
+                <input
+                  id="su-email"
+                  v-model="suEmail"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="jane.doe@company.com"
+                  required
+                  class="w-full bg-surface-container-high border border-border-subtle rounded
+                         text-text-primary font-label-mono-base text-label-mono-base
+                         px-space-4 py-space-3 placeholder:text-text-muted/80
+                         focus:outline-none focus:border-accent-lime
+                         focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                />
+              </div>
+
+              <!-- Password + strength indicator -->
+              <div class="flex flex-col gap-space-2">
+                <label for="su-password"
+                       class="font-body-base text-[13px] font-medium text-text-secondary">
                   Password
-                </CFormLabel>
-                <div class="relative flex items-center bg-[#141517] border border-border-subtle rounded input-focus-ring transition-all duration-200">
-                  <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
-                    lock
-                  </span>
-                  <CFormInput
+                </label>
+                <div class="relative">
+                  <input
                     id="su-password"
                     v-model="suPassword"
-                    type="password"
+                    :type="showSuPass ? 'text' : 'password'"
                     autocomplete="new-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-transparent border-none shadow-none ring-0 text-text-primary
-                           font-label-mono-base text-label-mono-base py-space-3 pl-10 pr-space-3
-                           placeholder:text-text-secondary/50 focus:ring-0 focus:shadow-none"
+                    class="w-full bg-surface-container-high border border-border-subtle rounded
+                           text-text-primary font-label-mono-base text-label-mono-base
+                           px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
+                           focus:outline-none focus:border-accent-lime
+                           focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
                   />
+                  <button
+                    type="button"
+                    @click="showSuPass = !showSuPass"
+                    :aria-label="showSuPass ? 'Hide password' : 'Show password'"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary
+                           hover:text-text-primary transition-colors"
+                  >
+                    <span class="material-symbols-outlined" style="font-size: 20px;">
+                      {{ showSuPass ? 'visibility' : 'visibility_off' }}
+                    </span>
+                  </button>
+                </div>
+                <template v-if="suPassword">
+                  <div class="flex gap-1 h-1 mt-space-1">
+                    <div
+                      v-for="i in 4"
+                      :key="i"
+                      class="flex-1 rounded-full transition-colors duration-200"
+                      :class="i <= passwordBars ? 'bg-accent-lime' : 'bg-surface-container-highest'"
+                    />
+                  </div>
+                  <p class="font-caption text-caption text-text-muted text-right">{{ passwordStrengthLabel }}</p>
+                </template>
+              </div>
+
+              <!-- Confirm password -->
+              <div class="flex flex-col gap-space-2">
+                <label for="su-confirm"
+                       class="font-body-base text-[13px] font-medium text-text-secondary">
+                  Confirm password
+                </label>
+                <div class="relative">
+                  <input
+                    id="su-confirm"
+                    v-model="suConfirmPass"
+                    :type="showSuConfirm ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    placeholder="••••••••"
+                    required
+                    class="w-full bg-surface-container-high border border-border-subtle rounded
+                           text-text-primary font-label-mono-base text-label-mono-base
+                           px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
+                           focus:outline-none focus:border-accent-lime
+                           focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                  />
+                  <button
+                    type="button"
+                    @click="showSuConfirm = !showSuConfirm"
+                    :aria-label="showSuConfirm ? 'Hide password' : 'Show password'"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary
+                           hover:text-text-primary transition-colors"
+                  >
+                    <span class="material-symbols-outlined" style="font-size: 20px;">
+                      {{ showSuConfirm ? 'visibility' : 'visibility_off' }}
+                    </span>
+                  </button>
                 </div>
               </div>
 
               <!-- Submit -->
-              <CButton
-                type="submit"
-                :disabled="loading"
-                class="mt-space-4 w-full bg-accent-lime text-black font-body-large text-body-large
-                       font-bold py-space-3 rounded border-0 hover:bg-[#d6ff33] transition-colors
-                       active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {{ loading ? 'Creating account…' : 'Create Account' }}
-              </CButton>
+              <div class="mt-space-2">
+                <CButton
+                  type="submit"
+                  :disabled="loading"
+                  class="w-full bg-accent-lime text-black font-body-large text-body-large
+                         font-bold py-space-3 rounded border-0 hover:bg-[#d6ff33] transition-colors
+                         active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed
+                         flex items-center justify-center gap-space-2 group"
+                >
+                  <template v-if="loading">Creating account…</template>
+                  <template v-else>
+                    Create Account
+                    <span
+                      class="material-symbols-outlined group-hover:translate-x-1 transition-transform"
+                      style="font-size: 18px;"
+                    >arrow_forward</span>
+                  </template>
+                </CButton>
+              </div>
             </CForm>
           </div>
 
@@ -443,5 +568,14 @@ onMounted(async () => {
       </div>
 
     </main>
+
+    <!-- Ambient glow -->
+    <div
+      class="fixed top-0 left-0 w-full h-full pointer-events-none z-[-1] opacity-20
+             overflow-hidden flex items-center justify-center"
+      aria-hidden="true"
+    >
+      <div class="w-[800px] h-[800px] rounded-full bg-accent-lime/5 blur-[120px]"></div>
+    </div>
   </div>
 </template>
