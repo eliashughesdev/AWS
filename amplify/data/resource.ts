@@ -5,13 +5,10 @@ const schema = a.schema({
     name: a.string(),
     isActive: a.boolean()
   })
-    .authorization(allow => [allow.publicApiKey()]) // temporary: auth removed for CFN recovery
+    .authorization(allow => [allow.authenticated()]) // todo fixme
 })
 
 export type Schema = ClientSchema<typeof schema>
 export const data = defineData({
   schema,
-  authorizationModes: {
-    defaultAuthorizationMode: 'apiKey',
-  },
 })
