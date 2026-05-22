@@ -109,7 +109,7 @@ async function handleSignUp() {
 // ─── Account creation ─────────────────────────────────────────────────────────
 async function createAccount() {
   const session = await fetchAuthSession()
-  const token = session.tokens?.idToken?.toString()
+  const token = session.tokens?.accessToken?.toString()
   await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/account', {
     method: 'POST',
     headers: {
