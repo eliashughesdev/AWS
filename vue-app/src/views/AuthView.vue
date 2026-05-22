@@ -115,6 +115,7 @@ async function createAccount() {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'X-Project': 'web',
     },
     body: JSON.stringify({
       account_name: `${pendingFirstName.value} ${pendingLastName.value}`,
