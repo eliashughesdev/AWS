@@ -25,13 +25,12 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import { Code, Function, Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda'
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs'
 import { mainApiFn } from './fn/api/resource'
-import { auth } from './auth/resource'
+// import { auth } from './auth/resource'
 import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
 
 
 const backend = defineBackend({
-  auth,
   data,
   mainApiFn,
 })
@@ -65,7 +64,7 @@ const customAuthorizerFn = new Function(apiStack, 'CustomAuthorizerFunction', {
   handler: 'index.handler',
   code: Code.fromAsset(path.join(process.cwd(), './amplify/fn/authorizer')),
   environment: {
-    COGNITO_USER_POOL_ID: backend.auth.resources.userPool.userPoolId,
+    COGNITO_USER_POOL_ID: 'placeholder',
   },
 })
 
@@ -258,12 +257,8 @@ const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
   ],
 })
 
-backend.auth.resources.authenticatedUserIamRole.attachInlinePolicy(
-  apiRestPolicy
-)
-backend.auth.resources.unauthenticatedUserIamRole.attachInlinePolicy(
-  apiRestPolicy
-)
+// backend.auth.resources.authenticatedUserIamRole.attachInlinePolicy(apiRestPolicy)
+// backend.auth.resources.unauthenticatedUserIamRole.attachInlinePolicy(apiRestPolicy)
 
 const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
   partitionKey: {
