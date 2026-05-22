@@ -5,14 +5,4 @@ export const auth = defineAuth({
     email: true,
   },
   groups: ['admin', 'user'],
-  userAttributes: {
-    givenName: {
-      required: true,
-      mutable: true,
-    },
-    familyName: {
-      required: true,
-      mutable: true,
-    },
-  },
 })
