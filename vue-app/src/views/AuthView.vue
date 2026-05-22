@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode } from 'aws-amplify/auth'
+import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
 
@@ -52,8 +52,10 @@ const suPassword    = ref('')
 const suConfirmPass = ref('')
 const showSuPass    = ref(false)
 const showSuConfirm = ref(false)
-const pendingEmail    = ref('')
-const pendingPassword = ref('')
+const pendingEmail     = ref('')
+const pendingPassword  = ref('')
+const pendingFirstName = ref('')
+const pendingLastName  = ref('')
 
 const passwordBars = computed((): number => {
   const p = suPassword.value
@@ -90,10 +92,12 @@ async function handleSignUp() {
       },
     })
     if (ns.signUpStep === 'CONFIRM_SIGN_UP') {
-      pendingEmail.value    = suEmail.value.trim()
-      pendingPassword.value = suPassword.value
-      confirmCode.value     = ''
-      step.value            = 'confirm'
+      pendingEmail.value     = suEmail.value.trim()
+      pendingPassword.value  = suPassword.value
+      pendingFirstName.value = suFirstName.value.trim()
+      pendingLastName.value  = suLastName.value.trim()
+      confirmCode.value      = ''
+      step.value             = 'confirm'
     } else {
       router.push('/')
     }
@@ -102,6 +106,26 @@ async function handleSignUp() {
   } finally {
     loading.value = false
   }
+}
+
+// ─── Account creation ─────────────────────────────────────────────────────────
+async function createAccount() {
+  const session = await fetchAuthSession()
+  const token = session.tokens?.idToken?.toString()
+  await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/account', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      account_name: `${pendingFirstName.value} ${pendingLastName.value}`,
+      email: pendingEmail.value,
+      chain: 'TRON',
+      provider: 'PCF0001',
+      accounting_currency: 'USD',
+    }),
+  })
 }
 
 // ─── Confirm sign up ───────────────────────────────────────────────────────────
@@ -117,6 +141,7 @@ async function handleConfirm() {
     })
     if (isSignUpComplete) {
       await signIn({ username: pendingEmail.value, password: pendingPassword.value })
+      await createAccount()
       router.push('/')
     }
   } catch (e: unknown) {
