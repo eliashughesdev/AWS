@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
+import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
 
@@ -35,7 +35,7 @@ async function handleSignIn() {
   try {
     const result = await signIn({ username: siEmail.value.trim(), password: siPassword.value })
     if (result.isSignedIn) {
-      router.push('/')
+      router.push('/dashboard')
     }
   } catch (e: unknown) {
     error.value = (e as Error).message ?? 'Sign in failed.'
@@ -106,26 +106,26 @@ async function handleSignUp() {
   }
 }
 
-// ─── Account creation ─────────────────────────────────────────────────────────
-async function createAccount() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/account', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'X-Project': 'web',
-    },
-    body: JSON.stringify({
-      account_name: `${pendingFirstName.value} ${pendingLastName.value}`,
-      email: pendingEmail.value,
-      chain: 'TRON',
-      provider: 'PCF0001',
-      accounting_currency: 'USD',
-    }),
-  })
-}
+// ─── Account creation (detached — called separately after onboarding) ─────────
+// async function createAccount() {
+//   const session = await fetchAuthSession()
+//   const token = session.tokens?.accessToken?.toString()
+//   await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/account', {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       'Authorization': `Bearer ${token}`,
+//       'X-Project': 'web',
+//     },
+//     body: JSON.stringify({
+//       account_name: `${pendingFirstName.value} ${pendingLastName.value}`,
+//       email: pendingEmail.value,
+//       chain: 'TRON',
+//       provider: 'PCF0001',
+//       accounting_currency: 'USD',
+//     }),
+//   })
+// }
 
 // ─── Confirm sign up ───────────────────────────────────────────────────────────
 const confirmCode = ref('')
@@ -140,8 +140,8 @@ async function handleConfirm() {
     })
     if (isSignUpComplete) {
       await signIn({ username: pendingEmail.value, password: pendingPassword.value })
-      await createAccount()
-      router.push('/')
+      // await createAccount()
+      router.push('/dashboard')
     }
   } catch (e: unknown) {
     error.value = (e as Error).message ?? 'Confirmation failed.'
@@ -163,7 +163,7 @@ async function handleResend() {
 onMounted(async () => {
   try {
     await getCurrentUser()
-    router.push('/')
+    router.push('/dashboard')
   } catch {
     // Not signed in — stay on auth page
   }
