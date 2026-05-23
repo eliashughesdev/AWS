@@ -1,12 +1,22 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { signOut, fetchUserAttributes } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
+
+const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 
 const router = useRouter()
 
-const displayName = ref('...')
-const userEmail   = ref('')
+const displayName      = ref('...')
+const userEmail        = ref('')
+const kycBannerVisible = ref(false)
+const kycLoading       = ref(false)
+
+async function getAuthHeaders() {
+  const session = await fetchAuthSession()
+  const token = session.tokens?.accessToken?.toString()
+  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
+}
 
 onMounted(async () => {
   try {
@@ -15,8 +25,38 @@ onMounted(async () => {
     displayName.value = attrs.email?.split('@')[0] ?? 'User'
   } catch {
     router.push('/auth')
+    return
+  }
+
+  try {
+    const headers = await getAuthHeaders()
+    const res  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
+    const data = await res.json()
+    kycBannerVisible.value = data.kyc?.status !== 'Approved'
+  } catch {
+    kycBannerVisible.value = true
   }
 })
+
+async function startKyc() {
+  kycLoading.value = true
+  try {
+    const headers = await getAuthHeaders()
+    const res  = await fetch(`${API_BASE}/accounts/kyc/didit/session`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    const data = await res.json()
+    if (data.verification_url) {
+      window.location.href = data.verification_url
+    }
+  } catch (e) {
+    console.error('Failed to start KYC session', e)
+  } finally {
+    kycLoading.value = false
+  }
+}
 
 async function handleSignOut() {
   await signOut()
@@ -125,16 +165,26 @@ const validators = [
       <!-- TopAppBar -->
       <header class="flex justify-between items-center px-8 h-16 w-full border-b border-white/[0.08] sticky top-0 bg-[#0A0B0D]/80 backdrop-blur-md z-10">
         <div class="md:hidden text-[24px] font-semibold text-white">Loudibly</div>
-        <div class="hidden md:flex gap-8">
-          <a class="text-[#CCFF00] font-bold border-b-2 border-[#CCFF00] pb-1 text-[14px]" href="#">Platform</a>
-          <a class="text-[#A1A1AA] hover:text-white transition-colors text-[14px]" href="#">Security</a>
-          <a class="text-[#A1A1AA] hover:text-white transition-colors text-[14px]" href="#">Infrastructure</a>
-          <a class="text-[#A1A1AA] hover:text-white transition-colors text-[14px]" href="#">Support</a>
-        </div>
+        <div></div>
         <button @click="handleSignOut" class="text-[#A1A1AA] hover:text-white text-[14px] transition-colors">
           Logout
         </button>
       </header>
+
+      <!-- KYC Banner -->
+      <div v-if="kycBannerVisible"
+        class="w-full bg-amber-400/10 border-b border-amber-400/30 px-8 py-3 flex items-center gap-4">
+        <span class="material-symbols-outlined text-amber-400 shrink-0">warning</span>
+        <p class="text-sm text-amber-300 flex-1">
+          Your account requires identity verification before you can access all features.
+        </p>
+        <button
+          @click="startKyc"
+          :disabled="kycLoading"
+          class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-black rounded hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ kycLoading ? 'Starting…' : 'Complete Verification →' }}
+        </button>
+      </div>
 
       <!-- Dashboard Content -->
       <section class="p-8 max-w-7xl mx-auto w-full">
