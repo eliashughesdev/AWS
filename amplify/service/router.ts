@@ -4,6 +4,7 @@ import accountsKycDiditIdVerify from './routes/accounts/kyc-didit-id-verify'
 import accountsKycStatus from './routes/accounts/kyc-status'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
+import accountsList from './routes/accounts/list'
 import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import accountDeposit from './routes/accounts/deposit'
@@ -31,6 +32,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, requiredParams: [], method: 'POST' }],
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
+  ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin'] }],

@@ -9,8 +9,12 @@ const router = useRouter()
 
 const displayName      = ref('...')
 const userEmail        = ref('')
-const kycBannerVisible = ref(false)
-const kycLoading       = ref(false)
+type KycBannerState = 'hidden' | 'start' | 'pending' | 'failed'
+
+const kycBanner      = ref<KycBannerState>('hidden')
+const kycLoading     = ref(false)
+const createBanner   = ref(false)
+const accountLoading = ref<'TRON' | 'SOL' | null>(null)
 
 async function getAuthHeaders() {
   const session = await fetchAuthSession()
@@ -30,11 +34,27 @@ onMounted(async () => {
 
   try {
     const headers = await getAuthHeaders()
-    const res  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
-    const data = await res.json()
-    kycBannerVisible.value = data.kyc?.status !== 'Approved'
+
+    const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
+    const accountsData = await accountsRes.json()
+
+    if ((accountsData.accounts ?? []).length > 0) return
+
+    const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
+    const kycData = await kycRes.json()
+    const kycStatus: string | undefined = kycData.kyc?.status
+
+    if (kycStatus === 'Approved') {
+      createBanner.value = true
+    } else if (kycStatus === 'In Progress') {
+      kycBanner.value = 'pending'
+    } else if (!kycStatus || kycStatus === 'Not Started') {
+      kycBanner.value = 'start'
+    } else {
+      kycBanner.value = 'failed'
+    }
   } catch {
-    kycBannerVisible.value = true
+    kycBanner.value = 'start'
   }
 })
 
@@ -55,6 +75,32 @@ async function startKyc() {
     console.error('Failed to start KYC session', e)
   } finally {
     kycLoading.value = false
+  }
+}
+
+async function createAccount(chain: 'TRON' | 'SOL') {
+  accountLoading.value = chain
+  try {
+    const headers = await getAuthHeaders()
+    const res = await fetch(`${API_BASE}/accounts/account`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        account_name: displayName.value,
+        email: userEmail.value,
+        chain,
+        provider: 'PCF0001',
+        accounting_currency: 'USD',
+      }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      createBanner.value = false
+    }
+  } catch (e) {
+    console.error('Failed to create account', e)
+  } finally {
+    accountLoading.value = null
   }
 }
 
@@ -172,18 +218,47 @@ const validators = [
       </header>
 
       <!-- KYC Banner -->
-      <div v-if="kycBannerVisible"
+      <div v-if="kycBanner !== 'hidden'"
         class="w-full bg-amber-400/10 border-b border-amber-400/30 px-8 py-3 flex items-center gap-4">
-        <span class="material-symbols-outlined text-amber-400 shrink-0">warning</span>
+        <span class="material-symbols-outlined text-amber-400 shrink-0">
+          {{ kycBanner === 'pending' ? 'hourglass_top' : kycBanner === 'failed' ? 'error' : 'warning' }}
+        </span>
         <p class="text-sm text-amber-300 flex-1">
-          Your account requires identity verification before you can access all features.
+          <template v-if="kycBanner === 'start'">Your account requires identity verification before you can access all features.</template>
+          <template v-else-if="kycBanner === 'pending'">Your identity verification is in progress — we'll update your account once it's complete.</template>
+          <template v-else-if="kycBanner === 'failed'">Your identity verification was not successful. Please contact support.</template>
         </p>
-        <button
+        <button v-if="kycBanner === 'start'"
           @click="startKyc"
           :disabled="kycLoading"
           class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-black rounded hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ kycLoading ? 'Starting…' : 'Complete Verification →' }}
         </button>
+      </div>
+
+      <!-- Account Creation Banner -->
+      <div v-if="createBanner"
+        class="w-full bg-[#CCFF00]/10 border-b border-[#CCFF00]/30 px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div class="flex items-center gap-3 flex-1">
+          <span class="material-symbols-outlined text-[#CCFF00] shrink-0">account_balance_wallet</span>
+          <p class="text-sm text-[#CCFF00]">
+            Identity verified — select a blockchain to activate your account.
+          </p>
+        </div>
+        <div class="flex gap-3 shrink-0">
+          <button
+            @click="createAccount('TRON')"
+            :disabled="accountLoading !== null"
+            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            {{ accountLoading === 'TRON' ? 'Creating…' : 'TRON' }}
+          </button>
+          <button
+            @click="createAccount('SOL')"
+            :disabled="accountLoading !== null"
+            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-[#CCFF00] text-[#CCFF00] rounded hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
+          </button>
+        </div>
       </div>
 
       <!-- Dashboard Content -->
