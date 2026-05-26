@@ -35,16 +35,17 @@ onMounted(async () => {
   try {
     const headers = await getAuthHeaders()
 
-    const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const accountsData = await accountsRes.json()
+    // const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
+    // const accountsData = await accountsRes.json()
 
-    if ((accountsData.accounts ?? []).length > 0) return
+    // if ((accountsData.accounts ?? []).length > 0) return
 
     const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
     const kycData = await kycRes.json()
     const kycStatus: string | undefined = kycData.kyc?.status
 
-    if (kycStatus === 'Approved') {
+    // if (kycStatus === 'Approved') {
+    if (kycStatus === 'Declined') {
       createBanner.value = true
     } else if (kycStatus === 'In Progress') {
       kycBanner.value = 'pending'
