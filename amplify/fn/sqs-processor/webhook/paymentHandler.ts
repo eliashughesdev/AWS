@@ -11,11 +11,13 @@ import {
   PaymentLogStatus,
 } from '../../../utils/paymentLogger'
 import { handleBalanceUpdate } from './balanceUpdateHandler'
+import { loadConfig } from '../../../utils/config'
 
 /**
  * Processes a payment with 3DS authentication in a single step
  */
 export const handlePayment = async (message: any): Promise<boolean> => {
+  await loadConfig()
   console.log('DEBUG: ProcessPaymentHandler execution started.')
   console.log('DEBUG: Incoming Message:', JSON.stringify(message))
 
