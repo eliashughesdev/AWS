@@ -147,7 +147,7 @@ sqsV1WebhookProcessingFn.addEventSource(
 
 sqsV1WebhookProcessingFn.addToRolePolicy(
   new iam.PolicyStatement({
-    actions: ['kms:Sign', 'kms:GetPublicKey', 'dynamodb:*', 'sqs:*', 'execute-api:*'],
+    actions: ['kms:Sign', 'kms:GetPublicKey', 'dynamodb:*', 'sqs:*', 'execute-api:*', 'ssm:GetParametersByPath', 'ssm:GetParameters', 'ssm:GetParameter'],
     resources: ['*']
   })
 )
