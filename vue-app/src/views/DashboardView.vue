@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
+import MainLayout from '../layouts/MainLayout.vue'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 
@@ -9,12 +10,10 @@ const router = useRouter()
 
 const displayName      = ref('...')
 const userEmail        = ref('')
-type KycBannerState = 'hidden' | 'start' | 'pending' | 'failed'
-
-const kycBanner      = ref<KycBannerState>('hidden')
-const kycLoading     = ref(false)
-const createBanner   = ref(false)
-const accountLoading = ref<'TRON' | 'SOL' | null>(null)
+const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
+const kycLoading       = ref(false)
+const createBanner     = ref(false)
+const accountLoading   = ref<'TRON' | 'SOL' | null>(null)
 
 async function getAuthHeaders() {
   const session = await fetchAuthSession()
@@ -155,249 +154,183 @@ const validators = [
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden bg-[#0A0B0D] text-white">
+  <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
 
-    <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
-    <aside class="hidden md:flex flex-col h-screen p-4 gap-2 bg-[#1a1d10] border-r border-white/[0.08] w-64 shrink-0">
-      <div class="px-2 py-4">
-        <span class="text-[18px] font-semibold leading-snug text-[#CCFF00]">Loudibly</span>
-        <p class="text-[10px] uppercase tracking-widest text-[#52525B] mt-1 font-bold">Institutional Access</p>
-      </div>
-
-      <nav class="flex-1 flex flex-col gap-1 mt-6">
-        <a class="flex items-center gap-3 px-3 py-2 bg-[#464749] text-[#CCFF00] font-bold border-r-2 border-[#CCFF00] transition-all" href="#">
-          <span class="material-symbols-outlined">dashboard</span>
-          <span class="font-['JetBrains_Mono'] text-[13px]">Dashboard</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-[#A1A1AA] hover:text-white hover:bg-[#282b1d] transition-all" href="#">
-          <span class="material-symbols-outlined">account_balance</span>
-          <span class="font-['JetBrains_Mono'] text-[13px]">Operations</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-[#A1A1AA] hover:text-white hover:bg-[#282b1d] transition-all" href="#">
-          <span class="material-symbols-outlined">receipt_long</span>
-          <span class="font-['JetBrains_Mono'] text-[13px]">Ledger</span>
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2 text-[#A1A1AA] hover:text-white hover:bg-[#282b1d] transition-all" href="#">
-          <span class="material-symbols-outlined">settings</span>
-          <span class="font-['JetBrains_Mono'] text-[13px]">Settings</span>
-        </a>
-      </nav>
-
-      <button class="mt-4 bg-[#CCFF00] text-[#0A0B0D] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
-        <span class="material-symbols-outlined text-sm">add</span>
-        <span class="font-['JetBrains_Mono'] text-[13px]">New Transaction</span>
+    <!-- KYC Banner -->
+    <div v-if="kycBanner !== 'hidden'"
+      class="w-full bg-amber-400/10 border-b border-amber-400/30 px-8 py-3 flex items-center gap-4">
+      <span class="material-symbols-outlined text-amber-400 shrink-0">
+        {{ kycBanner === 'pending' ? 'hourglass_top' : kycBanner === 'failed' ? 'error' : 'warning' }}
+      </span>
+      <p class="text-sm text-amber-300 flex-1">
+        <template v-if="kycBanner === 'start'">Your account requires identity verification before you can access all features.</template>
+        <template v-else-if="kycBanner === 'pending'">Your identity verification is in progress — we'll update your account once it's complete.</template>
+        <template v-else-if="kycBanner === 'failed'">Your identity verification was not successful. Please contact support.</template>
+      </p>
+      <button v-if="kycBanner === 'start'"
+        @click="startKyc"
+        :disabled="kycLoading"
+        class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-black rounded hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+        {{ kycLoading ? 'Starting…' : 'Complete Verification →' }}
       </button>
+    </div>
 
-      <div class="mt-auto border-t border-white/[0.08] pt-4 flex flex-col gap-1">
-        <a class="flex items-center gap-3 px-3 py-2 text-[#A1A1AA] hover:text-white transition-all" href="#">
-          <span class="material-symbols-outlined">help</span>
-          <span class="font-['JetBrains_Mono'] text-[13px]">Help</span>
-        </a>
-        <div class="flex items-center gap-3 px-3 py-4 mt-2">
-          <div class="w-8 h-8 rounded-full bg-[#282b1d] border border-white/[0.08] flex items-center justify-center">
-            <span class="material-symbols-outlined text-sm">person</span>
-          </div>
-          <div class="flex flex-col min-w-0">
-            <span class="text-xs font-bold truncate">{{ displayName }}</span>
-            <span class="text-[10px] text-[#52525B] truncate">{{ userEmail }}</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- ── Main ─────────────────────────────────────────────────────────────── -->
-    <main class="flex-1 flex flex-col overflow-y-auto">
-
-      <!-- TopAppBar -->
-      <header class="flex justify-between items-center px-8 h-16 w-full border-b border-white/[0.08] sticky top-0 bg-[#0A0B0D]/80 backdrop-blur-md z-10">
-        <div class="md:hidden text-[24px] font-semibold text-white">Loudibly</div>
-        <div></div>
-        <button @click="handleSignOut" class="text-[#A1A1AA] hover:text-white text-[14px] transition-colors">
-          Logout
-        </button>
-      </header>
-
-      <!-- KYC Banner -->
-      <div v-if="kycBanner !== 'hidden'"
-        class="w-full bg-amber-400/10 border-b border-amber-400/30 px-8 py-3 flex items-center gap-4">
-        <span class="material-symbols-outlined text-amber-400 shrink-0">
-          {{ kycBanner === 'pending' ? 'hourglass_top' : kycBanner === 'failed' ? 'error' : 'warning' }}
-        </span>
-        <p class="text-sm text-amber-300 flex-1">
-          <template v-if="kycBanner === 'start'">Your account requires identity verification before you can access all features.</template>
-          <template v-else-if="kycBanner === 'pending'">Your identity verification is in progress — we'll update your account once it's complete.</template>
-          <template v-else-if="kycBanner === 'failed'">Your identity verification was not successful. Please contact support.</template>
+    <!-- Account Creation Banner -->
+    <div v-if="createBanner"
+      class="w-full bg-[#CCFF00]/10 border-b border-[#CCFF00]/30 px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div class="flex items-center gap-3 flex-1">
+        <span class="material-symbols-outlined text-[#CCFF00] shrink-0">account_balance_wallet</span>
+        <p class="text-sm text-[#CCFF00]">
+          Identity verified — select a blockchain to activate your account.
         </p>
-        <button v-if="kycBanner === 'start'"
-          @click="startKyc"
-          :disabled="kycLoading"
-          class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-black rounded hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ kycLoading ? 'Starting…' : 'Complete Verification →' }}
+      </div>
+      <div class="flex gap-3 shrink-0">
+        <button
+          @click="createAccount('TRON')"
+          :disabled="accountLoading !== null"
+          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ accountLoading === 'TRON' ? 'Creating…' : 'TRON' }}
+        </button>
+        <button
+          @click="createAccount('SOL')"
+          :disabled="accountLoading !== null"
+          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-[#CCFF00] text-[#CCFF00] rounded hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard Content -->
+    <section class="p-8 max-w-7xl mx-auto w-full">
+
+      <!-- Greeting & Hero Balance -->
+      <div class="mb-12">
+        <p class="text-[14px] text-[#A1A1AA] mb-1">Good afternoon, {{ displayName }}.</p>
+        <div class="flex flex-col md:flex-row md:items-baseline gap-4">
+          <h1 class="font-['JetBrains_Mono'] text-6xl md:text-7xl font-bold tracking-tight">
+            <span class="text-[#52525B]">$</span>12,847<span class="text-[#CCFF00]">.32</span>
+          </h1>
+          <div class="flex items-center gap-2 px-3 py-1 bg-green-400/10 text-green-400 rounded-full border border-green-400/20 w-fit">
+            <span class="material-symbols-outlined text-sm">trending_up</span>
+            <span class="font-['JetBrains_Mono'] text-xs">+4.2%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        <button v-for="action in quickActions" :key="action.label"
+          class="flex flex-col items-center justify-center p-6 bg-[#1a1d10] border border-white/[0.08] rounded-xl hover:bg-[#282b1d] hover:border-[#CCFF00] transition-all group">
+          <span class="material-symbols-outlined text-3xl mb-2 text-[#CCFF00] group-hover:scale-110 transition-transform">{{ action.icon }}</span>
+          <span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest">{{ action.label }}</span>
         </button>
       </div>
 
-      <!-- Account Creation Banner -->
-      <div v-if="createBanner"
-        class="w-full bg-[#CCFF00]/10 border-b border-[#CCFF00]/30 px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-        <div class="flex items-center gap-3 flex-1">
-          <span class="material-symbols-outlined text-[#CCFF00] shrink-0">account_balance_wallet</span>
-          <p class="text-sm text-[#CCFF00]">
-            Identity verified — select a blockchain to activate your account.
-          </p>
-        </div>
-        <div class="flex gap-3 shrink-0">
-          <button
-            @click="createAccount('TRON')"
-            :disabled="accountLoading !== null"
-            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            {{ accountLoading === 'TRON' ? 'Creating…' : 'TRON' }}
-          </button>
-          <button
-            @click="createAccount('SOL')"
-            :disabled="accountLoading !== null"
-            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-[#CCFF00] text-[#CCFF00] rounded hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
-          </button>
+      <!-- Asset Allocation -->
+      <div class="mb-12">
+        <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-6">Asset Allocation</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div v-for="asset in assets" :key="asset.ticker"
+            class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden">
+            <div class="flex justify-between items-start mb-6">
+              <div class="p-2 rounded" :class="asset.iconBg">
+                <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
+              </div>
+              <span class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.ticker }}</span>
+            </div>
+            <p class="font-['JetBrains_Mono'] text-2xl font-bold">{{ asset.amount }}</p>
+            <p class="text-[12px] text-[#A1A1AA] mt-1">{{ asset.label }}</p>
+            <div class="absolute bottom-0 left-0 h-1" :class="asset.barColor" :style="{ width: asset.barWidth }"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Dashboard Content -->
-      <section class="p-8 max-w-7xl mx-auto w-full">
+      <!-- Recent Activity + System Intelligence -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        <!-- Greeting & Hero Balance -->
-        <div class="mb-12">
-          <p class="text-[14px] text-[#A1A1AA] mb-1">Good afternoon, {{ displayName }}.</p>
-          <div class="flex flex-col md:flex-row md:items-baseline gap-4">
-            <h1 class="font-['JetBrains_Mono'] text-6xl md:text-7xl font-bold tracking-tight">
-              <span class="text-[#52525B]">$</span>12,847<span class="text-[#CCFF00]">.32</span>
-            </h1>
-            <div class="flex items-center gap-2 px-3 py-1 bg-green-400/10 text-green-400 rounded-full border border-green-400/20 w-fit">
-              <span class="material-symbols-outlined text-sm">trending_up</span>
-              <span class="font-['JetBrains_Mono'] text-xs">+4.2%</span>
-            </div>
+        <div class="lg:col-span-2">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">Recent Activity</h2>
+            <button class="text-[#CCFF00] font-['JetBrains_Mono'] text-xs hover:underline">Export CSV</button>
           </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <button v-for="action in quickActions" :key="action.label"
-            class="flex flex-col items-center justify-center p-6 bg-[#1a1d10] border border-white/[0.08] rounded-xl hover:bg-[#282b1d] hover:border-[#CCFF00] transition-all group">
-            <span class="material-symbols-outlined text-3xl mb-2 text-[#CCFF00] group-hover:scale-110 transition-transform">{{ action.icon }}</span>
-            <span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest">{{ action.label }}</span>
-          </button>
-        </div>
-
-        <!-- Asset Allocation -->
-        <div class="mb-12">
-          <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-6">Asset Allocation</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div v-for="asset in assets" :key="asset.ticker"
-              class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden">
-              <div class="flex justify-between items-start mb-6">
-                <div class="p-2 rounded" :class="asset.iconBg">
-                  <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
-                </div>
-                <span class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.ticker }}</span>
-              </div>
-              <p class="font-['JetBrains_Mono'] text-2xl font-bold">{{ asset.amount }}</p>
-              <p class="text-[12px] text-[#A1A1AA] mt-1">{{ asset.label }}</p>
-              <div class="absolute bottom-0 left-0 h-1" :class="asset.barColor" :style="{ width: asset.barWidth }"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Recent Activity + System Intelligence -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-          <div class="lg:col-span-2">
-            <div class="flex justify-between items-center mb-6">
-              <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">Recent Activity</h2>
-              <button class="text-[#CCFF00] font-['JetBrains_Mono'] text-xs hover:underline">Export CSV</button>
-            </div>
-            <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
-              <table class="w-full text-left">
-                <thead class="bg-[#282b1d] border-b border-white/[0.08]">
-                  <tr>
-                    <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Transaction</th>
-                    <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Status</th>
-                    <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-white/[0.08]">
-                  <tr v-for="tx in transactions" :key="tx.id" class="hover:bg-white/[0.02] transition-colors cursor-pointer">
-                    <td class="px-6 py-4">
-                      <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded flex items-center justify-center" :class="tx.iconBg">
-                          <span class="material-symbols-outlined text-lg" :class="tx.iconColor">{{ tx.icon }}</span>
-                        </div>
-                        <div>
-                          <p class="text-[14px]">{{ tx.description }}</p>
-                          <p class="text-[12px] text-[#52525B]">{{ tx.date }}</p>
-                        </div>
+          <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
+            <table class="w-full text-left">
+              <thead class="bg-[#282b1d] border-b border-white/[0.08]">
+                <tr>
+                  <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Transaction</th>
+                  <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Status</th>
+                  <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/[0.08]">
+                <tr v-for="tx in transactions" :key="tx.id" class="hover:bg-white/[0.02] transition-colors cursor-pointer">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded flex items-center justify-center" :class="tx.iconBg">
+                        <span class="material-symbols-outlined text-lg" :class="tx.iconColor">{{ tx.icon }}</span>
                       </div>
-                    </td>
-                    <td class="px-6 py-4">
-                      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border" :class="tx.statusClass">
-                        {{ tx.status }}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 text-right font-['JetBrains_Mono'] text-sm" :class="tx.amountClass">{{ tx.amount }}</td>
-                  </tr>
-                </tbody>
-              </table>
+                      <div>
+                        <p class="text-[14px]">{{ tx.description }}</p>
+                        <p class="text-[12px] text-[#52525B]">{{ tx.date }}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border" :class="tx.statusClass">
+                      {{ tx.status }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-right font-['JetBrains_Mono'] text-sm" :class="tx.amountClass">{{ tx.amount }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-6">
+          <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">System Intelligence</h2>
+
+          <div class="bg-[#1a1d10] border border-white/[0.08] p-6 rounded-xl relative overflow-hidden">
+            <div class="relative z-10">
+              <span class="material-symbols-outlined text-[#CCFF00] mb-4 block">analytics</span>
+              <h3 class="text-[18px] font-semibold mb-2">Network Yield</h3>
+              <p class="text-[#A1A1AA] text-sm mb-6">Current infrastructure utilization is at 84%. Recommended reallocation to SOL liquidity pools for 6.2% APY.</p>
+              <button class="w-full py-2 bg-white/5 border border-white/[0.08] rounded font-['JetBrains_Mono'] text-xs uppercase tracking-widest hover:bg-white/10 transition-colors">
+                Analyze Strategy
+              </button>
             </div>
+            <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-[#CCFF00]/5 blur-3xl rounded-full"></div>
           </div>
 
-          <div class="flex flex-col gap-6">
-            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">System Intelligence</h2>
-
-            <div class="bg-[#1a1d10] border border-white/[0.08] p-6 rounded-xl relative overflow-hidden">
-              <div class="relative z-10">
-                <span class="material-symbols-outlined text-[#CCFF00] mb-4 block">analytics</span>
-                <h3 class="text-[18px] font-semibold mb-2">Network Yield</h3>
-                <p class="text-[#A1A1AA] text-sm mb-6">Current infrastructure utilization is at 84%. Recommended reallocation to SOL liquidity pools for 6.2% APY.</p>
-                <button class="w-full py-2 bg-white/5 border border-white/[0.08] rounded font-['JetBrains_Mono'] text-xs uppercase tracking-widest hover:bg-white/10 transition-colors">
-                  Analyze Strategy
-                </button>
-              </div>
-              <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-[#CCFF00]/5 blur-3xl rounded-full"></div>
-            </div>
-
-            <div class="bg-[#1a1d10] border border-white/[0.08] p-6 rounded-xl">
-              <h3 class="font-['JetBrains_Mono'] text-xs text-[#52525B] uppercase mb-4">Validator Status</h3>
-              <div class="space-y-4">
-                <div v-for="v in validators" :key="v.name" class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full" :class="[v.dot, v.pulse ? 'animate-pulse' : '']"></span>
-                    <span class="text-xs">{{ v.name }}</span>
-                  </div>
-                  <span class="font-['JetBrains_Mono'] text-xs">{{ v.uptime }}</span>
+          <div class="bg-[#1a1d10] border border-white/[0.08] p-6 rounded-xl">
+            <h3 class="font-['JetBrains_Mono'] text-xs text-[#52525B] uppercase mb-4">Validator Status</h3>
+            <div class="space-y-4">
+              <div v-for="v in validators" :key="v.name" class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full" :class="[v.dot, v.pulse ? 'animate-pulse' : '']"></span>
+                  <span class="text-xs">{{ v.name }}</span>
                 </div>
+                <span class="font-['JetBrains_Mono'] text-xs">{{ v.uptime }}</span>
               </div>
             </div>
           </div>
-
         </div>
-      </section>
 
-      <!-- Footer -->
-      <footer class="w-full py-8 px-8 flex flex-col md:flex-row justify-between items-center border-t border-white/[0.08] mt-12">
-        <div class="font-['JetBrains_Mono'] text-[13px] text-white mb-4 md:mb-0">
-          Loudibly <span class="text-[#52525B]">v2.4.12</span>
-        </div>
-        <p class="text-[12px] text-[#52525B]">© 2024 Loudibly Infrastructure. All rights reserved.</p>
-        <div class="flex gap-6 mt-4 md:mt-0">
-          <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">Privacy Policy</a>
-          <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">Compliance</a>
-          <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">SLA</a>
-        </div>
-      </footer>
+      </div>
+    </section>
 
-    </main>
-  </div>
+    <!-- Footer -->
+    <footer class="w-full py-8 px-8 flex flex-col md:flex-row justify-between items-center border-t border-white/[0.08] mt-12">
+      <div class="font-['JetBrains_Mono'] text-[13px] text-white mb-4 md:mb-0">
+        Loudibly <span class="text-[#52525B]">v2.4.12</span>
+      </div>
+      <p class="text-[12px] text-[#52525B]">© 2024 Loudibly Infrastructure. All rights reserved.</p>
+      <div class="flex gap-6 mt-4 md:mt-0">
+        <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">Privacy Policy</a>
+        <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">Compliance</a>
+        <a class="text-[12px] text-[#52525B] hover:text-[#CCFF00] underline transition-colors" href="#">SLA</a>
+      </div>
+    </footer>
 
-  <!-- Mobile FAB -->
-  <button class="md:hidden fixed bottom-8 right-8 w-14 h-14 bg-[#CCFF00] text-[#0A0B0D] rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-50">
-    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
-  </button>
+  </MainLayout>
 </template>
