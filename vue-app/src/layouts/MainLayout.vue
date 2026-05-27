@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 defineProps<{
   displayName: string
@@ -8,7 +8,8 @@ defineProps<{
 
 const emit = defineEmits<{ signOut: [] }>()
 
-const route = useRoute()
+const route  = useRoute()
+const router = useRouter()
 
 const navItems = [
   { name: 'dashboard',  icon: 'dashboard',       label: 'Dashboard'        },
@@ -44,7 +45,7 @@ const navItems = [
         </RouterLink>
       </nav>
 
-      <button class="mt-4 bg-[#CCFF00] text-[#0A0B0D] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+      <button @click="router.push({ name: 'deposit' })" class="mt-4 bg-[#CCFF00] text-[#0A0B0D] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
         <span class="material-symbols-outlined text-sm">add</span>
         <span class="font-['JetBrains_Mono'] text-[13px]">New Transaction</span>
       </button>

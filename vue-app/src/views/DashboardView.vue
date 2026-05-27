@@ -103,6 +103,10 @@ async function createAccount(chain: 'TRON' | 'SOL') {
   }
 }
 
+function handleQuickAction(label: string) {
+  if (label === 'Deposit') router.push({ name: 'deposit' })
+}
+
 async function handleSignOut() {
   await signOut()
   router.push('/auth')
@@ -220,6 +224,7 @@ const validators = [
       <!-- Quick Actions -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         <button v-for="action in quickActions" :key="action.label"
+          @click="handleQuickAction(action.label)"
           class="flex flex-col items-center justify-center p-6 bg-[#1a1d10] border border-white/[0.08] rounded-xl hover:bg-[#282b1d] hover:border-[#CCFF00] transition-all group">
           <span class="material-symbols-outlined text-3xl mb-2 text-[#CCFF00] group-hover:scale-110 transition-transform">{{ action.icon }}</span>
           <span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest">{{ action.label }}</span>

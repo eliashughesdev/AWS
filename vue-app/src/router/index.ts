@@ -3,6 +3,7 @@ import { getCurrentUser } from 'aws-amplify/auth'
 import AuthView from '../views/AuthView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import CardsView from '../views/CardsView.vue'
+import DepositView from '../views/DepositView.vue'
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -22,6 +23,12 @@ const router = createRouter({
       path: '/cards',
       name: 'cards',
       component: CardsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/deposit',
+      name: 'deposit',
+      component: DepositView,
       meta: { requiresAuth: true },
     },
     {
