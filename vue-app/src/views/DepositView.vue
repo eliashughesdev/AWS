@@ -128,6 +128,8 @@ async function submit() {
     console.warn('WebSocket error; will rely on timeout fallback')
   }
 
+  console.log('[Deposit] userEmail:', userEmail.value, '| userId:', userId.value)
+
   depositStatus.value = 'processing'
   submitting.value    = true
 
@@ -151,6 +153,7 @@ async function submit() {
         amount:        parsed,
         paymentId:     selectedCard.value,
         userId:        userId.value,
+        email:         'test@email.com',
         transactionId,
       }),
     })
