@@ -1,6 +1,6 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
-import { queryRecord } from '../../../utils/db'
+import { queryRecord, getRecord } from '../../../utils/db'
 
 export default class AccountsListHandler {
   async execute(event: any, context: Context) {
@@ -28,14 +28,25 @@ export default class AccountsListHandler {
       })
     }
 
-    const accounts = (result.res ?? []).map((item: any) => ({
-      accountNo: item.accountNo,
-      chain: item.chain,
-      depositAddress: item.depositAddress,
-      currency: item.currency,
-      status: item.status,
-      createdAt: item.created_at,
-    }))
+    const accountRecords = result.res ?? []
+
+    const balanceResults = await Promise.all(
+      accountRecords.map((item: any) => getRecord('v1AccountBalanceTable', item.vAccountId))
+    )
+
+    const accounts = accountRecords.map((item: any, i: number) => {
+      const bal = balanceResults[i].res
+      return {
+        accountNo: item.accountNo,
+        chain: item.chain ?? null,
+        depositAddress: item.depositAddress,
+        currency: item.currency,
+        status: item.status,
+        createdAt: item.created_at,
+        balance: bal?.balance ?? 0,
+        availableBalance: bal?.availableBalance ?? 0,
+      }
+    })
 
     return response({
       statusCode: 200,

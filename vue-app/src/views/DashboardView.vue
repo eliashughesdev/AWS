@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
@@ -14,6 +14,7 @@ const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden'
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
 const accountLoading   = ref<'TRON' | 'SOL' | null>(null)
+const accounts         = ref<any[]>([])
 
 async function getAuthHeaders() {
   const session = await fetchAuthSession()
@@ -36,8 +37,9 @@ onMounted(async () => {
 
     const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
     const accountsData = await accountsRes.json()
+    accounts.value = accountsData.accounts ?? []
 
-    if ((accountsData.accounts ?? []).length > 0) return
+    if (accounts.value.length > 0) return
 
     const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
     const kycData = await kycRes.json()
@@ -119,12 +121,39 @@ const quickActions = [
   { icon: 'qr_code_2',  label: 'Receive' },
 ]
 
-const assets = [
-  { ticker: 'USD', icon: 'payments',         iconBg: 'bg-white/10',       iconColor: 'text-white',      amount: '$4,200.00', label: 'Cash Balance', barColor: 'bg-[#CCFF00]',  barWidth: '33%' },
-  { ticker: 'BTC', icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',   iconColor: 'text-amber-400',  amount: '0.1245',    label: '≈ $5,231.12',  barColor: 'bg-amber-400',  barWidth: '25%' },
-  { ticker: 'ETH', icon: 'eco',              iconBg: 'bg-blue-400/10',    iconColor: 'text-blue-400',   amount: '1.4500',    label: '≈ $2,416.20',  barColor: 'bg-blue-400',   barWidth: '16%' },
-  { ticker: 'SOL', icon: 'api',              iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400', amount: '12.500',    label: '≈ $1,000.00',  barColor: 'bg-purple-500', barWidth: '8%'  },
-]
+const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: string; barColor: string }> = {
+  BTC:  { icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',  iconColor: 'text-amber-400',  barColor: 'bg-amber-400'  },
+  ETH:  { icon: 'eco',              iconBg: 'bg-blue-400/10',   iconColor: 'text-blue-400',   barColor: 'bg-blue-400'   },
+  SOL:  { icon: 'api',              iconBg: 'bg-purple-500/10', iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
+  TRON: { icon: 'toll',             iconBg: 'bg-red-400/10',    iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
+}
+
+const totalFiatBalance = computed(() =>
+  accounts.value
+    .filter(a => !a.chain)
+    .reduce((sum, a) => sum + (a.balance ?? 0), 0)
+    .toFixed(2)
+)
+
+const assets = computed(() => {
+  const totalBal = accounts.value.reduce((sum, a) => sum + (a.balance ?? 0), 0)
+  return accounts.value.map(a => {
+    const cfg = a.chain
+      ? (chainConfig[a.chain] ?? { icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-white' })
+      : { icon: 'payments', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-[#CCFF00]' }
+    const pct = totalBal > 0 ? Math.round((a.balance ?? 0) / totalBal * 100) : 0
+    return {
+      ticker: a.chain ?? a.currency,
+      icon: cfg.icon,
+      iconBg: cfg.iconBg,
+      iconColor: cfg.iconColor,
+      amount: a.chain ? (a.balance ?? 0).toFixed(4) : `$${(a.balance ?? 0).toFixed(2)}`,
+      label: a.chain ? a.currency : 'Cash Balance',
+      barColor: cfg.barColor,
+      barWidth: `${pct}%`,
+    }
+  })
+})
 
 const transactions = [
   {
@@ -212,7 +241,7 @@ const validators = [
         <p class="text-[14px] text-[#A1A1AA] mb-1">Good afternoon, {{ displayName }}.</p>
         <div class="flex flex-col md:flex-row md:items-baseline gap-4">
           <h1 class="font-['JetBrains_Mono'] text-6xl md:text-7xl font-bold tracking-tight">
-            <span class="text-[#52525B]">$</span>12,847<span class="text-[#CCFF00]">.32</span>
+            <span class="text-[#52525B]">$</span>{{ totalFiatBalance }}
           </h1>
           <div class="flex items-center gap-2 px-3 py-1 bg-green-400/10 text-green-400 rounded-full border border-green-400/20 w-fit">
             <span class="material-symbols-outlined text-sm">trending_up</span>
