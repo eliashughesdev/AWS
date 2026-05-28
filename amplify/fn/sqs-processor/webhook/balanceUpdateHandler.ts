@@ -1,4 +1,4 @@
-import { getRecord, updateItem } from '../../../utils/db'
+import { getRecord, updateItem, putItem } from '../../../utils/db'
 
 interface IncomingBlockchainTransactionRequest {
   date: number;
@@ -71,6 +71,22 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
     if (updateResult.success) {
       console.log(`TX_SUCCESS: Balance for ${vAccountId} successfully updated to ${newBalance.toFixed(2)} ${body.currency}. TX: ${txId}`)
+
+      const createdAt = new Date().toISOString()
+      await putItem('v1TransactionLogsTable', {
+        id: vAccountId,
+        sk: `TX#${createdAt}#${txId}`,
+        txId,
+        type: 'DEPOSIT',
+        amount: amountToAdd,
+        currency: body.currency,
+        from: body.from,
+        to: body.to,
+        blockHeight: body.blockHeight,
+        blockHash: body.blockHash,
+        reference: body.reference,
+        createdAt,
+      })
     } else {
       console.error(`DB_ERROR: Failed to update balance document for ${vAccountId} and TX ${txId}. Update result:`, updateResult)
       return false

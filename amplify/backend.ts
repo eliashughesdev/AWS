@@ -385,6 +385,19 @@ v1PaymentTransactionLogsTable.addGlobalSecondaryIndex({
   projectionType: dynamo.ProjectionType.ALL,
 })
 
+const v1TransactionLogsTable = new dynamo.Table(apiStack, 'TransactionLogsTable', {
+  partitionKey: {
+    name: 'id',
+    type: dynamo.AttributeType.STRING,
+  },
+  sortKey: {
+    name: 'sk',
+    type: dynamo.AttributeType.STRING,
+  },
+  billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+  tableName: 'v1TransactionLogsTable',
+})
+
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
 const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
