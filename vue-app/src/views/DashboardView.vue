@@ -131,12 +131,6 @@ const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: str
   TRON: { icon: 'toll',             iconBg: 'bg-red-400/10',    iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
 }
 
-const totalFiatBalance = computed(() =>
-  accounts.value
-    .filter(a => !a.chain)
-    .reduce((sum, a) => sum + (a.balance ?? 0), 0)
-    .toFixed(2)
-)
 
 const assets = computed(() => {
   const totalBal = accounts.value.reduce((sum, a) => sum + (a.balance ?? 0), 0)
@@ -242,20 +236,6 @@ const validators = [
       <!-- Greeting & Hero Balance -->
       <div class="mb-12">
         <p class="text-[14px] text-[#A1A1AA] mb-1">Good afternoon, {{ displayName }}.</p>
-        <div class="flex flex-col md:flex-row md:items-baseline gap-4">
-          <h1 class="font-['JetBrains_Mono'] text-6xl md:text-7xl font-bold tracking-tight">
-            <template v-if="accountsLoading">
-              <div class="w-64 h-16 rounded bg-white/10 animate-pulse inline-block"></div>
-            </template>
-            <template v-else>
-              <span class="text-[#52525B]">$</span>{{ totalFiatBalance }}
-            </template>
-          </h1>
-          <div class="flex items-center gap-2 px-3 py-1 bg-green-400/10 text-green-400 rounded-full border border-green-400/20 w-fit">
-            <span class="material-symbols-outlined text-sm">trending_up</span>
-            <span class="font-['JetBrains_Mono'] text-xs">+4.2%</span>
-          </div>
-        </div>
       </div>
 
       <!-- Quick Actions -->
