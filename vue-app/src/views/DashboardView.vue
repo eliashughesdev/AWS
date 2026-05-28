@@ -34,28 +34,29 @@ onMounted(async () => {
   }
 
   try {
-    const headers = await getAuthHeaders()
+    // const headers = await getAuthHeaders()
 
-    const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const accountsData = await accountsRes.json()
-    accounts.value = accountsData.accounts ?? []
-    accountsLoading.value = false
+    createBanner.value = true
+    // const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
+    // const accountsData = await accountsRes.json()
+    // accounts.value = accountsData.accounts ?? []
+    // accountsLoading.value = false
 
-    if (accounts.value.length > 0) return
+    // if (accounts.value.length > 0) return
 
-    const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
-    const kycData = await kycRes.json()
-    const kycStatus: string | undefined = kycData.kyc?.status
+    // const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
+    // const kycData = await kycRes.json()
+    // const kycStatus: string | undefined = kycData.kyc?.status
 
-    if (kycStatus === 'Approved') {
-      createBanner.value = true
-    } else if (kycStatus === 'In Progress') {
-      kycBanner.value = 'pending'
-    } else if (!kycStatus || kycStatus === 'Not Started') {
-      kycBanner.value = 'start'
-    } else {
-      kycBanner.value = 'failed'
-    }
+    // if (kycStatus === 'Approved') {
+    //   createBanner.value = true
+    // } else if (kycStatus === 'In Progress') {
+    //   kycBanner.value = 'pending'
+    // } else if (!kycStatus || kycStatus === 'Not Started') {
+    //   kycBanner.value = 'start'
+    // } else {
+    //   kycBanner.value = 'failed'
+    // }
   } catch {
     accountsLoading.value = false
     kycBanner.value = 'start'
