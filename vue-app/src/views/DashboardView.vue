@@ -15,6 +15,7 @@ const kycLoading       = ref(false)
 const createBanner     = ref(false)
 const accountLoading   = ref<'TRON' | 'SOL' | null>(null)
 const accounts         = ref<any[]>([])
+const accountsLoading  = ref(true)
 
 async function getAuthHeaders() {
   const session = await fetchAuthSession()
@@ -38,6 +39,7 @@ onMounted(async () => {
     const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
     const accountsData = await accountsRes.json()
     accounts.value = accountsData.accounts ?? []
+    accountsLoading.value = false
 
     if (accounts.value.length > 0) return
 
@@ -55,6 +57,7 @@ onMounted(async () => {
       kycBanner.value = 'failed'
     }
   } catch {
+    accountsLoading.value = false
     kycBanner.value = 'start'
   }
 })
@@ -148,7 +151,7 @@ const assets = computed(() => {
       iconBg: cfg.iconBg,
       iconColor: cfg.iconColor,
       amount: a.chain ? (a.balance ?? 0).toFixed(4) : `$${(a.balance ?? 0).toFixed(2)}`,
-      label: a.chain ? a.currency : 'Cash Balance',
+      label: a.chain ?? 'Cash Balance',
       barColor: cfg.barColor,
       barWidth: `${pct}%`,
     }
@@ -241,7 +244,12 @@ const validators = [
         <p class="text-[14px] text-[#A1A1AA] mb-1">Good afternoon, {{ displayName }}.</p>
         <div class="flex flex-col md:flex-row md:items-baseline gap-4">
           <h1 class="font-['JetBrains_Mono'] text-6xl md:text-7xl font-bold tracking-tight">
-            <span class="text-[#52525B]">$</span>{{ totalFiatBalance }}
+            <template v-if="accountsLoading">
+              <div class="w-64 h-16 rounded bg-white/10 animate-pulse inline-block"></div>
+            </template>
+            <template v-else>
+              <span class="text-[#52525B]">$</span>{{ totalFiatBalance }}
+            </template>
           </h1>
           <div class="flex items-center gap-2 px-3 py-1 bg-green-400/10 text-green-400 rounded-full border border-green-400/20 w-fit">
             <span class="material-symbols-outlined text-sm">trending_up</span>
@@ -264,7 +272,21 @@ const validators = [
       <div class="mb-12">
         <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-6">Asset Allocation</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div v-for="asset in assets" :key="asset.ticker"
+          <!-- Skeleton cards while loading -->
+          <template v-if="accountsLoading">
+            <div v-for="i in 4" :key="i"
+              class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden animate-pulse">
+              <div class="flex justify-between items-start mb-6">
+                <div class="w-10 h-10 rounded bg-white/10"></div>
+                <div class="w-10 h-3 rounded bg-white/10"></div>
+              </div>
+              <div class="w-32 h-7 rounded bg-white/10 mb-2"></div>
+              <div class="w-16 h-3 rounded bg-white/10"></div>
+              <div class="absolute bottom-0 left-0 h-1 w-1/3 bg-white/10"></div>
+            </div>
+          </template>
+          <!-- Real account cards -->
+          <div v-else v-for="asset in assets" :key="asset.ticker"
             class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden">
             <div class="flex justify-between items-start mb-6">
               <div class="p-2 rounded" :class="asset.iconBg">
