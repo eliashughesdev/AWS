@@ -41,6 +41,22 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
     if (!currentBalanceResult.success || !currentBalanceResult.res) {
       console.error(`DB_ERROR: Balance record not found for vAccountId: ${vAccountId}. Cannot update balance. Read result:`, currentBalanceResult)
+      const createdAt = new Date().toISOString()
+      await putItem('v1TransactionLogsTable', {
+        id: vAccountId,
+        sk: `TX#${createdAt}#${txId}`,
+        txId,
+        type: 'DEPOSIT_FAILED',
+        reason: 'BALANCE_RECORD_NOT_FOUND',
+        amount: amountToAdd,
+        currency: body.currency,
+        from: body.from,
+        to: body.to,
+        blockHeight: body.blockHeight,
+        blockHash: body.blockHash,
+        reference: body.reference,
+        createdAt,
+      })
       return false
     }
 
@@ -89,6 +105,22 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
       })
     } else {
       console.error(`DB_ERROR: Failed to update balance document for ${vAccountId} and TX ${txId}. Update result:`, updateResult)
+      const createdAt = new Date().toISOString()
+      await putItem('v1TransactionLogsTable', {
+        id: vAccountId,
+        sk: `TX#${createdAt}#${txId}`,
+        txId,
+        type: 'DEPOSIT_FAILED',
+        reason: 'BALANCE_UPDATE_FAILED',
+        amount: amountToAdd,
+        currency: body.currency,
+        from: body.from,
+        to: body.to,
+        blockHeight: body.blockHeight,
+        blockHash: body.blockHash,
+        reference: body.reference,
+        createdAt,
+      })
       return false
     }
   } catch (e) {

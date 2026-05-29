@@ -1,4 +1,4 @@
-import { updateItem } from '../../../utils/db'
+import { updateItem, putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { notifyPaymentResult } from '../../../utils/websocket'
@@ -28,6 +28,20 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     })
 
     console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${transactionId}`)
+
+    const createdAt = new Date().toISOString()
+    await putItem('v1TransactionLogsTable', {
+      id: vAccountId,
+      sk: `TX#${createdAt}#${transactionId}`,
+      txId: transactionId,
+      withdrawalId,
+      type: 'WITHDRAWAL',
+      amount: cryptoAmount,
+      currency: chain,
+      from: senderAddress,
+      to: destinationAddress,
+      createdAt,
+    })
 
     await notifyPaymentResult(transactionId, userId, {
       success: true,
@@ -60,6 +74,19 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     } else {
       console.log(`ROLLBACK_SUCCESS: Balance restored for vAccountId=${vAccountId}`)
     }
+
+    const createdAt = new Date().toISOString()
+    await putItem('v1TransactionLogsTable', {
+      id: vAccountId,
+      sk: `TX#${createdAt}#${transactionId}`,
+      txId: transactionId,
+      type: 'WITHDRAWAL_FAILED',
+      amount: cryptoAmount,
+      currency: chain,
+      from: senderAddress,
+      to: destinationAddress,
+      createdAt,
+    })
 
     await notifyPaymentResult(transactionId, userId, {
       success: false,
