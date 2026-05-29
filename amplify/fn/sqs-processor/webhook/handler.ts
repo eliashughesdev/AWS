@@ -1,6 +1,7 @@
 import { handleBalanceUpdate } from './balanceUpdateHandler'
 import { handlePayment } from './paymentHandler'
 import { handleWithdrawal } from './withdrawalHandler'
+import { loadConfig } from '../../../utils/config'
 
 // const headers = {
 //  'Content-Type': 'application/json',
@@ -53,6 +54,7 @@ const routeMessage = async (recordBody: string) => {
 }
 
 export const handler = async (event: any) => {
+  await loadConfig()
   console.log('sqs webhook handler: ', JSON.stringify(event))
   for (const record of event.Records) {
     // todo delete message from queue
