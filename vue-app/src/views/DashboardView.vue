@@ -111,6 +111,7 @@ async function createAccount(chain: 'TRON' | 'SOL') {
 
 function handleQuickAction(label: string) {
   if (label === 'Deposit') router.push({ name: 'deposit' })
+  else if (label === 'Withdraw') router.push({ name: 'withdraw' })
 }
 
 async function handleSignOut() {
