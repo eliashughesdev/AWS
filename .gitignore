@@ -6,3 +6,6 @@ node_modules
 .devcontainer.json
 .env
 amplify/service/routes/e2e/GetAccountUser.ts
+.devbox/
+devbox.json
+devbox.lock
