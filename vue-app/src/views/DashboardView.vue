@@ -42,7 +42,24 @@ onMounted(async () => {
     accounts.value = accountsData.accounts ?? []
     accountsLoading.value = false
 
-    if (accounts.value.length > 0) return
+    if (accounts.value.length > 0) {
+      const results = await Promise.all(
+        accounts.value.map((a: any) =>
+          fetch(`${API_BASE}/accounts/transactions`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountNumber: a.accountNumber }),
+          }).then(r => r.json()).catch(() => ({ transactions: [] }))
+        )
+      )
+      transactions.value = results
+        .flatMap((r: any) => r.transactions ?? [])
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
+      transactionsLoading.value = false
+      return
+    }
+    transactionsLoading.value = false
 
     const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
     const kycData = await kycRes.json()
@@ -154,29 +171,31 @@ const assets = computed(() => {
   })
 })
 
-const transactions = [
-  {
-    id: 1,
-    icon: 'call_made',     iconBg: 'bg-[#CCFF00]/10', iconColor: 'text-[#CCFF00]',
-    description: 'Sent to Kraken Wallet',  date: 'Oct 24, 14:22',
-    status: 'CONFIRMED',  statusClass: 'bg-green-400/10 text-green-400 border-green-400/20',
-    amount: '-0.05 BTC',  amountClass: '',
-  },
-  {
-    id: 2,
-    icon: 'call_received', iconBg: 'bg-blue-400/10',   iconColor: 'text-blue-400',
-    description: 'Deposit from Chase Bank', date: 'Oct 23, 09:15',
-    status: 'CONFIRMED',  statusClass: 'bg-green-400/10 text-green-400 border-green-400/20',
-    amount: '+$1,200.00', amountClass: 'text-[#CCFF00]',
-  },
-  {
-    id: 3,
-    icon: 'sync',          iconBg: 'bg-amber-400/10',  iconColor: 'text-amber-400',
-    description: 'Swap USD to ETH',        date: 'Oct 22, 18:45',
-    status: 'PROCESSING', statusClass: 'bg-[#464749] text-[#A1A1AA] border-white/[0.08]',
-    amount: '0.52 ETH',   amountClass: '',
-  },
-]
+const transactions     = ref<any[]>([])
+const transactionsLoading = ref(true)
+
+function txToDisplay(tx: any) {
+  const isDeposit = tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_FAILED'
+  const isFailed  = tx.type.includes('FAILED')
+  return {
+    id:          tx.txId,
+    icon:        isDeposit ? 'call_received' : 'call_made',
+    iconBg:      isFailed ? 'bg-red-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-[#CCFF00]/10',
+    iconColor:   isFailed ? 'text-red-400'  : isDeposit ? 'text-blue-400'  : 'text-[#CCFF00]',
+    description: isDeposit
+      ? `Received ${tx.currency}`
+      : `Sent to ${String(tx.to ?? '').slice(0, 8)}…`,
+    date:        new Date(tx.createdAt).toLocaleString(),
+    status:      isFailed ? 'FAILED' : 'CONFIRMED',
+    statusClass: isFailed
+      ? 'bg-red-400/10 text-red-400 border-red-400/20'
+      : 'bg-green-400/10 text-green-400 border-green-400/20',
+    amount:      isDeposit
+      ? `+${tx.amount} ${tx.currency}`
+      : `-${tx.amount} ${tx.currency}`,
+    amountClass: isDeposit && !isFailed ? 'text-[#CCFF00]' : '',
+  }
+}
 
 const validators = [
   { name: 'London-Edge-01',  uptime: '99.9%', dot: 'bg-green-400', pulse: true  },
@@ -289,7 +308,7 @@ const validators = [
         <div class="lg:col-span-2">
           <div class="flex justify-between items-center mb-6">
             <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">Recent Activity</h2>
-            <button class="text-[#CCFF00] font-['JetBrains_Mono'] text-xs hover:underline">Export CSV</button>
+            <RouterLink :to="{ name: 'ledger' }" class="text-[#CCFF00] font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
           </div>
           <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
             <table class="w-full text-left">
@@ -301,7 +320,28 @@ const validators = [
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/[0.08]">
-                <tr v-for="tx in transactions" :key="tx.id" class="hover:bg-white/[0.02] transition-colors cursor-pointer">
+                <!-- Loading skeleton -->
+                <template v-if="transactionsLoading">
+                  <tr v-for="i in 3" :key="i" class="animate-pulse">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded bg-white/10"></div>
+                        <div class="flex flex-col gap-1">
+                          <div class="w-32 h-3 rounded bg-white/10"></div>
+                          <div class="w-20 h-2 rounded bg-white/10"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4"><div class="w-16 h-4 rounded bg-white/10"></div></td>
+                    <td class="px-6 py-4 flex justify-end"><div class="w-20 h-3 rounded bg-white/10"></div></td>
+                  </tr>
+                </template>
+                <!-- Empty state -->
+                <tr v-else-if="transactions.length === 0">
+                  <td colspan="3" class="px-6 py-8 text-center text-[#52525B] font-['JetBrains_Mono'] text-xs">No transactions yet</td>
+                </tr>
+                <!-- Real rows -->
+                <tr v-else v-for="tx in transactions.map(txToDisplay)" :key="tx.id" class="hover:bg-white/[0.02] transition-colors cursor-pointer">
                   <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                       <div class="w-8 h-8 rounded flex items-center justify-center" :class="tx.iconBg">
