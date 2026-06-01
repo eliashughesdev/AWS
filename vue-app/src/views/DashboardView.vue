@@ -48,7 +48,7 @@ onMounted(async () => {
           fetch(`${API_BASE}/accounts/transactions`, {
             method: 'POST',
             headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accountNumber: a.accountNumber }),
+            body: JSON.stringify({ accountNumber: a.accountNo }),
           }).then(r => r.json()).catch(() => ({ transactions: [] }))
         )
       )
