@@ -2,7 +2,7 @@ import type { Context } from 'aws-lambda'
 
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
-import { queryItemFromIndex, putItem } from '../../../utils/db'
+import { queryItemFromIndex, putItem, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
@@ -72,13 +72,15 @@ export default class TransferFundsHandler {
       const txId = result.reference
       const currency = senderResult.res[0].chain ?? senderResult.res[0].currency ?? ''
 
+      const parsedAmount = parseFloat(amount)
+
       await Promise.all([
         putItem('v1TransactionLogsTable', {
           id: senderVAccountId,
           sk: `TX#${createdAt}#${txId}`,
           txId,
           type: 'TRANSFER_SENT',
-          amount: parseFloat(amount),
+          amount: parsedAmount,
           currency,
           to: recipientAccountNumber,
           createdAt,
@@ -88,10 +90,24 @@ export default class TransferFundsHandler {
           sk: `TX#${createdAt}#${txId}`,
           txId,
           type: 'TRANSFER_RECEIVED',
-          amount: parseFloat(amount),
+          amount: parsedAmount,
           currency,
           from: senderAccountNumber,
           createdAt,
+        }),
+        updateItem({
+          tableName: 'v1AccountBalanceTable',
+          key: { id: senderVAccountId },
+          updateExpression: 'SET #balance = #balance - :amount, #lastUpdated = :now',
+          attributeNames: { '#balance': 'balance', '#lastUpdated': 'lastUpdated' },
+          attributeValues: { ':amount': parsedAmount, ':now': createdAt },
+        }),
+        updateItem({
+          tableName: 'v1AccountBalanceTable',
+          key: { id: recipientVAccountId },
+          updateExpression: 'SET #balance = #balance + :amount, #lastUpdated = :now',
+          attributeNames: { '#balance': 'balance', '#lastUpdated': 'lastUpdated' },
+          attributeValues: { ':amount': parsedAmount, ':now': createdAt },
         }),
       ])
 
