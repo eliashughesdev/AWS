@@ -2,11 +2,12 @@ import type { Context } from 'aws-lambda'
 
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
-import { queryItemFromIndex } from '../../../utils/db'
+import { queryItemFromIndex, putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 type Event = {
+  requestContext?: { authorizer?: { userId?: string } }
   body: {
     provider: string
     senderAccountNumber: string
@@ -37,6 +38,11 @@ export default class TransferFundsHandler {
       return processError(100001)
     }
 
+    const userId = event.requestContext?.authorizer?.userId
+    if (senderResult.res[0].id !== userId) {
+      return processError(100001)
+    }
+
     // Look up recipient account to get its Tatum vAccountId
     const recipientResult = await queryItemFromIndex({
       tableName: 'v2CustomerTable',
@@ -61,6 +67,33 @@ export default class TransferFundsHandler {
         recipientAccountId: recipientVAccountId,
         amount,
       })
+
+      const createdAt = new Date().toISOString()
+      const txId = result.reference
+      const currency = senderResult.res[0].chain ?? senderResult.res[0].currency ?? ''
+
+      await Promise.all([
+        putItem('v1TransactionLogsTable', {
+          id: senderVAccountId,
+          sk: `TX#${createdAt}#${txId}`,
+          txId,
+          type: 'TRANSFER_SENT',
+          amount: parseFloat(amount),
+          currency,
+          to: recipientAccountNumber,
+          createdAt,
+        }),
+        putItem('v1TransactionLogsTable', {
+          id: recipientVAccountId,
+          sk: `TX#${createdAt}#${txId}`,
+          txId,
+          type: 'TRANSFER_RECEIVED',
+          amount: parseFloat(amount),
+          currency,
+          from: senderAccountNumber,
+          createdAt,
+        }),
+      ])
 
       return response({
         statusCode: 200,

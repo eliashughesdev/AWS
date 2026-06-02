@@ -79,14 +79,22 @@ async function handleSignOut() {
 }
 
 function txToDisplay(tx: any) {
-  const isDeposit = tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_FAILED'
-  const isFailed  = tx.type.includes('FAILED')
+  const isDeposit          = tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_FAILED'
+  const isTransferReceived = tx.type === 'TRANSFER_RECEIVED'
+  const isTransferSent     = tx.type === 'TRANSFER_SENT'
+  const isTransfer         = isTransferReceived || isTransferSent
+  const isIncoming         = isDeposit || isTransferReceived
+  const isFailed           = tx.type.includes('FAILED')
   return {
     id:          tx.txId,
-    icon:        isDeposit ? 'call_received' : 'call_made',
-    iconBg:      isFailed ? 'bg-red-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-[#CCFF00]/10',
-    iconColor:   isFailed ? 'text-red-400'  : isDeposit ? 'text-blue-400'  : 'text-[#CCFF00]',
-    description: isDeposit
+    icon:        isTransferSent ? 'compare_arrows' : isIncoming ? 'call_received' : 'call_made',
+    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-[#CCFF00]/10',
+    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-[#CCFF00]',
+    description: isTransferReceived
+      ? `Transfer from ${String(tx.from ?? '').slice(0, 8)}…`
+      : isTransferSent
+      ? `Transfer to ${String(tx.to ?? '').slice(0, 8)}…`
+      : isDeposit
       ? `Received ${tx.currency}`
       : `Sent to ${String(tx.to ?? '').slice(0, 8)}…`,
     date:        new Date(tx.createdAt).toLocaleString(),
@@ -94,10 +102,10 @@ function txToDisplay(tx: any) {
     statusClass: isFailed
       ? 'bg-red-400/10 text-red-400 border-red-400/20'
       : 'bg-green-400/10 text-green-400 border-green-400/20',
-    amount:      isDeposit
+    amount:      isIncoming && !isFailed
       ? `+${tx.amount} ${tx.currency}`
       : `-${tx.amount} ${tx.currency}`,
-    amountClass: isDeposit && !isFailed ? 'text-[#CCFF00]' : '',
+    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-[#CCFF00]' : '',
     accountLabel: (() => {
       const acct = accounts.value.find(a => a.accountNumber === tx.accountNumber)
       return acct?.chain ?? acct?.currency ?? '—'

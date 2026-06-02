@@ -14,7 +14,7 @@ const router = useRouter()
 const navItems = [
   { name: 'dashboard',  icon: 'dashboard',       label: 'Dashboard'        },
   { name: 'cards',      icon: 'credit_card',      label: 'Payment Methods'  },
-  { name: 'operations', icon: 'account_balance',  label: 'Operations'       },
+  { name: 'transfer',   icon: 'compare_arrows',   label: 'Transfer'         },
   { name: 'ledger',     icon: 'receipt_long',     label: 'Ledger'           },
   { name: 'settings',   icon: 'settings',         label: 'Settings'         },
 ]

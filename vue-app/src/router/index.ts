@@ -6,6 +6,7 @@ import CardsView from '../views/CardsView.vue'
 import DepositView from '../views/DepositView.vue'
 import WithdrawView from '../views/WithdrawView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
+import TransferView from '../views/TransferView.vue'
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -37,6 +38,12 @@ const router = createRouter({
       path: '/withdraw',
       name: 'withdraw',
       component: WithdrawView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/transfer',
+      name: 'transfer',
+      component: TransferView,
       meta: { requiresAuth: true },
     },
     {
