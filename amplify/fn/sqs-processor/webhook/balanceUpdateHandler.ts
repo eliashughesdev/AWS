@@ -1,18 +1,20 @@
-import { getRecord, updateItem, putItem } from '../../../utils/db'
+import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
 
 interface IncomingBlockchainTransactionRequest {
-  date: number;
+  // ADDRESS_TRANSACTION fields (on-chain subscription webhook)
+  address: string;          // subscribed deposit address
+  counterAddress?: string;  // sender address (not present on UTXO chains)
   amount: string;
   currency: string;
+  asset?: string;
+  chain?: string;
+  type?: string;
   subscriptionType: string;
-  accountId: string;
-  reference?: string;
+  subscriptionId?: string;
   txId?: string;
-  blockHash?: string;
-  blockHeight: number;
-  from?: string;
-  to: string;
-  index?: number;
+  blockNumber?: number;
+  timestamp?: number;
+  index?: number;    
   queue?: string;
 }
 
@@ -20,14 +22,26 @@ const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 // Handler for v1-webhook-queue: Updates account balance
 export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
-  // Validate that body matches expected structure
   const body: IncomingBlockchainTransactionRequest = message
-  if (!body.accountId || !body.amount) {
-    console.error('VALIDATION_ERROR: Missing required fields (accountId, amount) for balance update')
+  if (!body.address || !body.amount) {
+    console.error('VALIDATION_ERROR: Missing required fields (address, amount) for balance update')
     return false
   }
 
-  const vAccountId = body.accountId
+  const lookup = await queryItemFromIndex({
+    tableName: 'v2CustomerTable',
+    indexName: 'v1v2CustomerTableByDepositAddress',
+    keyConditionExpression: 'depositAddress = :addr',
+    attributeNames: undefined,
+    attributeValues: { ':addr': body.address },
+  })
+
+  if (!lookup.success || !lookup.res?.length) {
+    console.error(`ACCOUNT_NOT_FOUND: No account found for depositAddress: ${body.address}`)
+    return false
+  }
+
+  const vAccountId: string = lookup.res[0].vAccountId
   const amountToAdd = parseFloat(body.amount)
   const txId = body.txId || 'unknown'
 
@@ -50,11 +64,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         reason: 'BALANCE_RECORD_NOT_FOUND',
         amount: amountToAdd,
         currency: body.currency,
-        from: body.from,
-        to: body.to,
-        blockHeight: body.blockHeight,
-        blockHash: body.blockHash,
-        reference: body.reference,
+        from: body.counterAddress,
+        to: body.address,
+        blockNumber: body.blockNumber,
+        index: body.index,
         createdAt,
       })
       return false
@@ -96,11 +109,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         type: 'DEPOSIT',
         amount: amountToAdd,
         currency: body.currency,
-        from: body.from,
-        to: body.to,
-        blockHeight: body.blockHeight,
-        blockHash: body.blockHash,
-        reference: body.reference,
+        from: body.counterAddress,
+        to: body.address,
+        blockNumber: body.blockNumber,
+        index: body.index,
         createdAt,
       })
     } else {
@@ -114,11 +126,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         reason: 'BALANCE_UPDATE_FAILED',
         amount: amountToAdd,
         currency: body.currency,
-        from: body.from,
-        to: body.to,
-        blockHeight: body.blockHeight,
-        blockHash: body.blockHash,
-        reference: body.reference,
+        from: body.counterAddress,
+        to: body.address,
+        blockNumber: body.blockNumber,
+        index: body.index,
         createdAt,
       })
       return false

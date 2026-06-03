@@ -296,6 +296,12 @@ v2CustomerTable.addGlobalSecondaryIndex({
   projectionType: dynamo.ProjectionType.ALL
 })
 
+v2CustomerTable.addGlobalSecondaryIndex({
+  indexName: 'v1v2CustomerTableByDepositAddress',
+  partitionKey: { name: 'depositAddress', type: dynamo.AttributeType.STRING },
+  projectionType: dynamo.ProjectionType.ALL,
+})
+
 // const v1CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
 //  partitionKey: {
 //    name: 'id',
