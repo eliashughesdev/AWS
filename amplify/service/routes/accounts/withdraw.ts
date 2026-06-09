@@ -13,7 +13,7 @@ export default class WithdrawHandler {
     console.log('DEBUG: WithdrawHandler execution started.')
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const { accountNumber, currency, amount, userId, destinationAddress, transactionId } = event.body
+    const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, userId, destinationAddress, transactionId } = event.body
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({
@@ -60,11 +60,19 @@ export default class WithdrawHandler {
       return processError(100008)
     }
 
-    // Convert fiat amount → crypto units using Binance rate
-    console.log(`DEBUG: Fetching exchange rate ${accountChain}/${currency}`)
-    const exchangeRate = await fetchCryptoPrice(accountChain, currency)
-    const cryptoAmount = parseFloat((amount / exchangeRate).toFixed(8))
-    console.log(`DEBUG: Exchange rate: 1 ${accountChain} = ${exchangeRate} ${currency} → debiting ${cryptoAmount} ${accountChain}`)
+    // If a direct crypto amount is provided, skip the fiat conversion
+    let cryptoAmount: number
+    let exchangeRate: number
+    if (directCryptoAmount != null) {
+      cryptoAmount = parseFloat(parseFloat(directCryptoAmount).toFixed(8))
+      exchangeRate = 1
+      console.log(`DEBUG: Direct crypto withdrawal — debiting ${cryptoAmount} ${accountChain}`)
+    } else {
+      console.log(`DEBUG: Fetching exchange rate ${accountChain}/${currency}`)
+      exchangeRate = await fetchCryptoPrice(accountChain, currency)
+      cryptoAmount = parseFloat((amount / exchangeRate).toFixed(8))
+      console.log(`DEBUG: Exchange rate: 1 ${accountChain} = ${exchangeRate} ${currency} → debiting ${cryptoAmount} ${accountChain}`)
+    }
 
     const effectiveTransactionId = transactionId || `wdr_${Date.now()}`
 
