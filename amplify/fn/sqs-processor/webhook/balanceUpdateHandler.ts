@@ -5,7 +5,7 @@ interface IncomingBlockchainTransactionRequest {
   address: string;          // subscribed deposit address
   counterAddress?: string;  // sender address (not present on UTXO chains)
   amount: string;
-  currency: string;
+  currency?: string;
   asset?: string;
   chain?: string;
   type?: string;
@@ -43,11 +43,12 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
   const vAccountId: string = lookup.res[0].vAccountId
   const amountToAdd = parseFloat(body.amount)
+  const currency    = body.currency ?? body.asset ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
   console.log(`--- Processing Incoming TX [${txId}] for Account [${vAccountId}] ---`)
   console.log('Incoming Payload:', body)
-  console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${body.currency}`)
+  console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${currency}`)
 
   try {
     console.log(`DB_READ: Fetching current balance for ${vAccountId} from ${BALANCE_TABLE_NAME}...`)
@@ -63,7 +64,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         type: 'DEPOSIT_FAILED',
         reason: 'BALANCE_RECORD_NOT_FOUND',
         amount: amountToAdd,
-        currency: body.currency,
+        currency,
         from: body.counterAddress,
         to: body.address,
         blockNumber: body.blockNumber,
@@ -103,7 +104,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
     const updateResult = await updateItem(updateParams)
 
     if (updateResult.success) {
-      console.log(`TX_SUCCESS: Balance for ${vAccountId} successfully updated to ${newBalance.toFixed(2)} ${body.currency}. TX: ${txId}`)
+      console.log(`TX_SUCCESS: Balance for ${vAccountId} successfully updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
 
       const createdAt = new Date().toISOString()
       await putItem('v1TransactionLogsTable', {
@@ -112,7 +113,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         txId,
         type: 'DEPOSIT',
         amount: amountToAdd,
-        currency: body.currency,
+        currency,
         from: body.counterAddress,
         to: body.address,
         blockNumber: body.blockNumber,
@@ -129,7 +130,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         type: 'DEPOSIT_FAILED',
         reason: 'BALANCE_UPDATE_FAILED',
         amount: amountToAdd,
-        currency: body.currency,
+        currency,
         from: body.counterAddress,
         to: body.address,
         blockNumber: body.blockNumber,
