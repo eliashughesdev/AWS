@@ -76,20 +76,24 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
     console.log('DB_READ_SUCCESS: Retrieved record:', currentBalanceResult.res)
 
     const currentBalance = parseFloat(currentBalanceResult.res.balance || '0')
+    const currentAvailable = parseFloat(currentBalanceResult.res.availableBalance || '0')
     const newBalance = currentBalance + amountToAdd
+    const newAvailable = currentAvailable + amountToAdd
 
     console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`)
 
     const updateParams = {
       tableName: BALANCE_TABLE_NAME,
       key: { id: vAccountId },
-      updateExpression: 'SET #balance = :newBalance, #lastUpdated = :now',
+      updateExpression: 'SET #balance = :newBalance, #availableBalance = :newAvailable, #lastUpdated = :now',
       attributeNames: {
         '#balance': 'balance',
+        '#availableBalance': 'availableBalance',
         '#lastUpdated': 'lastUpdated',
       },
       attributeValues: {
         ':newBalance': newBalance,
+        ':newAvailable': newAvailable,
         ':now': new Date().toISOString(),
       },
     }

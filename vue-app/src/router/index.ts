@@ -7,6 +7,7 @@ import DepositView from '../views/DepositView.vue'
 import WithdrawView from '../views/WithdrawView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import TransferView from '../views/TransferView.vue'
+import ReceiveView from '../views/ReceiveView.vue'
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -50,6 +51,12 @@ const router = createRouter({
       path: '/ledger',
       name: 'ledger',
       component: TransactionsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/receive',
+      name: 'receive',
+      component: ReceiveView,
       meta: { requiresAuth: true },
     },
     {
