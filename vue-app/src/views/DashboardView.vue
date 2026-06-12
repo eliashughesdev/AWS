@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 
+const route  = useRoute()
 const router = useRouter()
+
+const verifiedBanner = ref(route.query.verified === '1')
 
 const displayName      = ref('...')
 const userEmail        = ref('')
@@ -222,6 +225,18 @@ const validators = [
 
 <template>
   <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
+
+    <!-- Email Verified Banner -->
+    <div v-if="verifiedBanner"
+      class="w-full bg-[#CCFF00]/10 border-b border-[#CCFF00]/30 px-8 py-3 flex items-center gap-4">
+      <span class="material-symbols-outlined text-[#CCFF00] shrink-0">mark_email_read</span>
+      <p class="text-sm text-[#CCFF00] flex-1">Your email address has been verified.</p>
+      <button @click="verifiedBanner = false"
+        class="shrink-0 text-[#CCFF00] hover:text-lime-300 transition-colors flex items-center"
+        aria-label="Dismiss">
+        <span class="material-symbols-outlined text-lg">close</span>
+      </button>
+    </div>
 
     <!-- KYC Banner -->
     <div v-if="kycBanner !== 'hidden'"

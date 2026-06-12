@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
 
+const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
+const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
+
+const route  = useRoute()
 const router = useRouter()
 
 // ─── Tab / Step state ──────────────────────────────────────────────────────────
@@ -17,7 +21,30 @@ const step      = ref<Step>('form')
 const loading = ref(false)
 const error   = ref('')
 
+const verifiedBanner = ref(false)
+
 function clearError() { error.value = '' }
+
+// Saves the name captured at signup once a session exists. Stored in localStorage
+// because link-based confirmation happens in a new tab with fresh component state.
+async function flushPendingProfile() {
+  const raw = localStorage.getItem(PENDING_PROFILE_KEY)
+  if (!raw) return
+  try {
+    const { name, email } = JSON.parse(raw)
+    const session = await fetchAuthSession()
+    const token = session.tokens?.accessToken?.toString()
+    if (!token || !name) return
+    await fetch(`${API_BASE}/accounts/profile/save`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'X-Project': 'web', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    })
+    localStorage.removeItem(PENDING_PROFILE_KEY)
+  } catch (e) {
+    console.error('Failed to save pending profile', e)
+  }
+}
 
 function switchTab(tab: Tab) {
   activeTab.value = tab
@@ -35,6 +62,7 @@ async function handleSignIn() {
   try {
     const result = await signIn({ username: siEmail.value.trim(), password: siPassword.value })
     if (result.isSignedIn) {
+      await flushPendingProfile()
       router.push('/dashboard')
     }
   } catch (e: unknown) {
@@ -94,6 +122,10 @@ async function handleSignUp() {
       pendingPassword.value  = suPassword.value
       pendingFirstName.value = suFirstName.value.trim()
       pendingLastName.value  = suLastName.value.trim()
+      localStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify({
+        name: `${pendingFirstName.value} ${pendingLastName.value}`.trim(),
+        email: pendingEmail.value,
+      }))
       confirmCode.value      = ''
       step.value             = 'confirm'
     } else {
@@ -134,21 +166,22 @@ async function handleConfirm() {
   clearError()
   loading.value = true
   try {
-    const { isSignUpComplete } = await confirmSignUp({
-      username: pendingEmail.value,
-      confirmationCode: confirmCode.value.trim(),
-    })
-    if (isSignUpComplete) {
+    let confirmed = false
+    try {
+      const { isSignUpComplete } = await confirmSignUp({
+        username: pendingEmail.value,
+        confirmationCode: confirmCode.value.trim(),
+      })
+      confirmed = isSignUpComplete
+    } catch (e: unknown) {
+      // Already confirmed via the email link — proceed to sign in
+      const msg = (e as Error).message ?? ''
+      if (!msg.includes('Current status is CONFIRMED')) throw e
+      confirmed = true
+    }
+    if (confirmed) {
       await signIn({ username: pendingEmail.value, password: pendingPassword.value })
-      const session = await fetchAuthSession()
-      const token = session.tokens?.accessToken?.toString()
-      if (token) {
-        await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/profile/save', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'X-Project': 'web', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: `${pendingFirstName.value} ${pendingLastName.value}`.trim(), email: pendingEmail.value }),
-        })
-      }
+      await flushPendingProfile()
       router.push('/dashboard')
     }
   } catch (e: unknown) {
@@ -169,9 +202,13 @@ async function handleResend() {
 
 // ─── Redirect if already authenticated ────────────────────────────────────────
 onMounted(async () => {
+  if (route.query.verified === '1') {
+    verifiedBanner.value = true
+    if (typeof route.query.email === 'string') siEmail.value = route.query.email
+  }
   try {
     await getCurrentUser()
-    router.push('/dashboard')
+    router.push({ name: 'dashboard', query: route.query.verified === '1' ? { verified: '1' } : {} })
   } catch {
     // Not signed in — stay on auth page
   }
@@ -321,6 +358,10 @@ onMounted(async () => {
             aria-labelledby="tab-signin"
           >
             <CForm @submit.prevent="handleSignIn" class="flex flex-col gap-space-4">
+              <p v-if="verifiedBanner" role="status"
+                 class="font-body-base text-body-base text-accent-lime text-center">
+                Your email has been verified — sign in to continue.
+              </p>
               <p v-if="error && activeTab === 'signIn'" role="alert"
                  class="font-body-base text-body-base text-status-danger">
                 {{ error }}

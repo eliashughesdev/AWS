@@ -26,6 +26,7 @@ import { Code, Function, Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambd
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs'
 import { mainApiFn } from './fn/api/resource'
 import { auth } from './auth/resource'
+import { customMessageFn } from './auth/custom-message/resource'
 import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
 
@@ -34,6 +35,7 @@ const backend = defineBackend({
   auth,
   data,
   mainApiFn,
+  customMessageFn,
 })
 
 const apiStack = backend.createStack('loudibly-stack')
@@ -55,6 +57,13 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
 backend.mainApiFn.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+    resources: ['*']
+  })
+)
+
+backend.customMessageFn.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath'],
     resources: ['*']
   })
 )
