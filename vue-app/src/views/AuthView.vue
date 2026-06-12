@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode } from 'aws-amplify/auth'
+import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
 
@@ -140,7 +140,15 @@ async function handleConfirm() {
     })
     if (isSignUpComplete) {
       await signIn({ username: pendingEmail.value, password: pendingPassword.value })
-      // await createAccount()
+      const session = await fetchAuthSession()
+      const token = session.tokens?.accessToken?.toString()
+      if (token) {
+        await fetch('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/profile/save', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'X-Project': 'web', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: `${pendingFirstName.value} ${pendingLastName.value}`.trim(), email: pendingEmail.value }),
+        })
+      }
       router.push('/dashboard')
     }
   } catch (e: unknown) {
