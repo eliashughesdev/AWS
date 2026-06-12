@@ -86,7 +86,6 @@ async function handleSignUp() {
       options: {
         userAttributes: {
           email: suEmail.value.trim(),
-          given_name: suFirstName.value.trim(),
         },
       },
     })

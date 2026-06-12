@@ -26,8 +26,7 @@ async function getAuthHeaders() {
 onMounted(async () => {
   try {
     const attrs = await fetchUserAttributes()
-    userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.given_name ?? attrs.email?.split('@')[0] ?? 'User'
+    userEmail.value = attrs.email ?? ''
   } catch {
     router.push('/auth')
     return
@@ -35,6 +34,14 @@ onMounted(async () => {
 
   try {
     const headers = await getAuthHeaders()
+
+    const profileRes = await fetch(`${API_BASE}/accounts/profile`, { headers })
+    if (profileRes.ok) {
+      const profileData = await profileRes.json()
+      displayName.value = profileData.name ?? userEmail.value.split('@')[0]
+    } else {
+      displayName.value = userEmail.value.split('@')[0]
+    }
 
     createBanner.value = true
     const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
