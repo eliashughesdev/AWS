@@ -27,7 +27,7 @@ onMounted(async () => {
   try {
     const attrs = await fetchUserAttributes()
     userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.email?.split('@')[0] ?? 'User'
+    displayName.value = attrs.given_name ?? attrs.email?.split('@')[0] ?? 'User'
   } catch {
     router.push('/auth')
     return
