@@ -22,7 +22,7 @@ export const handler: CustomMessageTriggerHandler = async (event) => {
       '<p>Your confirmation code is:</p>',
       `<p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; margin: 8px 0 24px;">${code}</p>`,
       '<p>Enter it in the app, or confirm your email with one click:</p>',
-      `<p style="margin: 16px 0 24px;"><a href="${link}" style="display: inline-block; padding: 12px 24px; background: #CCFF00; color: #000; text-decoration: none; border-radius: 6px; font-weight: bold;">Confirm my email</a></p>`,
+      `<p style="margin: 16px 0 24px;"><a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; border: 2px solid #3d3d3d;">Confirm my email</a></p>`,
       '<p style="color: #666; font-size: 12px;">If you did not create a Loudibly account, you can safely ignore this email.</p>',
       '</div>',
     ].join('')
