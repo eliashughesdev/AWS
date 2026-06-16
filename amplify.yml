@@ -50,8 +50,6 @@ frontend:
       commands:
         - yarn install --frozen-lockfile
         - cd vue-app && yarn install --frozen-lockfile && cd ..
-        - OPENREPLAY_KEY=$(aws ssm get-parameter --name "/loudibly/api/openreplay-project-key" --query "Parameter.Value" --output text)
-        - echo "OPENREPLAY_PROJECT_KEY=$OPENREPLAY_KEY" >> vue-app/.env.production
     build:
       commands:
         - yarn run build
