@@ -5,7 +5,9 @@ import outputs from '../../amplify_outputs.json'
 import router from './router'
 import './assets/main.css'
 import App from './App.vue'
+import tracker from './tracker'
 
 Amplify.configure(outputs)
+tracker.start()
 
 createApp(App).use(router).mount('#app')

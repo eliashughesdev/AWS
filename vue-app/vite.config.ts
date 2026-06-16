@@ -5,4 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   base: '/v2/',
+  envPrefix: ['VITE_', 'OPENREPLAY_'],
 })

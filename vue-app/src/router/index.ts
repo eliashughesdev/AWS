@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getCurrentUser } from 'aws-amplify/auth'
+import { getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth'
+import tracker from '../tracker'
 import AuthView from '../views/AuthView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import CardsView from '../views/CardsView.vue'
@@ -76,6 +77,8 @@ router.beforeEach(async (to) => {
   if (!to.meta.requiresAuth) return true
   try {
     await getCurrentUser()
+    const attrs = await fetchUserAttributes()
+    if (attrs.email) tracker.setUserID(attrs.email)
     return true
   } catch {
     return { name: 'auth' }
