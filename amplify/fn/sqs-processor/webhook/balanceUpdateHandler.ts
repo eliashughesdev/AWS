@@ -41,24 +41,29 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
     return false
   }
 
-  const vAccountId: string = lookup.res[0].vAccountId
+  const accountRecord = lookup.res[0]
+  const isNonCustodial = accountRecord.walletType === 'non-custodial'
+
+  // Non-custodial accounts have no vAccountId — use accountNo as the balance table key.
+  const balanceKey: string = isNonCustodial ? accountRecord.accountNo : accountRecord.vAccountId
+
   const amountToAdd = parseFloat(body.amount)
   const currency    = body.currency ?? body.asset ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
-  console.log(`--- Processing Incoming TX [${txId}] for Account [${vAccountId}] ---`)
+  console.log(`--- Processing Incoming TX [${txId}] for Account [${balanceKey}] (walletType: ${isNonCustodial ? 'non-custodial' : 'custodial'}) ---`)
   console.log('Incoming Payload:', body)
   console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${currency}`)
 
   try {
-    console.log(`DB_READ: Fetching current balance for ${vAccountId} from ${BALANCE_TABLE_NAME}...`)
-    const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, vAccountId)
+    console.log(`DB_READ: Fetching current balance for ${balanceKey} from ${BALANCE_TABLE_NAME}...`)
+    const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, balanceKey)
 
     if (!currentBalanceResult.success || !currentBalanceResult.res) {
-      console.error(`DB_ERROR: Balance record not found for vAccountId: ${vAccountId}. Cannot update balance. Read result:`, currentBalanceResult)
+      console.error(`DB_ERROR: Balance record not found for key: ${balanceKey}. Cannot update balance. Read result:`, currentBalanceResult)
       const createdAt = new Date().toISOString()
       await putItem('v1TransactionLogsTable', {
-        id: vAccountId,
+        id: balanceKey,
         sk: `TX#${createdAt}#${txId}`,
         txId,
         type: 'DEPOSIT_FAILED',
@@ -85,7 +90,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
     const updateParams = {
       tableName: BALANCE_TABLE_NAME,
-      key: { id: vAccountId },
+      key: { id: balanceKey },
       updateExpression: 'SET #balance = :newBalance, #availableBalance = :newAvailable, #lastUpdated = :now',
       attributeNames: {
         '#balance': 'balance',
@@ -104,11 +109,11 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
     const updateResult = await updateItem(updateParams)
 
     if (updateResult.success) {
-      console.log(`TX_SUCCESS: Balance for ${vAccountId} successfully updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
+      console.log(`TX_SUCCESS: Balance for ${balanceKey} successfully updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
 
       const createdAt = new Date().toISOString()
       await putItem('v1TransactionLogsTable', {
-        id: vAccountId,
+        id: balanceKey,
         sk: `TX#${createdAt}#${txId}`,
         txId,
         type: 'DEPOSIT',
@@ -121,10 +126,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         createdAt,
       })
     } else {
-      console.error(`DB_ERROR: Failed to update balance document for ${vAccountId} and TX ${txId}. Update result:`, updateResult)
+      console.error(`DB_ERROR: Failed to update balance document for ${balanceKey} and TX ${txId}. Update result:`, updateResult)
       const createdAt = new Date().toISOString()
       await putItem('v1TransactionLogsTable', {
-        id: vAccountId,
+        id: balanceKey,
         sk: `TX#${createdAt}#${txId}`,
         txId,
         type: 'DEPOSIT_FAILED',
@@ -140,10 +145,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
       return false
     }
   } catch (e) {
-    console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${txId} (Account ${vAccountId}). Exception caught:`, e)
+    console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${txId} (Account ${balanceKey}). Exception caught:`, e)
     return false
   }
 
-  console.log(`--- Finished Processing TX [${txId}] ---`)
+  console.log(`--- Finished Processing TX [${txId}] for Account [${balanceKey}] ---`)
   return true
 }

@@ -8,17 +8,21 @@ import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 
-/**
- * Creates new account (internal)
- */
 export default class AccountHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: AccountHandler execution started.')
     console.log('DEBUG: Incoming Event:', JSON.stringify(event))
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const data: any = {
-      id: event.requestContext?.authorizer?.userId ?? crypto.randomUUID(),
+    const userId      = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
+    const walletType  = event.body.walletType ?? 'custodial'
+    const chain       = event.body.chain
+    const provider    = event.body.provider as ProviderName
+    const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
+    const webhookUrl  = process.env.TATUM_WEBHOOK_URL!
+
+    const userProfileRecord: Record<string, any> = {
+      id: userId,
       sk: 'USERPROFILE',
       created_at: Date.now(),
       deleted_at: null,
@@ -27,117 +31,193 @@ export default class AccountHandler {
       updated_at: Date.now(),
     }
 
-    console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(data))
+    console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(userProfileRecord))
 
     try {
-      const chain = event.body.chain
-      const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
+      if (walletType === 'non-custodial') {
+        return await this.createNonCustodialAccount({
+          userId, chain, provider, accountNumber, webhookUrl,
+          publicAddress: event.body.publicAddress,
+          accountingCurrency: event.body.accounting_currency,
+          userProfileRecord,
+        })
+      }
 
-      // Create key in AWS KMS and derive deposit address
-      console.log(`DEBUG: Creating AWS KMS key for chain: ${chain}, accountId: ${accountNumber}`)
-      const { kmsKeyId, address: depositAddress } = await createBlockchainKey(chain, accountNumber)
-      console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
-
-      // Create virtual account in Tatum (needed for webhook subscriptions on incoming deposits)
-      console.log(`DEBUG: Getting provider: ${event.body.provider}`)
-      const vaProvider = ProviderRegistry.getProvider(event.body.provider as ProviderName)
-      const userId = data.id
-
-      console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, accountingCurrency: ${event.body.accounting_currency}`)
-      const vaCreationPayload: CreateAccountParams = {
-        userId,
-        currency: chain,
+      return await this.createCustodialAccount({
+        userId, chain, provider, accountNumber, webhookUrl,
         accountingCurrency: event.body.accounting_currency,
-        address: depositAddress,
-      }
-      const { accountId } = await vaProvider.createVaAccount(vaCreationPayload)
-      console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`)
-
-      // Link the derived address to the Tatum virtual account
-      console.log(`DEBUG: Assigning deposit address ${depositAddress} to accountId: ${accountId}`)
-      const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
-      console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
-
-      // Subscribe for real-time deposit notifications so the VA is credited immediately
-      const webhookUrl = process.env.TATUM_WEBHOOK_URL!
-      console.log(`DEBUG: Creating ADDRESS_TRANSACTION subscription. webhookUrl: ${webhookUrl}`)
-      const { subscriptionId } = await vaProvider.createSubscription({ accountId, address: assignedAddress, chain, webhookUrl })
-      console.log(`DEBUG: Subscription created. subscriptionId: ${subscriptionId}`)
-
-      const newAccount: Record<string, any> = {
-        id: userId,
-        sk: `ACCOUNT#${accountNumber}`,
-        currency: event.body.accounting_currency,
-        provider: event.body.provider,
-        accountNo: accountNumber,
-        chain,
-        kmsKeyId,
-        depositAddress: assignedAddress,
-        vAccountId: accountId,
-        created_at: Date.now(),
-        fees: 'default',
-        providerId: event.body.provider || 'default',
-        status: 'active',
-      }
-
-      const newAccountBalance: Record<string, any> = {
-        id: accountId,
-        availableBalance: 0.0,
-        balance: 0.0,
-        created_at: Date.now(),
-        updated_at: Date.now(),
-      }
-
-      console.log('DEBUG: Account Balance Record (Initial):', JSON.stringify(newAccountBalance))
-
-      const itemsToTransact = [
-        { tableName: 'v2CustomerTable', item: data },
-        { tableName: 'v2CustomerTable', item: newAccount },
-        { tableName: 'v1AccountBalanceTable', item: newAccountBalance },
-      ]
-
-      console.log('DEBUG: Attempting to save all records transactionally...')
-
-      const transactionResult = await transactWriteItems({ puts: itemsToTransact })
-
-      if (!transactionResult.success || !transactionResult.res) {
-        console.log('Failed to perform atomic write for all required records')
-        return processError(100003)
-      }
-      console.log('DEBUG: atomic transaction save attempt result:', JSON.stringify(transactionResult))
-
-      if (data.email) {
-        try {
-          const emailProvider = getEmailProvider()
-          await emailProvider.sendEmail(
-            data.email,
-            'Welcome to Loudibly — your account is ready',
-            `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
-          )
-          console.log(`DEBUG: Welcome email sent to ${data.email}`)
-        } catch (err) {
-          console.error('Email send failed (non-fatal):', err)
-        }
-      }
-
-      console.log('DEBUG: Account creation flow successful. Returning 200 response.')
-      return response({
-        statusCode: 200,
-        headers: null,
-        bodyObject: {
-          success: true,
-          res: {
-            data: {
-              id: data.id,
-              accountNo: accountNumber,
-              depositAddress
-            }
-          }
-        }
+        userProfileRecord,
+        email: event.body.email,
       })
     } catch (err) {
-      console.error('FATAL ERROR: Wallet/VA creation error:', err)
-      return processError(100002, 'Failed to create virtual account')
+      console.error('FATAL ERROR: Account creation error:', err)
+      return processError(100002, 'Failed to create account')
     }
+  }
+
+  private async createNonCustodialAccount({
+    userId, chain, provider, accountNumber, webhookUrl, publicAddress, accountingCurrency, userProfileRecord,
+  }: {
+    userId: string; chain: string; provider: ProviderName; accountNumber: string
+    webhookUrl: string; publicAddress: string; accountingCurrency: string
+    userProfileRecord: Record<string, any>
+  }) {
+    console.log(`DEBUG: Non-custodial account creation. chain=${chain}, address=${publicAddress}`)
+
+    const vaProvider = ProviderRegistry.getProvider(provider)
+
+    // ADDRESS_TRANSACTION subscriptions work without a VA — subscribe directly to the user's address.
+    const { subscriptionId } = await vaProvider.createSubscription({
+      accountId: accountNumber,
+      address: publicAddress,
+      chain,
+      webhookUrl,
+    })
+    console.log(`DEBUG: Non-custodial subscription created. subscriptionId=${subscriptionId}`)
+
+    const accountRecord: Record<string, any> = {
+      id: userId,
+      sk: `ACCOUNT#${accountNumber}`,
+      walletType: 'non-custodial',
+      currency: accountingCurrency,
+      provider,
+      accountNo: accountNumber,
+      chain,
+      depositAddress: publicAddress,
+      created_at: Date.now(),
+      fees: 'default',
+      status: 'active',
+    }
+
+    // Balance record keyed by accountNo (no vAccountId for non-custodial).
+    const balanceRecord: Record<string, any> = {
+      id: accountNumber,
+      availableBalance: 0.0,
+      balance: 0.0,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    }
+
+    const result = await transactWriteItems({
+      puts: [
+        { tableName: 'v2CustomerTable', item: userProfileRecord },
+        { tableName: 'v2CustomerTable', item: accountRecord },
+        { tableName: 'v1AccountBalanceTable', item: balanceRecord },
+      ]
+    })
+
+    if (!result.success || !result.res) {
+      console.log('Failed to perform atomic write for non-custodial account records')
+      return processError(100003)
+    }
+
+    console.log('DEBUG: Non-custodial account creation successful.')
+    return response({
+      statusCode: 200,
+      headers: null,
+      bodyObject: {
+        success: true,
+        res: { data: { id: userId, accountNo: accountNumber, depositAddress: publicAddress } }
+      }
+    })
+  }
+
+  private async createCustodialAccount({
+    userId, chain, provider, accountNumber, webhookUrl, accountingCurrency, userProfileRecord, email,
+  }: {
+    userId: string; chain: string; provider: ProviderName; accountNumber: string
+    webhookUrl: string; accountingCurrency: string; userProfileRecord: Record<string, any>
+    email?: string
+  }) {
+    // Create key in AWS KMS and derive deposit address
+    console.log(`DEBUG: Creating AWS KMS key for chain: ${chain}, accountId: ${accountNumber}`)
+    const { kmsKeyId, address: depositAddress } = await createBlockchainKey(chain as 'TRON' | 'SOL', accountNumber)
+    console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
+
+    const vaProvider = ProviderRegistry.getProvider(provider)
+
+    console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, accountingCurrency: ${accountingCurrency}`)
+    const vaCreationPayload: CreateAccountParams = {
+      userId,
+      currency: chain,
+      accountingCurrency,
+      address: depositAddress,
+    }
+    const { accountId } = await vaProvider.createVaAccount(vaCreationPayload)
+    console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`)
+
+    console.log(`DEBUG: Assigning deposit address ${depositAddress} to accountId: ${accountId}`)
+    const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
+    console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
+
+    console.log(`DEBUG: Creating ADDRESS_TRANSACTION subscription. webhookUrl: ${webhookUrl}`)
+    const { subscriptionId } = await vaProvider.createSubscription({ accountId, address: assignedAddress, chain, webhookUrl })
+    console.log(`DEBUG: Subscription created. subscriptionId: ${subscriptionId}`)
+
+    const accountRecord: Record<string, any> = {
+      id: userId,
+      sk: `ACCOUNT#${accountNumber}`,
+      currency: accountingCurrency,
+      provider,
+      accountNo: accountNumber,
+      chain,
+      kmsKeyId,
+      depositAddress: assignedAddress,
+      vAccountId: accountId,
+      created_at: Date.now(),
+      fees: 'default',
+      providerId: provider || 'default',
+      status: 'active',
+    }
+
+    const balanceRecord: Record<string, any> = {
+      id: accountId,
+      availableBalance: 0.0,
+      balance: 0.0,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+    }
+
+    console.log('DEBUG: Account Balance Record (Initial):', JSON.stringify(balanceRecord))
+    console.log('DEBUG: Attempting to save all records transactionally...')
+
+    const result = await transactWriteItems({
+      puts: [
+        { tableName: 'v2CustomerTable', item: userProfileRecord },
+        { tableName: 'v2CustomerTable', item: accountRecord },
+        { tableName: 'v1AccountBalanceTable', item: balanceRecord },
+      ]
+    })
+
+    if (!result.success || !result.res) {
+      console.log('Failed to perform atomic write for all required records')
+      return processError(100003)
+    }
+
+    console.log('DEBUG: atomic transaction save attempt result:', JSON.stringify(result))
+
+    if (email) {
+      try {
+        const emailProvider = getEmailProvider()
+        await emailProvider.sendEmail(
+          email,
+          'Welcome to Loudibly — your account is ready',
+          `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
+        )
+        console.log(`DEBUG: Welcome email sent to ${email}`)
+      } catch (err) {
+        console.error('Email send failed (non-fatal):', err)
+      }
+    }
+
+    console.log('DEBUG: Custodial account creation successful. Returning 200 response.')
+    return response({
+      statusCode: 200,
+      headers: null,
+      bodyObject: {
+        success: true,
+        res: { data: { id: userId, accountNo: accountNumber, depositAddress } }
+      }
+    })
   }
 }

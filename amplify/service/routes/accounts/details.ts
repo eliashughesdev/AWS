@@ -26,16 +26,21 @@ export default class DetailsHandler {
 
 
     const accountDet = account.res[0]
-    const vAccountId = accountDet.vAccountId
 
     console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account))
-    console.log('DEBUG: Extracted vAccountId for balance lookup:', vAccountId)
 
-    const balanceResult = await getRecord('v1AccountBalanceTable', vAccountId)
+    // Non-custodial accounts have no vAccountId — balance is keyed by accountNo.
+    const balanceKey = accountDet.walletType === 'non-custodial'
+      ? accountDet.accountNo
+      : accountDet.vAccountId
+
+    console.log('DEBUG: Balance lookup key:', balanceKey, '(walletType:', accountDet.walletType ?? 'custodial', ')')
+
+    const balanceResult = await getRecord('v1AccountBalanceTable', balanceKey)
 
     if (!balanceResult.success || !balanceResult.res) {
-      console.error(`ERROR: Balance record not found for vAccountId: ${vAccountId}`)
-      return processError(100008) // Balance Not Found Error Code
+      console.error(`ERROR: Balance record not found for key: ${balanceKey}`)
+      return processError(100008)
     }
 
     const balance = balanceResult.res

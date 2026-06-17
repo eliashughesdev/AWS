@@ -16,6 +16,8 @@
     "@openreplay/tracker": "^18.0.15",
     "@tailwindcss/forms": "^0.5.11",
     "@tailwindcss/vite": "^4.3.0",
+    "@tatumio/tatum": "^4.2.57",
+    "@tatumio/tron-wallet-provider": "^1.0.4",
     "autoprefixer": "^10.5.0",
     "aws-amplify": "^6.17.0",
     "postcss": "^8.5.15",
