@@ -8,5 +8,6 @@ export default defineConfig({
   envPrefix: ['VITE_', 'OPENREPLAY_'],
   define: {
     global: 'globalThis',
+    'process.env': {},
   },
 })
