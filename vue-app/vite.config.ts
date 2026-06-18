@@ -6,4 +6,7 @@ export default defineConfig({
   plugins: [vue(), tailwindcss()],
   base: '/v2/',
   envPrefix: ['VITE_', 'OPENREPLAY_'],
+  define: {
+    global: 'globalThis',
+  },
 })
