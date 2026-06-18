@@ -8,6 +8,8 @@ export default defineConfig({
   envPrefix: ['VITE_', 'OPENREPLAY_'],
   define: {
     global: 'globalThis',
-    'process.env': {},
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'process.env': JSON.stringify({}),
+    process: JSON.stringify({ env: { NODE_ENV: 'production' }, version: '', browser: true }),
   },
 })
