@@ -233,9 +233,8 @@ async function submitCustodial(parsed: number) {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         accountNumber:      selectedAccount.value,
-        ...(isCryptoMode
-          ? { cryptoAmount: parsed }
-          : { currency: 'USD', amount: parsed }),
+        currency:           isCryptoMode ? (selectedAccountData.value?.chain ?? 'TRON') : 'USD',
+        ...(isCryptoMode ? { cryptoAmount: parsed } : { amount: parsed }),
         userId:             userId.value,
         destinationAddress: destinationAddress.value.trim(),
         transactionId,
