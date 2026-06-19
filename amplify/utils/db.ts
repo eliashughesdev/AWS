@@ -104,17 +104,17 @@ export const queryItemFromIndex = async (q: IQueryItemFromIndexRequest) => {
   }
 }
 
-export const putItem = async (tableName: string | undefined, item: Record<string, any>) => {
+export const putItem = async (tableName: string | undefined, item: Record<string, any>, conditionExpression?: string) => {
   const command = new PutItemCommand({
     TableName: tableName,
-    Item: marshall(item, { removeUndefinedValues: true })
+    Item: marshall(item, { removeUndefinedValues: true }),
+    ConditionExpression: conditionExpression,
   })
   try {
     const response = await db.send(command)
-    return { success: true, res: response }
-  } catch (e) {
-    console.log(e)
-    return { success: false, res: null }
+    return { success: true, res: response, error: null }
+  } catch (e: any) {
+    return { success: false, res: null, error: e }
   }
 }
 

@@ -56,18 +56,14 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${currency}`)
 
   try {
-    console.log(`DB_READ: Fetching current balance for ${balanceKey} from ${BALANCE_TABLE_NAME}...`)
-    const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, balanceKey)
-
-    if (!currentBalanceResult.success || !currentBalanceResult.res) {
-      console.error(`DB_ERROR: Balance record not found for key: ${balanceKey}. Cannot update balance. Read result:`, currentBalanceResult)
-      const createdAt = new Date().toISOString()
-      await putItem('v1TransactionLogsTable', {
+    const createdAt = new Date().toISOString()
+    const claimResult = await putItem(
+      'v1TransactionLogsTable',
+      {
         id: balanceKey,
-        sk: `TX#${createdAt}#${txId}`,
+        sk: `TX#${txId}`,
         txId,
-        type: 'DEPOSIT_FAILED',
-        reason: 'BALANCE_RECORD_NOT_FOUND',
+        type: 'DEPOSIT',
         amount: amountToAdd,
         currency,
         from: body.counterAddress,
@@ -75,7 +71,24 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         blockNumber: body.blockNumber,
         index: body.index,
         createdAt,
-      })
+      },
+      'attribute_not_exists(sk)'
+    )
+
+    if (!claimResult.success) {
+      if (claimResult.error?.name === 'ConditionalCheckFailedException') {
+        console.log(`DUPLICATE_TX: Transaction ${txId} already processed for account ${balanceKey}. Skipping.`)
+        return true
+      }
+      console.error(`LOG_ERROR: Failed to write transaction log for TX ${txId}:`, claimResult.error)
+      return false
+    }
+
+    console.log(`DB_READ: Fetching current balance for ${balanceKey} from ${BALANCE_TABLE_NAME}...`)
+    const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, balanceKey)
+
+    if (!currentBalanceResult.success || !currentBalanceResult.res) {
+      console.error(`DB_ERROR: Balance record not found for key: ${balanceKey}. Cannot update balance.`)
       return false
     }
 
@@ -88,7 +101,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
     console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`)
 
-    const updateParams = {
+    const updateResult = await updateItem({
       tableName: BALANCE_TABLE_NAME,
       key: { id: balanceKey },
       updateExpression: 'SET #balance = :newBalance, #availableBalance = :newAvailable, #lastUpdated = :now',
@@ -102,46 +115,12 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         ':newAvailable': newAvailable,
         ':now': new Date().toISOString(),
       },
-    }
-
-    console.log('DB_WRITE: Preparing to update balance with parameters:', updateParams)
-
-    const updateResult = await updateItem(updateParams)
+    })
 
     if (updateResult.success) {
-      console.log(`TX_SUCCESS: Balance for ${balanceKey} successfully updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
-
-      const createdAt = new Date().toISOString()
-      await putItem('v1TransactionLogsTable', {
-        id: balanceKey,
-        sk: `TX#${createdAt}#${txId}`,
-        txId,
-        type: 'DEPOSIT',
-        amount: amountToAdd,
-        currency,
-        from: body.counterAddress,
-        to: body.address,
-        blockNumber: body.blockNumber,
-        index: body.index,
-        createdAt,
-      })
+      console.log(`TX_SUCCESS: Balance for ${balanceKey} updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
     } else {
-      console.error(`DB_ERROR: Failed to update balance document for ${balanceKey} and TX ${txId}. Update result:`, updateResult)
-      const createdAt = new Date().toISOString()
-      await putItem('v1TransactionLogsTable', {
-        id: balanceKey,
-        sk: `TX#${createdAt}#${txId}`,
-        txId,
-        type: 'DEPOSIT_FAILED',
-        reason: 'BALANCE_UPDATE_FAILED',
-        amount: amountToAdd,
-        currency,
-        from: body.counterAddress,
-        to: body.address,
-        blockNumber: body.blockNumber,
-        index: body.index,
-        createdAt,
-      })
+      console.error(`DB_ERROR: Failed to update balance for ${balanceKey}, TX ${txId}:`, updateResult.error)
       return false
     }
   } catch (e) {
