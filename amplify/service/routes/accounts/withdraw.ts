@@ -92,10 +92,11 @@ export default class WithdrawHandler {
     const deductResult = await updateItem({
       tableName: 'v1AccountBalanceTable',
       key: { id: vAccountId },
-      updateExpression: 'SET #balance = #balance - :amount, #lastUpdated = :now',
-      conditionExpression: '#balance >= :amount',
+      updateExpression: 'SET #balance = #balance - :amount, #availableBalance = #availableBalance - :amount, #lastUpdated = :now',
+      conditionExpression: '#availableBalance >= :amount',
       attributeNames: {
         '#balance': 'balance',
+        '#availableBalance': 'availableBalance',
         '#lastUpdated': 'lastUpdated',
       },
       attributeValues: {
