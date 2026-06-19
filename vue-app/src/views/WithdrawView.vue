@@ -23,7 +23,7 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
-  availableBalance: number
+  balance: number
   walletType?: string
 }
 
@@ -195,13 +195,13 @@ async function submitCustodial(parsed: number) {
   const isCryptoMode   = withdrawMode.value === 'crypto'
 
   if (isCryptoMode) {
-    if (parsed > (selectedAccountData.value?.availableBalance ?? 0)) {
-      formError.value = `Insufficient balance. Available: ${selectedAccountData.value?.availableBalance} ${selectedAccountData.value?.chain}`
+    if (parsed > (selectedAccountData.value?.balance ?? 0)) {
+      formError.value = `Insufficient balance. Available: ${selectedAccountData.value?.balance} ${selectedAccountData.value?.chain}`
       return
     }
   } else if (selectedAccountData.value && cryptoEquivalent.value) {
-    if (parseFloat(cryptoEquivalent.value) > (selectedAccountData.value.availableBalance ?? 0)) {
-      formError.value = `Insufficient balance. Available: ${selectedAccountData.value.availableBalance} ${selectedAccountData.value.chain}`
+    if (parseFloat(cryptoEquivalent.value) > (selectedAccountData.value.balance ?? 0)) {
+      formError.value = `Insufficient balance. Available: ${selectedAccountData.value.balance} ${selectedAccountData.value.chain}`
       return
     }
   }
@@ -372,7 +372,7 @@ async function handleSignOut() {
                 v-model="selectedAccount"
                 class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors appearance-none cursor-pointer">
                 <option v-for="acc in accounts" :key="acc.accountNo" :value="acc.accountNo">
-                  {{ acc.chain }} — Balance: {{ acc.availableBalance }} {{ acc.chain }}
+                  {{ acc.chain }} — Balance: {{ acc.balance }} {{ acc.chain }}
                 </option>
               </select>
             </div>

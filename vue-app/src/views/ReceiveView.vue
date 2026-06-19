@@ -20,7 +20,7 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
-  availableBalance: number
+  balance: number
 }
 
 const accounts       = ref<Account[]>([])

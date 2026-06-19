@@ -18,7 +18,7 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
-  availableBalance: number
+  balance: number
 }
 
 const accounts    = ref<Account[]>([])
@@ -86,8 +86,8 @@ async function submit() {
     return
   }
 
-  if (fromAccount.value && parsed > (fromAccount.value.availableBalance ?? 0)) {
-    formError.value = `Insufficient balance. Available: ${fromAccount.value.availableBalance} ${fromAccount.value.chain}`
+  if (fromAccount.value && parsed > (fromAccount.value.balance ?? 0)) {
+    formError.value = `Insufficient balance. Available: ${fromAccount.value.balance} ${fromAccount.value.chain}`
     return
   }
 
@@ -215,7 +215,7 @@ async function handleSignOut() {
                 v-model="selectedFrom"
                 class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors appearance-none cursor-pointer">
                 <option v-for="acc in accounts" :key="acc.accountNo" :value="acc.accountNo">
-                  {{ acc.chain }} — Balance: {{ acc.availableBalance }} {{ acc.chain }}
+                  {{ acc.chain }} — Balance: {{ acc.balance }} {{ acc.chain }}
                 </option>
               </select>
             </div>
@@ -248,7 +248,7 @@ async function handleSignOut() {
                 </div>
               </div>
               <p v-if="fromAccount" class="mt-1.5 text-[10px] text-[#52525B] font-['JetBrains_Mono']">
-                Available: {{ fromAccount.availableBalance }} {{ fromAccount.chain }}
+                Available: {{ fromAccount.balance }} {{ fromAccount.chain }}
               </p>
             </div>
 
