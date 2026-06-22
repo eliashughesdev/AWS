@@ -1,9 +1,8 @@
 import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
 
 interface IncomingBlockchainTransactionRequest {
-  // ADDRESS_TRANSACTION fields (on-chain subscription webhook)
-  address: string;          // subscribed deposit address
-  counterAddress?: string;  // sender address (not present on UTXO chains)
+  address: string;          // recipient address (the `to` of the transfer)
+  counterAddress?: string;  // sender address (the `from`); not present on UTXO chains
   amount: string;
   currency?: string;
   asset?: string;
@@ -14,19 +13,116 @@ interface IncomingBlockchainTransactionRequest {
   txId?: string;
   blockNumber?: number;
   timestamp?: number;
-  index?: number;    
+  index?: number;
   queue?: string;
 }
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
-// Handler for v1-webhook-queue: Updates account balance
+type Direction = 'CREDIT' | 'DEBIT'
+
+async function findAccountByAddress(address: string) {
+  const lookup = await queryItemFromIndex({
+    tableName: 'v2CustomerTable',
+    indexName: 'v1v2CustomerTableByDepositAddress',
+    keyConditionExpression: 'depositAddress = :addr',
+    attributeNames: undefined,
+    attributeValues: { ':addr': address },
+  })
+  if (!lookup.success || !lookup.res?.length) return null
+  return lookup.res[0]
+}
+
+// Applies one side of a transfer to an account. Idempotent per (account, txId)
+// via the transaction-log claim. Returns false only on an unexpected failure so
+// the SQS message is retried.
+async function applyBalanceChange(params: {
+  account: any
+  direction: Direction
+  amount: number
+  currency: string
+  txId: string
+  from?: string
+  to?: string
+  blockNumber?: number
+  index?: number
+}): Promise<boolean> {
+  const { account, direction, amount, currency, txId } = params
+  const isNonCustodial = account.walletType === 'non-custodial'
+  const balanceKey: string = isNonCustodial ? account.accountNo : account.vAccountId
+  const signedDelta = direction === 'CREDIT' ? amount : -amount
+  const txType = direction === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL'
+
+  console.log(`${direction} ${amount.toFixed(6)} ${currency} on ${balanceKey} (${isNonCustodial ? 'non-custodial' : 'custodial'}) tx ${txId}`)
+
+  const claim = await putItem(
+    'v1TransactionLogsTable',
+    {
+      id: balanceKey,
+      sk: `TX#${txId}`,
+      txId,
+      type: txType,
+      amount,
+      currency,
+      from: params.from,
+      to: params.to,
+      blockNumber: params.blockNumber,
+      index: params.index,
+      createdAt: new Date().toISOString(),
+    },
+    'attribute_not_exists(sk)'
+  )
+
+  if (!claim.success) {
+    if (claim.error?.name === 'ConditionalCheckFailedException') {
+      console.log(`DUPLICATE_TX: ${txId} already applied to ${balanceKey}. Skipping.`)
+      return true
+    }
+    console.error(`LOG_ERROR: Failed to claim tx ${txId} for ${balanceKey}:`, claim.error)
+    return false
+  }
+
+  const current = await getRecord(BALANCE_TABLE_NAME, balanceKey)
+  if (!current.success || !current.res) {
+    console.error(`DB_ERROR: Balance record not found for ${balanceKey}.`)
+    return false
+  }
+
+  const newBalance = parseFloat(current.res.balance || '0') + signedDelta
+  const newAvailable = parseFloat(current.res.availableBalance || '0') + signedDelta
+
+  console.log(`BALANCE_CALC: ${balanceKey} ${direction === 'CREDIT' ? '+' : '-'}${amount.toFixed(6)} = ${newBalance.toFixed(6)}`)
+
+  const update = await updateItem({
+    tableName: BALANCE_TABLE_NAME,
+    key: { id: balanceKey },
+    updateExpression: 'SET #balance = :newBalance, #availableBalance = :newAvailable, #lastUpdated = :now',
+    attributeNames: {
+      '#balance': 'balance',
+      '#availableBalance': 'availableBalance',
+      '#lastUpdated': 'lastUpdated',
+    },
+    attributeValues: {
+      ':newBalance': newBalance,
+      ':newAvailable': newAvailable,
+      ':now': new Date().toISOString(),
+    },
+  })
+
+  if (!update.success) {
+    console.error(`DB_ERROR: Failed to update balance for ${balanceKey}, tx ${txId}:`, update.error)
+    return false
+  }
+
+  console.log(`TX_SUCCESS: ${balanceKey} updated to ${newBalance.toFixed(6)} ${currency}. TX: ${txId}`)
+  return true
+}
+
 export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   const body: IncomingBlockchainTransactionRequest = message
 
-  // Tatum emits a separate webhook per asset movement for a single on-chain tx.
-  // The `fee` event carries no `address` and amount "0" — it only reports the
-  // network fee and must not affect the balance. Only the `native` transfer does.
+  // A single on-chain transfer emits a `native` event plus a zero-amount `fee`
+  // event. Only the native transfer moves balances.
   if (body.type && body.type !== 'native') {
     console.log(`SKIP_NON_NATIVE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
     return true
@@ -37,117 +133,44 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
     return false
   }
 
-  const lookup = await queryItemFromIndex({
-    tableName: 'v2CustomerTable',
-    indexName: 'v1v2CustomerTableByDepositAddress',
-    keyConditionExpression: 'depositAddress = :addr',
-    attributeNames: undefined,
-    attributeValues: { ':addr': body.address },
-  })
-
-  if (!lookup.success || !lookup.res?.length) {
-    console.error(`ACCOUNT_NOT_FOUND: No account found for depositAddress: ${body.address}`)
-    return false
-  }
-
-  const accountRecord = lookup.res[0]
-  const isNonCustodial = accountRecord.walletType === 'non-custodial'
-
-  // Non-custodial accounts have no vAccountId — use accountNo as the balance table key.
-  const balanceKey: string = isNonCustodial ? accountRecord.accountNo : accountRecord.vAccountId
-
-  // Tatum signs the amount relative to the subscribed address: positive for
-  // incoming (deposit), negative for outgoing (e.g. a non-custodial withdrawal).
-  // Use the sign as the direction so outgoing txs debit rather than credit.
-  const delta = parseFloat(body.amount)
-  const currency    = body.currency ?? body.asset ?? 'UNKNOWN'
+  const amount = parseFloat(body.amount)
+  const currency = body.currency ?? body.asset ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
-  if (!Number.isFinite(delta) || delta === 0) {
+  if (!Number.isFinite(amount) || amount <= 0) {
     console.log(`SKIP_ZERO_AMOUNT: Ignoring tx ${txId} with amount "${body.amount}"`)
     return true
   }
 
-  const isCredit = delta > 0
-  const txType = isCredit ? 'DEPOSIT' : 'WITHDRAWAL'
+  const recipient = await findAccountByAddress(body.address)
+  const sender = body.counterAddress ? await findAccountByAddress(body.counterAddress) : null
 
-  console.log(`--- Processing TX [${txId}] for Account [${balanceKey}] (walletType: ${isNonCustodial ? 'non-custodial' : 'custodial'}) ---`)
-  console.log('Incoming Payload:', body)
-  console.log(`${isCredit ? 'Crediting' : 'Debiting'} ${Math.abs(delta).toFixed(6)} ${currency} (${txType})`)
-
-  try {
-    const createdAt = new Date().toISOString()
-    const claimResult = await putItem(
-      'v1TransactionLogsTable',
-      {
-        id: balanceKey,
-        sk: `TX#${txId}`,
-        txId,
-        type: txType,
-        amount: Math.abs(delta),
-        currency,
-        from: body.counterAddress,
-        to: body.address,
-        blockNumber: body.blockNumber,
-        index: body.index,
-        createdAt,
-      },
-      'attribute_not_exists(sk)'
-    )
-
-    if (!claimResult.success) {
-      if (claimResult.error?.name === 'ConditionalCheckFailedException') {
-        console.log(`DUPLICATE_TX: Transaction ${txId} already processed for account ${balanceKey}. Skipping.`)
-        return true
-      }
-      console.error(`LOG_ERROR: Failed to write transaction log for TX ${txId}:`, claimResult.error)
-      return false
-    }
-
-    console.log(`DB_READ: Fetching current balance for ${balanceKey} from ${BALANCE_TABLE_NAME}...`)
-    const currentBalanceResult = await getRecord(BALANCE_TABLE_NAME, balanceKey)
-
-    if (!currentBalanceResult.success || !currentBalanceResult.res) {
-      console.error(`DB_ERROR: Balance record not found for key: ${balanceKey}. Cannot update balance.`)
-      return false
-    }
-
-    console.log('DB_READ_SUCCESS: Retrieved record:', currentBalanceResult.res)
-
-    const currentBalance = parseFloat(currentBalanceResult.res.balance || '0')
-    const currentAvailable = parseFloat(currentBalanceResult.res.availableBalance || '0')
-    const newBalance = currentBalance + delta
-    const newAvailable = currentAvailable + delta
-
-    console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} ${isCredit ? '+' : '-'} ${Math.abs(delta).toFixed(6)} = New ${newBalance.toFixed(2)}`)
-
-    const updateResult = await updateItem({
-      tableName: BALANCE_TABLE_NAME,
-      key: { id: balanceKey },
-      updateExpression: 'SET #balance = :newBalance, #availableBalance = :newAvailable, #lastUpdated = :now',
-      attributeNames: {
-        '#balance': 'balance',
-        '#availableBalance': 'availableBalance',
-        '#lastUpdated': 'lastUpdated',
-      },
-      attributeValues: {
-        ':newBalance': newBalance,
-        ':newAvailable': newAvailable,
-        ':now': new Date().toISOString(),
-      },
-    })
-
-    if (updateResult.success) {
-      console.log(`TX_SUCCESS: Balance for ${balanceKey} updated to ${newBalance.toFixed(2)} ${currency}. TX: ${txId}`)
-    } else {
-      console.error(`DB_ERROR: Failed to update balance for ${balanceKey}, TX ${txId}:`, updateResult.error)
-      return false
-    }
-  } catch (e) {
-    console.error(`CRITICAL_ERROR: Failed to process balance update for TX ${txId} (Account ${balanceKey}). Exception caught:`, e)
+  if (!recipient && !sender) {
+    console.error(`ACCOUNT_NOT_FOUND: Neither ${body.address} nor ${body.counterAddress ?? 'n/a'} maps to an account. tx ${txId}`)
     return false
   }
 
-  console.log(`--- Finished Processing TX [${txId}] for Account [${balanceKey}] ---`)
-  return true
+  console.log(`--- Processing TX [${txId}] amount ${amount} ${currency} (to=${body.address}, from=${body.counterAddress ?? 'n/a'}) ---`)
+
+  let ok = true
+
+  // Credit the recipient (deposit) — applies to custodial and non-custodial.
+  if (recipient) {
+    ok = await applyBalanceChange({
+      account: recipient, direction: 'CREDIT', amount, currency, txId,
+      from: body.counterAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
+    }) && ok
+  }
+
+  // Debit the sender only when non-custodial. Custodial sends are already debited
+  // by their route handler (transfer = off-chain ledger, withdrawal = pre-queue),
+  // so debiting here would double-count.
+  if (sender && sender.walletType === 'non-custodial') {
+    ok = await applyBalanceChange({
+      account: sender, direction: 'DEBIT', amount, currency, txId,
+      from: body.counterAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
+    }) && ok
+  }
+
+  return ok
 }
