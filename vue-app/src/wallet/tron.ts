@@ -1,10 +1,18 @@
 import { TatumSDK, Network, Status, type Tron } from '@tatumio/tatum'
 import { TronWalletProvider } from '@tatumio/tron-wallet-provider'
+import TronWeb from 'tronweb'
 
 // Must match the network the backend/Tatum subscriptions run on. Defaults to
 // TRON testnet (Shasta = "tron-testnet"); set VITE_TRON_NETWORK=mainnet for production.
 function resolveTronNetwork(): Network {
   return import.meta.env.VITE_TRON_NETWORK === 'mainnet' ? Network.TRON : Network.TRON_SHASTA
+}
+
+// Public TronGrid node per network. Used for the tronweb broadcast path.
+function resolveTronFullHost(): string {
+  return import.meta.env.VITE_TRON_NETWORK === 'mainnet'
+    ? 'https://api.trongrid.io'
+    : 'https://api.shasta.trongrid.io'
 }
 
 async function getTatum() {
@@ -25,9 +33,31 @@ export async function generateTronWallet(): Promise<TronWallet> {
   return tatum.walletProvider.use(TronWalletProvider).getWallet() as Promise<TronWallet>
 }
 
+/**
+ * Signs and broadcasts a TRX transfer entirely client-side using tronweb.
+ *
+ * The private key is used only locally to sign — only the signed transaction is
+ * sent to the public TronGrid node. We use tronweb (not the Tatum SDK) for the
+ * broadcast because the SDK injects an `x-ttm-sdk-version` header that public
+ * TronGrid nodes reject in their CORS preflight.
+ */
 export async function sendTronTransaction(privateKey: string, to: string, amount: string): Promise<string> {
-  const tatum = await getTatum()
-  return tatum.walletProvider.use(TronWalletProvider).signAndBroadcast({ privateKey, to, amount })
+  const tronWeb = new TronWeb({ fullHost: resolveTronFullHost() })
+
+  const from = TronWeb.address.fromPrivateKey(privateKey)
+  if (!from) throw new Error('Invalid private key')
+
+  const amountSun = Math.round(parseFloat(amount) * 1_000_000) // TRX → SUN
+  if (!Number.isFinite(amountSun) || amountSun <= 0) throw new Error('Invalid amount')
+
+  const tx = await tronWeb.transactionBuilder.sendTrx(to, amountSun, from)
+  const signedTx = await tronWeb.trx.sign(tx, privateKey)
+  const result = await tronWeb.trx.sendRawTransaction(signedTx)
+
+  if (!result?.result || !result.txid) {
+    throw new Error(result?.message ? `Broadcast failed: ${result.message}` : `Broadcast failed: ${JSON.stringify(result)}`)
+  }
+  return result.txid
 }
 
 export interface TronTokenBalance {

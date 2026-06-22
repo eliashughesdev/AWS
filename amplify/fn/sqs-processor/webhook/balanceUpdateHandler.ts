@@ -56,13 +56,24 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // Non-custodial accounts have no vAccountId — use accountNo as the balance table key.
   const balanceKey: string = isNonCustodial ? accountRecord.accountNo : accountRecord.vAccountId
 
-  const amountToAdd = parseFloat(body.amount)
+  // Tatum signs the amount relative to the subscribed address: positive for
+  // incoming (deposit), negative for outgoing (e.g. a non-custodial withdrawal).
+  // Use the sign as the direction so outgoing txs debit rather than credit.
+  const delta = parseFloat(body.amount)
   const currency    = body.currency ?? body.asset ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
-  console.log(`--- Processing Incoming TX [${txId}] for Account [${balanceKey}] (walletType: ${isNonCustodial ? 'non-custodial' : 'custodial'}) ---`)
+  if (!Number.isFinite(delta) || delta === 0) {
+    console.log(`SKIP_ZERO_AMOUNT: Ignoring tx ${txId} with amount "${body.amount}"`)
+    return true
+  }
+
+  const isCredit = delta > 0
+  const txType = isCredit ? 'DEPOSIT' : 'WITHDRAWAL'
+
+  console.log(`--- Processing TX [${txId}] for Account [${balanceKey}] (walletType: ${isNonCustodial ? 'non-custodial' : 'custodial'}) ---`)
   console.log('Incoming Payload:', body)
-  console.log(`Amount to Add: ${amountToAdd.toFixed(2)} ${currency}`)
+  console.log(`${isCredit ? 'Crediting' : 'Debiting'} ${Math.abs(delta).toFixed(6)} ${currency} (${txType})`)
 
   try {
     const createdAt = new Date().toISOString()
@@ -72,8 +83,8 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
         id: balanceKey,
         sk: `TX#${txId}`,
         txId,
-        type: 'DEPOSIT',
-        amount: amountToAdd,
+        type: txType,
+        amount: Math.abs(delta),
         currency,
         from: body.counterAddress,
         to: body.address,
@@ -105,10 +116,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
     const currentBalance = parseFloat(currentBalanceResult.res.balance || '0')
     const currentAvailable = parseFloat(currentBalanceResult.res.availableBalance || '0')
-    const newBalance = currentBalance + amountToAdd
-    const newAvailable = currentAvailable + amountToAdd
+    const newBalance = currentBalance + delta
+    const newAvailable = currentAvailable + delta
 
-    console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} + Incoming ${amountToAdd.toFixed(2)} = New ${newBalance.toFixed(2)}`)
+    console.log(`BALANCE_CALC: Current ${currentBalance.toFixed(2)} ${isCredit ? '+' : '-'} ${Math.abs(delta).toFixed(6)} = New ${newBalance.toFixed(2)}`)
 
     const updateResult = await updateItem({
       tableName: BALANCE_TABLE_NAME,
