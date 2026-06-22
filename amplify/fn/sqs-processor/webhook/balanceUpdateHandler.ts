@@ -23,6 +23,15 @@ const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 // Handler for v1-webhook-queue: Updates account balance
 export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   const body: IncomingBlockchainTransactionRequest = message
+
+  // Tatum emits a separate webhook per asset movement for a single on-chain tx.
+  // The `fee` event carries no `address` and amount "0" — it only reports the
+  // network fee and must not affect the balance. Only the `native` transfer does.
+  if (body.type && body.type !== 'native') {
+    console.log(`SKIP_NON_NATIVE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
+    return true
+  }
+
   if (!body.address || !body.amount) {
     console.error('VALIDATION_ERROR: Missing required fields (address, amount) for balance update')
     return false
