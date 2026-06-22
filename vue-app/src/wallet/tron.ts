@@ -33,31 +33,42 @@ export async function generateTronWallet(): Promise<TronWallet> {
   return tatum.walletProvider.use(TronWalletProvider).getWallet() as Promise<TronWallet>
 }
 
-/**
- * Signs and broadcasts a TRX transfer entirely client-side using tronweb.
- *
- * The private key is used only locally to sign — only the signed transaction is
- * sent to the public TronGrid node. We use tronweb (not the Tatum SDK) for the
- * broadcast because the SDK injects an `x-ttm-sdk-version` header that public
- * TronGrid nodes reject in their CORS preflight.
- */
+function describeTronError(e: unknown): string {
+  if (typeof e === 'string') return e
+  if (e instanceof Error) return e.message
+  if (e && typeof e === 'object') {
+    const o = e as Record<string, unknown>
+    const msg = typeof o.message === 'string' ? o.message : undefined
+    const decoded = msg && /^[0-9a-fA-F]+$/.test(msg)
+      ? (() => { try { return decodeURIComponent(msg.replace(/(..)/g, '%$1')) } catch { return msg } })()
+      : msg
+    return decoded ?? (typeof o.code === 'string' ? o.code : JSON.stringify(e))
+  }
+  return String(e)
+}
+
 export async function sendTronTransaction(privateKey: string, to: string, amount: string): Promise<string> {
   const tronWeb = new TronWeb({ fullHost: resolveTronFullHost() })
 
   const from = TronWeb.address.fromPrivateKey(privateKey)
   if (!from) throw new Error('Invalid private key')
 
-  const amountSun = Math.round(parseFloat(amount) * 1_000_000) // TRX → SUN
+  const amountSun = Math.round(parseFloat(amount) * 1_000_000)
   if (!Number.isFinite(amountSun) || amountSun <= 0) throw new Error('Invalid amount')
 
-  const tx = await tronWeb.transactionBuilder.sendTrx(to, amountSun, from)
-  const signedTx = await tronWeb.trx.sign(tx, privateKey)
-  const result = await tronWeb.trx.sendRawTransaction(signedTx)
+  try {
+    const tx = await tronWeb.transactionBuilder.sendTrx(to, amountSun, from)
+    const signedTx = await tronWeb.trx.sign(tx, privateKey)
+    const result = await tronWeb.trx.sendRawTransaction(signedTx)
 
-  if (!result?.result || !result.txid) {
-    throw new Error(result?.message ? `Broadcast failed: ${result.message}` : `Broadcast failed: ${JSON.stringify(result)}`)
+    if (!result?.result || !result.txid) {
+      throw new Error(`Broadcast rejected: ${describeTronError(result)}`)
+    }
+    return result.txid
+  } catch (e) {
+    console.error('sendTronTransaction failed:', e)
+    throw new Error(describeTronError(e))
   }
-  return result.txid
 }
 
 export interface TronTokenBalance {
