@@ -22,6 +22,7 @@
     "@evervault/react": "^2.24.0",
     "@evervault/sdk": "^6.3.3",
     "@noble/secp256k1": "^2.1.0",
+    "@solana/web3.js": "^1.98.4",
     "@tatumio/tatum": "^4.2.57",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jwk-to-pem": "^2.0.3",

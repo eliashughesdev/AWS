@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
-import { signTronTransaction } from '../../../utils/awsKms'
+import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -129,7 +130,7 @@ export class TatumProvider implements AccountProvider {
   // Used as the final step in the custom signing flow — submit externally-signed tx.
   private readonly BROADCAST_PATHS: Record<string, string> = {
     TRON: 'tron/broadcast',
-    SOL: 'solana/broadcast',
+    SOL: 'solana/broadcast/confirm',
   }
 
   /**
@@ -211,9 +212,26 @@ export class TatumProvider implements AccountProvider {
     }
 
     if (chain === 'SOL') {
-      // TODO: build Solana transaction bytes with @solana/web3.js,
-      // then call signSolTransaction(kmsKeyId, txBytes) from awsKms.ts
-      throw new Error('SOL withdrawal signing not yet implemented')
+      // Solana has no Tatum-side tx builder (unlike TRON's createtransaction
+      // node proxy), so we assemble and sign the transaction here.
+      const connection = new Connection(`${this.TATUM_BASE_URL}/blockchain/node/SOL`, {
+        httpHeaders: { 'x-api-key': this.apiKey! },
+      })
+      const { blockhash } = await connection.getLatestBlockhash()
+
+      const fromPubkey = new PublicKey(senderAddress)
+      const toPubkey = new PublicKey(recipientAddress)
+      const lamports = BigInt(Math.round(parseFloat(amount) * 1_000_000_000)) // SOL → lamports
+
+      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: fromPubkey })
+        .add(SystemProgram.transfer({ fromPubkey, toPubkey, lamports }))
+
+      // Ed25519 signature over the full serialized message (not a hash).
+      const message = tx.serializeMessage()
+      const signatureHex = await signSolTransaction(kmsKeyId, message)
+      tx.addSignature(fromPubkey, Buffer.from(signatureHex, 'hex'))
+
+      return tx.serialize().toString('base64')
     }
 
     throw new Error(`Unsupported chain for withdrawal: ${chain}`)
