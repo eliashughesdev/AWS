@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
 import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import bs58 from 'bs58'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
 export class TatumProvider implements AccountProvider {
@@ -231,7 +232,9 @@ export class TatumProvider implements AccountProvider {
       const signatureHex = await signSolTransaction(kmsKeyId, message)
       tx.addSignature(fromPubkey, Buffer.from(signatureHex, 'hex'))
 
-      return tx.serialize().toString('base64')
+      // Tatum forwards txData to Solana RPC sendTransaction, which defaults to
+      // base58 wire encoding — base64 fails deserialization at the discriminator.
+      return bs58.encode(tx.serialize())
     }
 
     throw new Error(`Unsupported chain for withdrawal: ${chain}`)
