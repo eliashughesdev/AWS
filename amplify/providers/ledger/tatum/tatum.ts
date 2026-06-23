@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
-import bs58 from 'bs58'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
 export class TatumProvider implements AccountProvider {
@@ -131,7 +130,7 @@ export class TatumProvider implements AccountProvider {
   // Used as the final step in the custom signing flow — submit externally-signed tx.
   private readonly BROADCAST_PATHS: Record<string, string> = {
     TRON: 'tron/broadcast',
-    SOL: 'solana/broadcast/confirm',
+    // SOL is broadcast directly via the Solana RPC node (see _broadcastTransaction).
   }
 
   /**
@@ -236,7 +235,10 @@ export class TatumProvider implements AccountProvider {
       const signatureHex = await signSolTransaction(kmsKeyId, tx.message.serialize())
       tx.addSignature(fromPubkey, Buffer.from(signatureHex, 'hex'))
 
-      return bs58.encode(tx.serialize())
+      // Raw signed tx (base64) — _broadcastTransaction submits it to the Solana
+      // RPC node directly (Tatum's REST /broadcast parser rejects standard
+      // web3.js serialization).
+      return Buffer.from(tx.serialize()).toString('base64')
     }
 
     throw new Error(`Unsupported chain for withdrawal: ${chain}`)
@@ -247,6 +249,17 @@ export class TatumProvider implements AccountProvider {
    * broadcast endpoint (designed for custom signing mechanisms).
    */
   private async _broadcastTransaction(chain: string, signedTxData: any): Promise<string> {
+    if (chain === 'SOL') {
+      // Submit straight to the Solana RPC node — Tatum's REST /broadcast parser
+      // rejects standard web3.js serialization.
+      const connection = new Connection(`${this.TATUM_BASE_URL}/blockchain/node/SOL`, {
+        httpHeaders: { 'x-api-key': this.apiKey! },
+      })
+      const txId = await connection.sendRawTransaction(Buffer.from(signedTxData, 'base64'))
+      console.log(`DEBUG (TatumProvider): SOL transaction broadcast via RPC. txId=${txId}`)
+      return txId
+    }
+
     const broadcastPath = this.BROADCAST_PATHS[chain]
     if (!broadcastPath) throw new Error(`No broadcast path configured for chain: ${chain}`)
 
