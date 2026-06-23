@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
-import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import bs58 from 'bs58'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
@@ -224,16 +224,18 @@ export class TatumProvider implements AccountProvider {
       const toPubkey = new PublicKey(recipientAddress)
       const lamports = BigInt(Math.round(parseFloat(amount) * 1_000_000_000)) // SOL → lamports
 
-      const tx = new Transaction({ recentBlockhash: blockhash, feePayer: fromPubkey })
-        .add(SystemProgram.transfer({ fromPubkey, toPubkey, lamports }))
+      // Tatum's broadcast deserializes into a VersionedTransaction, so build a v0 tx.
+      const messageV0 = new TransactionMessage({
+        payerKey: fromPubkey,
+        recentBlockhash: blockhash,
+        instructions: [SystemProgram.transfer({ fromPubkey, toPubkey, lamports })],
+      }).compileToV0Message()
+      const tx = new VersionedTransaction(messageV0)
 
-      // Ed25519 signature over the full serialized message (not a hash).
-      const message = tx.serializeMessage()
-      const signatureHex = await signSolTransaction(kmsKeyId, message)
+      // Ed25519 signature over the serialized v0 message (not a hash).
+      const signatureHex = await signSolTransaction(kmsKeyId, tx.message.serialize())
       tx.addSignature(fromPubkey, Buffer.from(signatureHex, 'hex'))
 
-      // Tatum forwards txData to Solana RPC sendTransaction, which defaults to
-      // base58 wire encoding — base64 fails deserialization at the discriminator.
       return bs58.encode(tx.serialize())
     }
 
