@@ -188,7 +188,7 @@ export async function signSolTransaction(
   const result = await kmsClient.send(new SignCommand({
     KeyId: kmsKeyId,
     Message: txBytes,
-    SigningAlgorithm: 'EDDSA' as SigningAlgorithmSpec,
+    SigningAlgorithm: 'ED25519_SHA_512' as SigningAlgorithmSpec,
     MessageType: MessageType.RAW,
   }))
 
