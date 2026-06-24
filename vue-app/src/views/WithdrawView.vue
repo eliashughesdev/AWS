@@ -4,6 +4,7 @@ import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from '
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { sendTronTransaction } from '../wallet/tron'
+import { sendSolanaTransaction } from '../wallet/solana'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 const WS_BASE  = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
@@ -174,7 +175,10 @@ async function submitNonCustodial(parsed: number) {
   submitting.value     = true
 
   try {
-    const txId = await sendTronTransaction(
+    const send = selectedAccountData.value?.chain === 'SOL'
+      ? sendSolanaTransaction
+      : sendTronTransaction
+    const txId = await send(
       privateKey.value.trim(),
       destinationAddress.value.trim(),
       cryptoAmt,

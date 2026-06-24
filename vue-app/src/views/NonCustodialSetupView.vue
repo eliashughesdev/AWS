@@ -4,6 +4,7 @@ import { fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { generateTronWallet, type TronWallet } from '../wallet/tron'
+import { generateSolanaWallet, type SolanaWallet } from '../wallet/solana'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 
@@ -12,8 +13,12 @@ const router = useRouter()
 const displayName = ref('...')
 const userEmail   = ref('')
 
+type Chain = 'TRON' | 'SOL'
+const chainLabels: Record<Chain, string> = { TRON: 'TRON', SOL: 'Solana' }
+const selectedChain = ref<Chain>('TRON')
+
 const step = ref<'intro' | 'key' | 'activating' | 'done'>('intro')
-const wallet    = ref<TronWallet | null>(null)
+const wallet    = ref<TronWallet | SolanaWallet | null>(null)
 const generating = ref(false)
 const confirmed  = ref(false)
 const copied     = ref(false)
@@ -42,7 +47,9 @@ async function generate() {
   generating.value = true
   errorMsg.value = ''
   try {
-    wallet.value = await generateTronWallet()
+    wallet.value = selectedChain.value === 'SOL'
+      ? generateSolanaWallet()
+      : await generateTronWallet()
     step.value = 'key'
   } catch (e) {
     errorMsg.value = 'Failed to generate wallet. Please try again.'
@@ -71,7 +78,7 @@ async function activate() {
       body: JSON.stringify({
         account_name: displayName.value,
         email: userEmail.value,
-        chain: 'TRON',
+        chain: selectedChain.value,
         walletType: 'non-custodial',
         publicAddress: wallet.value.address,
         provider: 'PCF0001',
@@ -123,6 +130,26 @@ async function activate() {
           </p>
         </div>
 
+        <!-- Chain selector -->
+        <div>
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+            Select Blockchain
+          </label>
+          <div class="flex bg-[#0A0B0D] border border-white/[0.08] rounded-lg p-1 gap-1">
+            <button
+              v-for="c in (['TRON', 'SOL'] as const)"
+              :key="c"
+              type="button"
+              @click="selectedChain = c"
+              :class="[
+                'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
+                selectedChain === c ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+              ]">
+              {{ chainLabels[c] }}
+            </button>
+          </div>
+        </div>
+
         <p v-if="errorMsg" class="text-red-400 text-xs">{{ errorMsg }}</p>
 
         <button
@@ -166,7 +193,7 @@ async function activate() {
         <!-- Wallet address (public — safe to show) -->
         <div>
           <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
-            Your Wallet Address (TRON)
+            Your Wallet Address ({{ chainLabels[selectedChain] }})
           </label>
           <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-[#A1A1AA] break-all">
             {{ wallet?.address }}
@@ -205,7 +232,7 @@ async function activate() {
         </span>
         <div>
           <h2 class="text-lg font-semibold mb-2">Wallet Activated</h2>
-          <p class="text-[#A1A1AA] text-sm">Your non-custodial TRON wallet is ready. Share your address to receive funds.</p>
+          <p class="text-[#A1A1AA] text-sm">Your non-custodial {{ chainLabels[selectedChain] }} wallet is ready. Share your address to receive funds.</p>
         </div>
 
         <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-[#A1A1AA] break-all text-left">
