@@ -20,14 +20,16 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
+  walletType: string
 }
 
 const accounts       = ref<Account[]>([])
 const loading        = ref(true)
-const selectedChain  = ref<'TRON' | 'SOL'>('TRON')
-const creating       = ref(false)
+const creatingChain  = ref<'TRON' | 'SOL' | null>(null)
 const createError    = ref('')
-const copied         = ref(false)
+const copiedAddress  = ref('')
+
+const qrModalAccount = ref<Account | null>(null)
 const qrDataUrl      = ref('')
 
 const chainMeta: Record<string, { label: string; ticker: string; icon: string; iconBg: string; iconColor: string }> = {
@@ -35,8 +37,18 @@ const chainMeta: Record<string, { label: string; ticker: string; icon: string; i
   SOL:  { label: 'Solana', ticker: 'SOL', icon: 'api', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-400' },
 }
 
-const activeAccount = computed<Account | undefined>(() =>
-  accounts.value.find(a => a.chain === selectedChain.value)
+const FALLBACK_META = { label: 'Unknown', ticker: '', icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white' }
+function meta(chain: string) {
+  return chainMeta[chain] ?? { ...FALLBACK_META, label: chain, ticker: chain }
+}
+
+function walletLabel(walletType: string) {
+  return walletType === 'non-custodial' ? 'Non-custodial' : 'Custodial'
+}
+
+// Chains the user does not yet have an account on — offered as create buttons.
+const missingChains = computed(() =>
+  (['TRON', 'SOL'] as const).filter(c => !accounts.value.some(a => a.chain === c))
 )
 
 async function getAuthHeaders() {
@@ -64,25 +76,34 @@ async function generateQr(address: string) {
   }
 }
 
-async function selectChain(chain: 'TRON' | 'SOL') {
-  selectedChain.value = chain
-  createError.value   = ''
-  const acc = accounts.value.find(a => a.chain === chain)
-  if (acc) await generateQr(acc.depositAddress)
-  else qrDataUrl.value = ''
+async function showQr(account: Account) {
+  qrModalAccount.value = account
+  qrDataUrl.value      = ''
+  await generateQr(account.depositAddress)
 }
 
-async function createAccount() {
-  creating.value    = true
-  createError.value = ''
+function closeQr() {
+  qrModalAccount.value = null
+  qrDataUrl.value      = ''
+}
+
+async function copyAddress(address: string) {
+  await navigator.clipboard.writeText(address)
+  copiedAddress.value = address
+  setTimeout(() => { if (copiedAddress.value === address) copiedAddress.value = '' }, 2000)
+}
+
+async function createAccount(chain: 'TRON' | 'SOL') {
+  creatingChain.value = chain
+  createError.value   = ''
   try {
     const headers = await getAuthHeaders()
     const res = await fetch(`${API_BASE}/accounts/account`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        account_name:        `${selectedChain.value} Account`,
-        chain:               selectedChain.value,
+        account_name:        `${chain} Account`,
+        chain,
         provider:            'PCF0001',
         accounting_currency: 'USD',
         userId:              userId.value,
@@ -91,20 +112,11 @@ async function createAccount() {
     })
     if (!res.ok) throw new Error('Failed to create account')
     await loadAccounts()
-    const acc = accounts.value.find(a => a.chain === selectedChain.value)
-    if (acc) await generateQr(acc.depositAddress)
   } catch (e: any) {
     createError.value = e.message ?? 'Something went wrong. Please try again.'
   } finally {
-    creating.value = false
+    creatingChain.value = null
   }
-}
-
-async function copyAddress() {
-  if (!activeAccount.value) return
-  await navigator.clipboard.writeText(activeAccount.value.depositAddress)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
 }
 
 onMounted(async () => {
@@ -120,8 +132,6 @@ onMounted(async () => {
 
   try {
     await loadAccounts()
-    const acc = accounts.value.find(a => a.chain === selectedChain.value)
-    if (acc) await generateQr(acc.depositAddress)
   } catch (e) {
     console.error('Failed to load accounts', e)
   } finally {
@@ -142,108 +152,175 @@ async function handleSignOut() {
       <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Receive Crypto</h1>
 
       <!-- Loading skeleton -->
-      <div v-if="loading" class="max-w-sm mx-auto space-y-4">
-        <div class="h-12 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
-        <div class="h-64 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
+      <div v-if="loading" class="max-w-2xl mx-auto space-y-4">
+        <div class="h-28 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
+        <div class="h-28 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
       </div>
 
       <template v-else>
-        <div class="max-w-sm mx-auto flex flex-col gap-6">
+        <div class="max-w-2xl mx-auto flex flex-col gap-4">
 
-          <!-- Chain toggle -->
-          <div class="flex bg-[#1a1d10] border border-white/[0.08] rounded-xl p-1 gap-1">
-            <button
-              v-for="(meta, chain) in chainMeta"
-              :key="chain"
-              @click="selectChain(chain as 'TRON' | 'SOL')"
-              :class="[
-                'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-[\'JetBrains_Mono\'] font-bold transition-all',
-                selectedChain === chain
-                  ? 'bg-[#CCFF00] text-[#0A0B0D]'
-                  : 'text-[#A1A1AA] hover:text-white'
-              ]">
-              <span class="material-symbols-outlined text-base">{{ meta.icon }}</span>
-              {{ meta.ticker }}
-            </button>
+          <!-- Empty state: no accounts at all -->
+          <div v-if="accounts.length === 0"
+            class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col items-center gap-4 text-center">
+            <span class="material-symbols-outlined text-5xl text-[#52525B]">account_balance_wallet</span>
+            <div>
+              <p class="text-sm text-[#A1A1AA] mb-1">No accounts yet.</p>
+              <p class="text-xs text-[#52525B]">Create one to get a deposit address.</p>
+            </div>
           </div>
 
-          <!-- Deposit address panel -->
-          <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-6 flex flex-col items-center gap-6">
+          <!-- One card per account -->
+          <div
+            v-for="acc in accounts"
+            :key="acc.accountNo"
+            class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-5 flex flex-col gap-4">
 
-            <!-- Has account: show QR + address -->
-            <template v-if="activeAccount">
-              <p class="text-xs text-[#52525B] font-['JetBrains_Mono'] self-start uppercase tracking-widest">
-                Your {{ chainMeta[selectedChain].label }} deposit address
-              </p>
-
-              <!-- QR code -->
-              <div class="p-3 bg-[#CCFF00] rounded-xl">
-                <img
-                  v-if="qrDataUrl"
-                  :src="qrDataUrl"
-                  alt="Deposit address QR code"
-                  class="w-40 h-40 block"
-                />
-                <div v-else class="w-40 h-40 flex items-center justify-center">
-                  <span class="material-symbols-outlined text-4xl text-[#0A0B0D] animate-spin">autorenew</span>
-                </div>
-              </div>
-
-              <!-- Address + copy -->
-              <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 flex items-center gap-3">
-                <span class="flex-1 font-['JetBrains_Mono'] text-xs text-white break-all">
-                  {{ activeAccount.depositAddress }}
+            <!-- Header: chain + wallet type -->
+            <div class="flex items-center gap-3">
+              <span
+                class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                :class="meta(acc.chain).iconBg">
+                <span class="material-symbols-outlined text-lg" :class="meta(acc.chain).iconColor">
+                  {{ meta(acc.chain).icon }}
                 </span>
-                <button
-                  @click="copyAddress"
-                  class="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest transition-colors"
-                  :class="copied ? 'text-[#CCFF00]' : 'text-[#52525B] hover:text-white'">
-                  <span class="material-symbols-outlined text-sm">{{ copied ? 'check' : 'content_copy' }}</span>
-                  {{ copied ? 'Copied' : 'Copy' }}
-                </button>
-              </div>
-
-              <!-- Warning -->
-              <div class="w-full flex items-start gap-2 bg-amber-400/5 border border-amber-400/20 rounded-lg px-4 py-3">
-                <span class="material-symbols-outlined text-sm text-amber-400 shrink-0 mt-0.5">warning</span>
-                <p class="text-xs text-amber-400">
-                  Only send <strong>{{ chainMeta[selectedChain].ticker }}</strong> to this address.
-                  Sending other assets will result in permanent loss.
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-white">{{ meta(acc.chain).label }}</p>
+                <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] truncate">
+                  {{ acc.accountNo }}
                 </p>
               </div>
+              <span
+                class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest px-2 py-1 rounded border"
+                :class="acc.walletType === 'non-custodial'
+                  ? 'text-amber-300 border-amber-400/30 bg-amber-400/5'
+                  : 'text-[#A1A1AA] border-white/10 bg-white/5'">
+                {{ walletLabel(acc.walletType) }}
+              </span>
+            </div>
 
-              <!-- Instruction -->
-              <p class="text-xs text-[#52525B] text-center leading-relaxed">
-                Open your external wallet (MetaMask, Trust Wallet, Coinbase, etc.),
-                scan the QR code or paste the address above, and send
-                {{ chainMeta[selectedChain].ticker }}.
-                Funds usually arrive within a few minutes — refresh your dashboard to check your balance.
-              </p>
-            </template>
-
-            <!-- No account for this chain yet -->
-            <template v-else>
-              <span class="material-symbols-outlined text-5xl text-[#52525B]">account_balance_wallet</span>
-              <div class="text-center">
-                <p class="text-sm text-[#A1A1AA] mb-1">No {{ chainMeta[selectedChain].label }} account yet.</p>
-                <p class="text-xs text-[#52525B]">Create one to get your deposit address.</p>
-              </div>
-
-              <p v-if="createError" class="text-red-400 text-xs text-center">{{ createError }}</p>
-
+            <!-- Address + copy -->
+            <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 flex items-center gap-3">
+              <span class="flex-1 font-['JetBrains_Mono'] text-xs text-white break-all">
+                {{ acc.depositAddress }}
+              </span>
               <button
-                @click="createAccount"
-                :disabled="creating"
-                class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                {{ creating ? 'Creating…' : `Create ${chainMeta[selectedChain].ticker} Account` }}
+                @click="copyAddress(acc.depositAddress)"
+                class="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest transition-colors"
+                :class="copiedAddress === acc.depositAddress ? 'text-[#CCFF00]' : 'text-[#52525B] hover:text-white'">
+                <span class="material-symbols-outlined text-sm">
+                  {{ copiedAddress === acc.depositAddress ? 'check' : 'content_copy' }}
+                </span>
+                {{ copiedAddress === acc.depositAddress ? 'Copied' : 'Copy' }}
               </button>
-            </template>
+            </div>
 
+            <!-- Actions + warning -->
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-[11px] text-amber-400/90 flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">warning</span>
+                Only send <strong>{{ meta(acc.chain).ticker }}</strong> to this address.
+              </p>
+              <button
+                @click="showQr(acc)"
+                class="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-widest px-3 py-2 bg-[#0A0B0D] border border-white/[0.08] text-white rounded-lg hover:border-[#CCFF00]/50 transition-colors">
+                <span class="material-symbols-outlined text-sm">qr_code_2</span>
+                Show QR
+              </button>
+            </div>
+          </div>
+
+          <!-- Create missing-chain accounts -->
+          <div v-if="missingChains.length" class="flex flex-col gap-3 pt-2">
+            <p v-if="createError" class="text-red-400 text-xs">{{ createError }}</p>
+            <div class="flex flex-wrap gap-3">
+              <button
+                v-for="chain in missingChains"
+                :key="chain"
+                @click="createAccount(chain)"
+                :disabled="creatingChain !== null"
+                class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2.5 border border-[#CCFF00]/40 text-[#CCFF00] rounded-lg hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                {{ creatingChain === chain ? 'Creating…' : `Create ${meta(chain).ticker} Account` }}
+              </button>
+            </div>
           </div>
 
         </div>
       </template>
 
     </section>
+
+    <!-- QR modal — only one QR rendered at a time -->
+    <Transition name="overlay">
+      <div
+        v-if="qrModalAccount"
+        @click.self="closeQr"
+        class="fixed inset-0 z-50 bg-[#0A0B0D]/90 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="bg-[#1a1d10] border border-white/[0.08] rounded-2xl p-6 max-w-sm w-full flex flex-col items-center gap-5 relative">
+
+          <button
+            @click="closeQr"
+            class="absolute right-4 top-4 text-[#52525B] hover:text-white transition-colors">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+
+          <div class="text-center">
+            <p class="text-sm font-bold text-white">{{ meta(qrModalAccount.chain).label }}</p>
+            <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B]">
+              {{ walletLabel(qrModalAccount.walletType) }} deposit address
+            </p>
+          </div>
+
+          <!-- QR code -->
+          <div class="p-3 bg-[#CCFF00] rounded-xl">
+            <img
+              v-if="qrDataUrl"
+              :src="qrDataUrl"
+              alt="Deposit address QR code"
+              class="w-48 h-48 block"
+            />
+            <div v-else class="w-48 h-48 flex items-center justify-center">
+              <span class="material-symbols-outlined text-4xl text-[#0A0B0D] animate-spin">autorenew</span>
+            </div>
+          </div>
+
+          <!-- Address + copy -->
+          <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 flex items-center gap-3">
+            <span class="flex-1 font-['JetBrains_Mono'] text-xs text-white break-all">
+              {{ qrModalAccount.depositAddress }}
+            </span>
+            <button
+              @click="copyAddress(qrModalAccount.depositAddress)"
+              class="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest transition-colors"
+              :class="copiedAddress === qrModalAccount.depositAddress ? 'text-[#CCFF00]' : 'text-[#52525B] hover:text-white'">
+              <span class="material-symbols-outlined text-sm">
+                {{ copiedAddress === qrModalAccount.depositAddress ? 'check' : 'content_copy' }}
+              </span>
+              {{ copiedAddress === qrModalAccount.depositAddress ? 'Copied' : 'Copy' }}
+            </button>
+          </div>
+
+          <div class="w-full flex items-start gap-2 bg-amber-400/5 border border-amber-400/20 rounded-lg px-4 py-3">
+            <span class="material-symbols-outlined text-sm text-amber-400 shrink-0 mt-0.5">warning</span>
+            <p class="text-xs text-amber-400">
+              Only send <strong>{{ meta(qrModalAccount.chain).ticker }}</strong> to this address.
+              Sending other assets will result in permanent loss.
+            </p>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </MainLayout>
 </template>
+
+<style scoped>
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.2s ease;
+}
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
+</style>
