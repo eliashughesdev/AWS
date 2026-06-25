@@ -1,9 +1,10 @@
 import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
 
 interface IncomingBlockchainTransactionRequest {
-  address: string;          // recipient address (the `to` of the transfer)
-  counterAddress?: string;  // sender address (the `from`); not present on UTXO chains
-  amount: string;
+  address: string;             // the watched account this event is about
+  counterAddress?: string;     // the other party (TRON sends a single string)
+  counterAddresses?: string[]; // the other party (Solana sends an array)
+  amount: string;              // signed from `address`'s view: positive = received, negative = sent
   currency?: string;
   asset?: string;
   chain?: string;
@@ -118,58 +119,87 @@ async function applyBalanceChange(params: {
   return true
 }
 
+// Collects the counterparty address(es) across chain shapes: TRON sends a single
+// `counterAddress` string, Solana sends a `counterAddresses` array.
+function collectCounterparties(body: IncomingBlockchainTransactionRequest): string[] {
+  const list: string[] = []
+  if (body.counterAddress) list.push(body.counterAddress)
+  if (Array.isArray(body.counterAddresses)) list.push(...body.counterAddresses)
+  return Array.from(new Set(list))
+}
+
 export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   const body: IncomingBlockchainTransactionRequest = message
 
-  // A single on-chain transfer emits a `native` event plus a zero-amount `fee`
-  // event. Only the native transfer moves balances.
+  // A single on-chain transfer can emit several events (e.g. a `fee` event).
+  // Only the native transfer moves balances.
   if (body.type && body.type !== 'native') {
     console.log(`SKIP_NON_NATIVE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
     return true
   }
 
-  if (!body.address || !body.amount) {
+  if (!body.address || body.amount == null) {
     console.error('VALIDATION_ERROR: Missing required fields (address, amount) for balance update')
     return false
   }
 
-  const amount = parseFloat(body.amount)
+  // Tatum reports the amount signed from the watched address's perspective:
+  // positive = funds received, negative = funds sent. Zero moves no balance.
+  const rawAmount = parseFloat(body.amount)
   const currency = body.currency ?? body.asset ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isFinite(rawAmount) || rawAmount === 0) {
     console.log(`SKIP_ZERO_AMOUNT: Ignoring tx ${txId} with amount "${body.amount}"`)
     return true
   }
 
-  const recipient = await findAccountByAddress(body.address)
-  const sender = body.counterAddress ? await findAccountByAddress(body.counterAddress) : null
+  const amount = Math.abs(rawAmount)
+  const isOutgoing = rawAmount < 0
 
-  if (!recipient && !sender) {
-    console.error(`ACCOUNT_NOT_FOUND: Neither ${body.address} nor ${body.counterAddress ?? 'n/a'} maps to an account. tx ${txId}`)
+  const primary = await findAccountByAddress(body.address)
+  const counterparties = collectCounterparties(body)
+  const counterAccounts = (await Promise.all(counterparties.map(findAccountByAddress)))
+    .filter((a): a is NonNullable<typeof a> => a != null)
+
+  if (!primary && counterAccounts.length === 0) {
+    console.error(`ACCOUNT_NOT_FOUND: Neither ${body.address} nor [${counterparties.join(', ') || 'n/a'}] maps to an account. tx ${txId}`)
     return false
   }
 
-  console.log(`--- Processing TX [${txId}] amount ${amount} ${currency} (to=${body.address}, from=${body.counterAddress ?? 'n/a'}) ---`)
+  console.log(`--- Processing TX [${txId}] amount ${rawAmount} ${currency} (address=${body.address}, counterparties=[${counterparties.join(', ') || 'n/a'}]) ---`)
 
   let ok = true
 
-  // Credit the recipient (deposit) — applies to custodial and non-custodial.
-  if (recipient) {
-    ok = await applyBalanceChange({
-      account: recipient, direction: 'CREDIT', amount, currency, txId,
-      from: body.counterAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
-    }) && ok
-  }
+  if (isOutgoing) {
+    // `address` sent funds. Debit it only when non-custodial — custodial sends are
+    // already debited by their route handler (withdrawal pre-queue / transfer), so
+    // debiting here would double-count. Solana emits this signed event per address.
+    if (primary && primary.walletType === 'non-custodial') {
+      ok = await applyBalanceChange({
+        account: primary, direction: 'DEBIT', amount, currency, txId,
+        from: body.address, to: counterparties[0], blockNumber: body.blockNumber, index: body.index,
+      }) && ok
+    }
+  } else {
+    // `address` received funds — credit it (custodial and non-custodial).
+    if (primary) {
+      ok = await applyBalanceChange({
+        account: primary, direction: 'CREDIT', amount, currency, txId,
+        from: counterparties[0], to: body.address, blockNumber: body.blockNumber, index: body.index,
+      }) && ok
+    }
 
-  // Debit the sender only when non-custodial. Custodial sends are already debited
-  // by their route handler (transfer = off-chain ledger, withdrawal = pre-queue),
-  // so debiting here would double-count.
-  if (sender && sender.walletType === 'non-custodial') {
-    ok = await applyBalanceChange({
-      account: sender, direction: 'DEBIT', amount, currency, txId,
-      from: body.counterAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
-    }) && ok
+    // TRON carries the sender as a counterparty in this same event; debit non-custodial
+    // senders here. Idempotent if Solana already debited it via its own signed event.
+    for (const acc of counterAccounts) {
+      if (acc.walletType === 'non-custodial') {
+        ok = await applyBalanceChange({
+          account: acc, direction: 'DEBIT', amount, currency, txId,
+          from: acc.depositAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
+        }) && ok
+      }
+    }
   }
 
   return ok
