@@ -1,5 +1,19 @@
 import axios from 'axios'
-import { CreateAccountParams, CreateAccountResponse, AccountProvider, TransferFundsParams, TransferFundsResponse, CustomerAccount, AssignDepositAddressResponse, AssignDepositAddressParams, GenerateDepositAddressResponse, CreateSubscriptionParams, CreateSubscriptionResponse, WithdrawFundsParams, WithdrawFundsResponse } from '../provider'
+import { CreateAccountParams,
+  CreateAccountResponse, 
+  AccountProvider,
+  TransferFundsParams, 
+  TransferFundsResponse, 
+  CustomerAccount,
+  AssignDepositAddressResponse, 
+  AssignDepositAddressParams,
+  GenerateDepositAddressResponse, 
+  CreateSubscriptionParams,
+  CreateSubscriptionResponse, 
+  WithdrawFundsParams, WithdrawFundsResponse,
+  GetAddressHistoryParams, 
+  OnChainBalanceParams,
+  OnChainTransaction} from '../provider'
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
@@ -328,5 +342,12 @@ export class TatumProvider implements AccountProvider {
       console.error(`ERROR (TatumProvider): Failed to assign address ${address} to VA ${accountId}.`, error)
       throw new Error('Unable to assign external deposit address')
     }
+  }
+
+  async getOnChainBalance(params: OnChainBalanceParams): Promise<number> {
+
+  }
+  async getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>{
+
   }
 }

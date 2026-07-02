@@ -83,6 +83,26 @@ export interface CreateSubscriptionResponse {
   subscriptionId: string
 }
 
+export interface OnChainBalanceParams{
+  chain: string
+  sddress: string
+}
+
+export interface GetAddressHistoryParams {
+  chain: string
+  address: string
+}
+
+export interface OnChainTransaction {
+  txId: string
+  amount: number
+  currency: string
+  from?: string
+  to?: string
+  blockNumber?: number
+  timestamp?: number
+}
+
 export interface AccountProvider {
   getXpub(chainName: string): Promise<{ xpub: string }>
   createVaAccount(params: CreateAccountParams): Promise<{ accountId: string }>;
@@ -92,4 +112,6 @@ export interface AccountProvider {
   assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
   createSubscription(params: CreateSubscriptionParams): Promise<CreateSubscriptionResponse>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
+  getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
+  getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>
 }

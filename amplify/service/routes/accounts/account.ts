@@ -7,6 +7,9 @@ import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
+import { sendToQueue } from '../../../utils/sqs'
+import { Result } from 'aws-cdk-lib/aws-stepfunctions'
+import { Address } from '@tatumio/tatum'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
@@ -40,6 +43,7 @@ export default class AccountHandler {
           publicAddress: event.body.publicAddress,
           accountingCurrency: event.body.accounting_currency,
           userProfileRecord,
+          isImport: event.body.external === true,
         })
       }
 
@@ -56,11 +60,12 @@ export default class AccountHandler {
   }
 
   private async createNonCustodialAccount({
-    userId, chain, provider, accountNumber, webhookUrl, publicAddress, accountingCurrency, userProfileRecord,
+    userId, chain, provider, accountNumber, webhookUrl, publicAddress, accountingCurrency, userProfileRecord, isImport,
   }: {
     userId: string; chain: string; provider: ProviderName; accountNumber: string
     webhookUrl: string; publicAddress: string; accountingCurrency: string
     userProfileRecord: Record<string, any>
+    isImport: boolean
   }) {
     console.log(`DEBUG: Non-custodial account creation. chain=${chain}, address=${publicAddress}`)
 
@@ -86,7 +91,7 @@ export default class AccountHandler {
       depositAddress: publicAddress,
       created_at: Date.now(),
       fees: 'default',
-      status: 'active',
+      status: isImport ? 'importing' :'active',
     }
 
     // Balance record keyed by accountNo (no vAccountId for non-custodial).
@@ -106,6 +111,10 @@ export default class AccountHandler {
       ]
     })
 
+    if (isImport){
+      await this.enqueueBackFill({accountNo: accountNumber, address: publicAddress, chain})
+    }
+
     if (!result.success || !result.res) {
       console.log('Failed to perform atomic write for non-custodial account records')
       return processError(100003)
@@ -120,6 +129,23 @@ export default class AccountHandler {
         res: { data: { id: userId, accountNo: accountNumber, depositAddress: publicAddress } }
       }
     })
+  }
+
+  private async enqueueBackFill({accountNo, address, chain}:{
+    accountNo: string; address:string; chain: string
+  }) {
+    const queueUrl = process.env.ACCOUNT_BACKFILL_QUEUE_URL
+    if (!queueUrl) {
+      console.error('BACKFILL: ACCOUNT_BACKFILL_QUEUE_URL not set; skipping enqueue')
+      return
+    }
+    const result = await sendToQueue(queueUrl, {
+      queue:'v1-account-backfill-queue',
+      accountNo,
+      address,
+      chain,
+    })
+    result.success ? console.log(`BACKFILL: enueued ${accountNo} (${chain} ${address})`) : console.error('BACKFILL: enqueue failed', result.e)
   }
 
   private async createCustodialAccount({
