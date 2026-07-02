@@ -85,7 +85,7 @@ export interface CreateSubscriptionResponse {
 
 export interface OnChainBalanceParams{
   chain: string
-  sddress: string
+  address: string
 }
 
 export interface GetAddressHistoryParams {

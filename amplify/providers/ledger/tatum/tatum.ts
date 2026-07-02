@@ -14,6 +14,7 @@ import { CreateAccountParams,
   GetAddressHistoryParams, 
   OnChainBalanceParams,
   OnChainTransaction} from '../provider'
+  import { getTronBalance, getTronHistory } from './chains/tron'
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 
@@ -344,10 +345,18 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  async getOnChainBalance(params: OnChainBalanceParams): Promise<number> {
-
+  async getOnChainBalance({ chain, address }: OnChainBalanceParams): Promise<number> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': return getTronBalance(address)
+      // case 'SOL': ... (next slice)
+      default: throw new Error(`getOnChainBalance: unsupported chain ${chain}`)
+    }
   }
-  async getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>{
-
+ 
+  async getAddressHistory({ chain, address }: GetAddressHistoryParams): Promise<OnChainTransaction[]> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': return getTronHistory(address)
+      default: throw new Error(`getAddressHistory: unsupported chain ${chain}`)
+    }
   }
 }
