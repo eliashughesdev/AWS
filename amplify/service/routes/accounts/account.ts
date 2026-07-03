@@ -7,7 +7,7 @@ import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
-import { sendToQueue } from '../../../utils/sqs'
+import { sendToQueue, getQueueUrl } from '../../../utils/sqs'
 import { Result } from 'aws-cdk-lib/aws-stepfunctions'
 import { Address } from '@tatumio/tatum'
 
@@ -134,19 +134,20 @@ export default class AccountHandler {
   private async enqueueBackFill({userId, accountNo, address, chain}:{
     userId: string; accountNo: string; address:string; chain: string
   }) {
-    const queueUrl = process.env.ACCOUNT_BACKFILL_QUEUE_URL
+    const QUEUE_NAME = 'v1-account-backfill-queue'
+    const queueUrl = await getQueueUrl(QUEUE_NAME)
     if (!queueUrl) {
-      console.error('BACKFILL: ACCOUNT_BACKFILL_QUEUE_URL not set; skipping enqueue')
+      console.error(`BACKFILL: could not resolve URL for ${QUEUE_NAME}; skipping enqueue`)
       return
     }
     const result = await sendToQueue(queueUrl, {
-      queue:'v1-account-backfill-queue',
+      queue: QUEUE_NAME,
       userId,
       accountNo,
       address,
       chain,
     })
-    result.success ? console.log(`BACKFILL: enueued ${accountNo} (${chain} ${address})`) : console.error('BACKFILL: enqueue failed', result.e)
+    result.success ? console.log(`BACKFILL: enqueued ${accountNo} (${chain} ${address})`) : console.error('BACKFILL: enqueue failed', result.e)
   }
 
   private async createCustodialAccount({

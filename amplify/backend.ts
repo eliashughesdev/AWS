@@ -522,9 +522,6 @@ v1WithdrawalProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1AccountBackfillQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 tatumApiKeySecret.grantRead(sqsV1WebhookProcessingFn)
 
-const mainApiLambda = backend.mainApiFn.resources.lambda as any
-mainApiLambda.addEnvironment('ACCOUNT_BACKFILL_QUEUE_URL', v1AccountBackfillQueue.queueUrl)
-
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['execute-api:ManageConnections'],
   resources: [`arn:aws:execute-api:${Stack.of(apiStack).region}:${Stack.of(apiStack).account}:${webSocketApi.apiId}/*`],
