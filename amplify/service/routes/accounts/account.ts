@@ -111,13 +111,13 @@ export default class AccountHandler {
       ]
     })
 
-    if (isImport){
-      await this.enqueueBackFill({accountNo: accountNumber, address: publicAddress, chain})
-    }
-
     if (!result.success || !result.res) {
       console.log('Failed to perform atomic write for non-custodial account records')
       return processError(100003)
+    }
+
+    if (isImport) {
+      await this.enqueueBackFill({ userId, accountNo: accountNumber, address: publicAddress, chain })
     }
 
     console.log('DEBUG: Non-custodial account creation successful.')
@@ -131,8 +131,8 @@ export default class AccountHandler {
     })
   }
 
-  private async enqueueBackFill({accountNo, address, chain}:{
-    accountNo: string; address:string; chain: string
+  private async enqueueBackFill({userId, accountNo, address, chain}:{
+    userId: string; accountNo: string; address:string; chain: string
   }) {
     const queueUrl = process.env.ACCOUNT_BACKFILL_QUEUE_URL
     if (!queueUrl) {
@@ -141,6 +141,7 @@ export default class AccountHandler {
     }
     const result = await sendToQueue(queueUrl, {
       queue:'v1-account-backfill-queue',
+      userId,
       accountNo,
       address,
       chain,

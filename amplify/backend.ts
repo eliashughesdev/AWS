@@ -108,6 +108,12 @@ const v1WithdrawalProcessingQueue = new sqs.Queue(apiStack, 'v1WithdrawalProcess
   retentionPeriod: Duration.days(14),
 })
 
+const v1AccountBackfillQueue = new sqs.Queue(apiStack, 'v1AccountBackfillQueue', {
+  queueName: 'v1-account-backfill-queue',
+  visibilityTimeout: Duration.seconds(300),
+  retentionPeriod: Duration.days(14)
+})
+
 const webSocketApi = new apigatewayv2.WebSocketApi(apiStack, 'PaymentWebSocketApi', {
   apiName: 'PaymentWebSocketApi',
 })
@@ -151,6 +157,14 @@ sqsV1WebhookProcessingFn.addEventSource(
     batchSize: 1,
     maxBatchingWindow: Duration.seconds(0),
     reportBatchItemFailures: true,
+  })
+)
+
+sqsV1WebhookProcessingFn.addEventSource(
+  new eventsources.SqsEventSource(v1AccountBackfillQueue, {
+    batchSize: 1,
+    maxBatchingWindow: Duration.seconds(0),
+    reportBatchItemFailures: true
   })
 )
 
@@ -505,7 +519,11 @@ v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1WithdrawalProcessingQueue.grantSendMessages(apiGatewayRole)
 v1WithdrawalProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
+v1AccountBackfillQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 tatumApiKeySecret.grantRead(sqsV1WebhookProcessingFn)
+
+const mainApiLambda = backend.mainApiFn.resources.lambda as any
+mainApiLambda.addEnvironment('ACCOUNT_BACKFILL_QUEUE_URL', v1AccountBackfillQueue.queueUrl)
 
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['execute-api:ManageConnections'],

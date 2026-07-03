@@ -1,11 +1,8 @@
 import axios from 'axios'
-import {OnChainTransaction} from '../../provider'
-import { DATA_API_UTXO_NETWORKS } from '@tatumio/tatum'
-import { resumeToPipeableStream } from 'react-dom/server'
-import { Result } from 'aws-cdk-lib/aws-stepfunctions'
+import { OnChainTransaction } from '../../provider'
 
 
-const BASE = process.env.TATUM_BASE_URL || 'http://api.tatum.io/v3'
+const BASE = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3'
 const API_KEY = process.env.TATUM_API_KEY
 const SUN_PER_TRX = 1_000_000
 
@@ -47,9 +44,9 @@ export async function getTronHistory(address: string): Promise<OnChainTransactio
     let next: string | undefined
 
     do {
-        const url = `${BASE}/tron/transaction/account/${address}` 
-        + `?orderBy=block_timestamp,desc` 
-        + next ? `&next=${next}` : ''
+        const url = `${BASE}/tron/transaction/account/${address}`
+        + `?orderBy=block_timestamp,desc`
+        + (next ? `&next=${next}` : '')
 
         const res = await axios.get(url, {headers: {'x-api-key': API_KEY}})
         const page = res.data?.transactions ?? res.data ?? []
