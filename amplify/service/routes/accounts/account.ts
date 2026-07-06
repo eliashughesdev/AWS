@@ -72,13 +72,13 @@ export default class AccountHandler {
     const vaProvider = ProviderRegistry.getProvider(provider)
 
     // ADDRESS_TRANSACTION subscriptions work without a VA — subscribe directly to the user's address.
-    const { subscriptionId } = await vaProvider.createSubscription({
-      accountId: accountNumber,
-      address: publicAddress,
-      chain,
-      webhookUrl,
-    })
-    console.log(`DEBUG: Non-custodial subscription created. subscriptionId=${subscriptionId}`)
+    // const { subscriptionId } = await vaProvider.createSubscription({
+    //   accountId: accountNumber,
+    //   address: publicAddress,
+    //   chain,
+    //   webhookUrl,
+    // })
+    // console.log(`DEBUG: Non-custodial subscription created. subscriptionId=${subscriptionId}`)
 
     const accountRecord: Record<string, any> = {
       id: userId,
