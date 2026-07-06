@@ -2,14 +2,18 @@ import axios from 'axios'
 import { OnChainTransaction } from '../../provider'
 
 
-const BASE = process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3'
-const API_KEY = process.env.TATUM_API_KEY
 const SUN_PER_TRX = 1_000_000
+
+// Read lazily (not as module-level consts) — loadConfig() refreshes these from
+// SSM at request time, after this module has already been imported at cold start.
+function resolveBase(): string {
+    return process.env.TATUM_BASE_URL || 'https://api.tatum.io/v3'
+}
 
 // Get /v3/tron/account/{address}
 export async function getTronBalance(address: string): Promise<number> {
-    const url = `${BASE}/tron/account/${address}`
-    const res = await axios.get(url, {headers: {'x-api-key': API_KEY} })
+    const url = `${resolveBase()}/tron/account/${address}`
+    const res = await axios.get(url, {headers: {'x-api-key': process.env.TATUM_API_KEY} })
     return Number(res.data?.balance ?? 0)/ SUN_PER_TRX
 }
 
@@ -44,11 +48,11 @@ export async function getTronHistory(address: string): Promise<OnChainTransactio
     let next: string | undefined
 
     do {
-        const url = `${BASE}/tron/transaction/account/${address}`
+        const url = `${resolveBase()}/tron/transaction/account/${address}`
         + `?orderBy=block_timestamp,desc`
         + (next ? `&next=${next}` : '')
 
-        const res = await axios.get(url, {headers: {'x-api-key': API_KEY}})
+        const res = await axios.get(url, {headers: {'x-api-key': process.env.TATUM_API_KEY}})
         const page = res.data?.transactions ?? res.data ?? []
 
         for (const tx of page) {
