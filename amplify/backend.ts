@@ -519,6 +519,7 @@ v1PaymentProcessingQueue.grantSendMessages(apiGatewayRole)
 v1PaymentProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 v1WithdrawalProcessingQueue.grantSendMessages(apiGatewayRole)
 v1WithdrawalProcessingQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
+v1AccountBackfillQueue.grantSendMessages(apiGatewayRole)
 v1AccountBackfillQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
 tatumApiKeySecret.grantRead(sqsV1WebhookProcessingFn)
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
@@ -24,6 +24,25 @@ async function getAuthHeaders() {
   const session = await fetchAuthSession()
   const token = session.tokens?.accessToken?.toString()
   return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
+}
+
+// Imported accounts backfill asynchronously (SQS) — refresh in the background
+// until every account has left 'importing' so the "Syncing…" badge clears
+// without the user having to reload the page.
+let importPollTimer: ReturnType<typeof setTimeout> | null = null
+
+async function pollWhileImporting(headers: Record<string, string>) {
+  if (!accounts.value.some(a => a.status === 'importing')) return
+  importPollTimer = setTimeout(async () => {
+    try {
+      const res  = await fetch(`${API_BASE}/accounts/list`, { headers })
+      const data = await res.json()
+      accounts.value = data.accounts ?? accounts.value
+    } catch (e) {
+      console.error('Failed to refresh accounts', e)
+    }
+    pollWhileImporting(headers)
+  }, 5000)
 }
 
 onMounted(async () => {
@@ -51,6 +70,7 @@ onMounted(async () => {
     const accountsData = await accountsRes.json()
     accounts.value = accountsData.accounts ?? []
     accountsLoading.value = false
+    pollWhileImporting(headers)
 
     if (accounts.value.length > 0) {
       const results = await Promise.all(
@@ -88,6 +108,10 @@ onMounted(async () => {
     accountsLoading.value = false
     kycBanner.value = 'start'
   }
+})
+
+onUnmounted(() => {
+  if (importPollTimer) clearTimeout(importPollTimer)
 })
 
 async function startKyc() {
@@ -178,6 +202,7 @@ const assets = computed(() => {
       label: a.chain ?? 'Cash Balance',
       barColor: cfg.barColor,
       barWidth: `${pct}%`,
+      syncing: a.status === 'importing',
     }
   })
 })
@@ -329,10 +354,15 @@ const validators = [
               <div class="p-2 rounded" :class="asset.iconBg">
                 <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
               </div>
-              <span class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.ticker }}</span>
+              <span v-if="asset.syncing"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-amber-400/10 text-amber-400 border-amber-400/20">
+                <span class="material-symbols-outlined text-xs animate-spin" style="animation-duration: 1.5s">autorenew</span>
+                Syncing
+              </span>
+              <span v-else class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.ticker }}</span>
             </div>
             <p class="font-['JetBrains_Mono'] text-2xl font-bold">{{ asset.amount }}</p>
-            <p class="text-[12px] text-[#A1A1AA] mt-1">{{ asset.label }}</p>
+            <p class="text-[12px] text-[#A1A1AA] mt-1">{{ asset.syncing ? `${asset.label} — history syncing` : asset.label }}</p>
             <div class="absolute bottom-0 left-0 h-1" :class="asset.barColor" :style="{ width: asset.barWidth }"></div>
           </div>
         </div>
