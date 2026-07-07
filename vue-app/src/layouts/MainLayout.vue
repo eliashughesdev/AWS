@@ -16,7 +16,7 @@ const navItems = [
   { name: 'cards',      icon: 'credit_card',      label: 'Payment Methods'  },
   { name: 'transfer',   icon: 'compare_arrows',   label: 'Transfer'         },
   { name: 'ledger',     icon: 'receipt_long',     label: 'Ledger'           },
-  { name: 'settings',   icon: 'settings',         label: 'Settings'         },
+  // { name: 'settings',   icon: 'settings',         label: 'Settings'         },
 ]
 </script>
 
