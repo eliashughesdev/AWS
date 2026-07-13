@@ -97,25 +97,15 @@ export async function sendSolanaTransaction(privateKey: string, to: string, amou
   }
 }
 
-export interface SolanaTokenBalance {
-  asset: string
-  balance: string
-  decimals?: number
-  type: string
-}
-
-export interface SolanaAccountDetails {
-  address: string
-  native: SolanaTokenBalance | null
-  tokens: SolanaTokenBalance[]
-  raw: SolanaTokenBalance[]
-}
-
 /**
- * Fetches the native SOL balance for an address. Works for non-custodial accounts
- * since they are just plain Solana addresses. Shaped like TronAccountDetails so
- * callers can stay symmetric across chains.
+ * Native SOL balance from the public RPC — no API key. An address that has never
+ * been funded simply reads as zero rather than erroring.
  */
+export async function getSolanaBalance(address: string): Promise<number> {
+  const lamports = await getConnection().getBalance(new PublicKey(address))
+  return lamports / LAMPORTS_PER_SOL
+}
+
 /**
  * Transaction history straight from the public Solana RPC — no API key, no backend.
  * Solana has no history-by-address endpoint, so we walk getSignaturesForAddress +
@@ -169,14 +159,3 @@ export async function getSolanaHistory(address: string, limit = MAX_HISTORY_TXS)
   return out
 }
 
-export async function getSolanaAccountDetails(address: string): Promise<SolanaAccountDetails> {
-  const connection = getConnection()
-  const lamports = await connection.getBalance(new PublicKey(address))
-  const native: SolanaTokenBalance = {
-    asset: 'SOL',
-    balance: (lamports / LAMPORTS_PER_SOL).toString(),
-    decimals: 9,
-    type: 'native',
-  }
-  return { address, native, tokens: [], raw: [native] }
-}

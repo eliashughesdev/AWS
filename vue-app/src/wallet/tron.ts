@@ -1,4 +1,4 @@
-import { TatumSDK, Network, Status, type Tron } from '@tatumio/tatum'
+import { TatumSDK, Network, type Tron } from '@tatumio/tatum'
 import { TronWalletProvider } from '@tatumio/tron-wallet-provider'
 import TronWeb from 'tronweb'
 import type { OnChainTx } from './types'
@@ -87,30 +87,6 @@ export async function sendTronTransaction(privateKey: string, to: string, amount
   }
 }
 
-export interface TronTokenBalance {
-  asset: string        // currency/token symbol, e.g. 'TRX' or 'USDT'
-  balance: string      // balance as returned by Tatum
-  decimals?: number
-  type: string         // 'native' | 'fungible' | ...
-  tokenAddress?: string
-}
-
-export interface TronAccountDetails {
-  address: string
-  native: TronTokenBalance | null   // the TRX balance, pulled out for convenience
-  tokens: TronTokenBalance[]        // TRC-20 / other token balances
-  raw: TronTokenBalance[]           // full, unmodified balance list from Tatum
-}
-
-/**
- * Fetches on-chain details (TRX + token balances) for a TRON address using the
- * Tatum SDK. Works for non-custodial accounts since they are just plain TRON
- * addresses.
- *
- * Note: this hits Tatum's Data API. With no TATUM_API_KEY configured the call
- * may be rate-limited or rejected — pass an apiKey to TatumSDK.init for
- * reliable access.
- */
 function tronHexToBase58(hex?: string): string | undefined {
   if (!hex) return undefined
   try {
@@ -158,25 +134,17 @@ export async function getTronHistory(address: string, limit = MAX_HISTORY_TXS): 
   return out
 }
 
-export async function getTronAccountDetails(address: string): Promise<TronAccountDetails> {
-  const tatum = await getTatum()
-  try {
-    const res = await tatum.address.getBalance({ address })
+/**
+ * Native TRX balance from TronGrid's public account endpoint — no API key, which
+ * is the point: a browser cannot hold a secret, so the read path must not need one.
+ *
+ * An address that has never received funds does not exist on-chain yet. TronGrid
+ * answers 200 with an empty list rather than an error, and its balance is zero.
+ */
+export async function getTronBalance(address: string): Promise<number> {
+  const res = await fetch(`${resolveTronFullHost()}/v1/accounts/${address}`)
+  if (!res.ok) throw new Error(`Failed to fetch TRON balance: ${res.status}`)
+  const body = await res.json()
 
-    if (res.status !== Status.SUCCESS || !res.data) {
-      const message = res.error?.message?.toString() ?? 'Unknown error'
-      throw new Error(`Failed to fetch TRON account details: ${message}`)
-    }
-
-    const balances = res.data as TronTokenBalance[]
-    return {
-      address,
-      native: balances.find(b => b.type === 'native') ?? null,
-      tokens: balances.filter(b => b.type !== 'native'),
-      raw: balances,
-    }
-  } finally {
-    // Release the SDK's internal container/connections for this instance.
-    await tatum.destroy()
-  }
+  return Number(body?.data?.[0]?.balance ?? 0) / SUN_PER_TRX
 }

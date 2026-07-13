@@ -1,6 +1,6 @@
 import type { Chain, OnChainTx } from './types'
-import { getTronAccountDetails, getTronHistory } from './tron'
-import { getSolanaAccountDetails, getSolanaHistory } from './solana'
+import { getTronBalance, getTronHistory } from './tron'
+import { getSolanaBalance, getSolanaHistory } from './solana'
 
 export interface WalletRead {
   chain: Chain
@@ -27,16 +27,11 @@ export function bustAll() {
 }
 
 async function fetchWallet(chain: Chain, address: string): Promise<WalletRead> {
-  const [details, transactions] = await Promise.all([
-    chain === 'SOL' ? getSolanaAccountDetails(address) : getTronAccountDetails(address),
+  const [balance, transactions] = await Promise.all([
+    chain === 'SOL' ? getSolanaBalance(address) : getTronBalance(address),
     chain === 'SOL' ? getSolanaHistory(address) : getTronHistory(address),
   ])
-  return {
-    chain,
-    address,
-    balance: Number(details.native?.balance ?? 0),
-    transactions,
-  }
+  return { chain, address, balance, transactions }
 }
 
 // Caching the promise (not the resolved value) also collapses concurrent reads of
