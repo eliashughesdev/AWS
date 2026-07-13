@@ -16,7 +16,10 @@ declare module 'tronweb' {
 
   class TronWeb {
     constructor(options: TronWebOptions)
-    static address: { fromPrivateKey(privateKey: string): string | false }
+    static address: {
+      fromPrivateKey(privateKey: string): string | false
+      fromHex(hex: string): string
+    }
     transactionBuilder: {
       sendTrx(to: string, amount: number, from: string): Promise<unknown>
     }

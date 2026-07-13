@@ -1,6 +1,10 @@
 import { TatumSDK, Network, Status, type Tron } from '@tatumio/tatum'
 import { TronWalletProvider } from '@tatumio/tron-wallet-provider'
 import TronWeb from 'tronweb'
+import type { OnChainTx } from './types'
+
+const SUN_PER_TRX = 1_000_000
+const MAX_HISTORY_TXS = 100
 
 // Must match the network the backend/Tatum subscriptions run on. Defaults to
 // TRON testnet (Shasta = "tron-testnet"); set VITE_TRON_NETWORK=mainnet for production.
@@ -31,6 +35,18 @@ export interface TronWallet {
 export async function generateTronWallet(): Promise<TronWallet> {
   const tatum = await getTatum()
   return tatum.walletProvider.use(TronWalletProvider).getWallet() as Promise<TronWallet>
+}
+
+// Key-based sign-in: the address is derived from the key locally, nothing is sent.
+export function deriveTronAddress(privateKey: string): string {
+  let address: string | false = false
+  try {
+    address = TronWeb.address.fromPrivateKey(privateKey.trim())
+  } catch {
+    throw new Error('Invalid private key')
+  }
+  if (!address) throw new Error('Invalid private key')
+  return address
 }
 
 function describeTronError(e: unknown): string {
@@ -95,6 +111,53 @@ export interface TronAccountDetails {
  * may be rate-limited or rejected — pass an apiKey to TatumSDK.init for
  * reliable access.
  */
+function tronHexToBase58(hex?: string): string | undefined {
+  if (!hex) return undefined
+  try {
+    return TronWeb.address.fromHex(hex)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Transaction history straight from TronGrid's public account endpoint — no API
+ * key, no backend. Native TRX transfers only (TransferContract); TRC-20 and other
+ * contract calls are ignored, matching the backend's mapping.
+ *
+ * TronGrid returns addresses as hex, so they are converted back to base58.
+ */
+export async function getTronHistory(address: string, limit = MAX_HISTORY_TXS): Promise<OnChainTx[]> {
+  const url = `${resolveTronFullHost()}/v1/accounts/${address}/transactions`
+    + `?limit=${limit}&only_confirmed=true&order_by=block_timestamp,desc`
+
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to fetch TRON history: ${res.status}`)
+  const body = await res.json()
+
+  const out: OnChainTx[] = []
+  for (const tx of body?.data ?? []) {
+    const contract = tx.raw_data?.contract?.[0]
+    if (contract?.type !== 'TransferContract') continue
+
+    const value = contract.parameter?.value ?? {}
+    const from = tronHexToBase58(value.owner_address)
+    const to   = tronHexToBase58(value.to_address)
+    const magnitude = Number(value.amount ?? 0) / SUN_PER_TRX
+
+    out.push({
+      txId: tx.txID,
+      amount: from === address ? -magnitude : magnitude,
+      currency: 'TRX',
+      from,
+      to,
+      blockNumber: tx.blockNumber,
+      timestamp: tx.block_timestamp,
+    })
+  }
+  return out
+}
+
 export async function getTronAccountDetails(address: string): Promise<TronAccountDetails> {
   const tatum = await getTatum()
   try {

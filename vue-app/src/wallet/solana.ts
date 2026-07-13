@@ -7,8 +7,10 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js'
 import bs58 from 'bs58'
+import type { OnChainTx } from './types'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
+const MAX_HISTORY_TXS = 100
 
 // Must match the network the backend/Tatum subscriptions run on. Defaults to
 // Solana devnet; set VITE_SOLANA_NETWORK=mainnet for production.
@@ -32,6 +34,15 @@ export function generateSolanaWallet(): SolanaWallet {
   return {
     address: keypair.publicKey.toBase58(),
     privateKey: bs58.encode(keypair.secretKey),
+  }
+}
+
+// Key-based sign-in: the address is derived from the key locally, nothing is sent.
+export function deriveSolanaAddress(privateKey: string): string {
+  try {
+    return Keypair.fromSecretKey(bs58.decode(privateKey.trim())).publicKey.toBase58()
+  } catch {
+    throw new Error('Invalid private key')
   }
 }
 
@@ -105,6 +116,59 @@ export interface SolanaAccountDetails {
  * since they are just plain Solana addresses. Shaped like TronAccountDetails so
  * callers can stay symmetric across chains.
  */
+/**
+ * Transaction history straight from the public Solana RPC — no API key, no backend.
+ * Solana has no history-by-address endpoint, so we walk getSignaturesForAddress +
+ * getParsedTransactions. The amount is the net lamport delta of the watched address
+ * (so outgoing amounts include the fee). Native SOL only — SPL transfers move token
+ * accounts, not the watched address's lamports.
+ */
+export async function getSolanaHistory(address: string, limit = MAX_HISTORY_TXS): Promise<OnChainTx[]> {
+  const connection = getConnection()
+  const watched = new PublicKey(address)
+
+  const signatures = await connection.getSignaturesForAddress(watched, { limit })
+  const confirmed = signatures.filter(s => !s.err).map(s => s.signature)
+  if (confirmed.length === 0) return []
+
+  const txs = await connection.getParsedTransactions(confirmed, { maxSupportedTransactionVersion: 0 })
+
+  const out: OnChainTx[] = []
+  for (const tx of txs) {
+    if (!tx?.meta) continue
+
+    const keys = tx.transaction.message.accountKeys
+    const idx = keys.findIndex(k => k.pubkey.equals(watched))
+    if (idx === -1) continue
+
+    const delta = (tx.meta.postBalances[idx] - tx.meta.preBalances[idx]) / LAMPORTS_PER_SOL
+    if (delta === 0) continue
+
+    // Counterparty: the account with the largest opposite-signed lamport delta.
+    let counter: string | undefined
+    let counterDelta = 0
+    for (let i = 0; i < keys.length; i++) {
+      if (i === idx) continue
+      const d = tx.meta.postBalances[i] - tx.meta.preBalances[i]
+      if (Math.sign(d) === -Math.sign(delta) && Math.abs(d) > Math.abs(counterDelta)) {
+        counter = keys[i].pubkey.toBase58()
+        counterDelta = d
+      }
+    }
+
+    out.push({
+      txId: tx.transaction.signatures[0],
+      amount: delta,
+      currency: 'SOL',
+      from: delta < 0 ? address : counter,
+      to: delta < 0 ? counter : address,
+      blockNumber: tx.slot,
+      timestamp: tx.blockTime ? tx.blockTime * 1000 : undefined,
+    })
+  }
+  return out
+}
+
 export async function getSolanaAccountDetails(address: string): Promise<SolanaAccountDetails> {
   const connection = getConnection()
   const lamports = await connection.getBalance(new PublicKey(address))

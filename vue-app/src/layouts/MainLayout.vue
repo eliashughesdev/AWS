@@ -1,23 +1,36 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-defineProps<{
+const props = withDefaults(defineProps<{
   displayName: string
   userEmail: string
-}>()
+  nonCustodial?: boolean
+}>(), { nonCustodial: false })
 
 const emit = defineEmits<{ signOut: [] }>()
 
 const route  = useRoute()
 const router = useRouter()
 
-const navItems = [
-  { name: 'dashboard',  icon: 'dashboard',       label: 'Dashboard'        },
-  { name: 'cards',      icon: 'credit_card',      label: 'Payment Methods'  },
-  { name: 'transfer',   icon: 'compare_arrows',   label: 'Transfer'         },
-  { name: 'ledger',     icon: 'receipt_long',     label: 'Ledger'           },
-  // { name: 'settings',   icon: 'settings',         label: 'Settings'         },
-]
+// Payment Methods and the deposit shortcut are card/fiat features — they need a
+// Cognito token, so they are hidden from anonymous non-custodial sessions.
+const navItems = computed(() => {
+  if (props.nonCustodial) {
+    return [
+      { name: 'wallet',         icon: 'account_balance_wallet', label: 'Wallet'  },
+      { name: 'wallet-send',    icon: 'send',                   label: 'Send'    },
+      { name: 'wallet-receive', icon: 'qr_code_2',              label: 'Receive' },
+      { name: 'wallet-ledger',  icon: 'receipt_long',           label: 'Ledger'  },
+    ]
+  }
+  return [
+    { name: 'dashboard',  icon: 'dashboard',       label: 'Dashboard'        },
+    { name: 'cards',      icon: 'credit_card',      label: 'Payment Methods'  },
+    { name: 'transfer',   icon: 'compare_arrows',   label: 'Transfer'         },
+    { name: 'ledger',     icon: 'receipt_long',     label: 'Ledger'           },
+  ]
+})
 </script>
 
 <template>
@@ -45,7 +58,7 @@ const navItems = [
         </RouterLink>
       </nav>
 
-      <button @click="router.push({ name: 'deposit' })" class="mt-4 bg-[#CCFF00] text-[#0A0B0D] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+      <button v-if="!nonCustodial" @click="router.push({ name: 'deposit' })" class="mt-4 bg-[#CCFF00] text-[#0A0B0D] font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
         <span class="material-symbols-outlined text-sm">add</span>
         <span class="font-['JetBrains_Mono'] text-[13px]">New Transaction</span>
       </button>
@@ -57,11 +70,13 @@ const navItems = [
         </a>
         <div class="flex items-center gap-3 px-3 py-4 mt-2">
           <div class="w-8 h-8 rounded-full bg-[#282b1d] border border-white/[0.08] flex items-center justify-center">
-            <span class="material-symbols-outlined text-sm">person</span>
+            <span class="material-symbols-outlined text-sm">{{ nonCustodial ? 'key' : 'person' }}</span>
           </div>
           <div class="flex flex-col min-w-0">
             <span class="text-xs font-bold truncate">{{ displayName }}</span>
-            <span class="text-[10px] text-[#52525B] truncate">{{ userEmail }}</span>
+            <span class="text-[10px] text-[#52525B] truncate">
+              {{ nonCustodial ? 'Anonymous · keys in this session only' : userEmail }}
+            </span>
           </div>
         </div>
       </div>

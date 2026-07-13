@@ -3,6 +3,10 @@ import { ref, computed, onMounted } from 'vue'
 import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
 import { useRoute, useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
+import { deriveTronAddress, generateTronWallet } from '../wallet/tron'
+import { deriveSolanaAddress, generateSolanaWallet } from '../wallet/solana'
+import { useWalletSession } from '../wallet/session'
+import { CHAINS, chainLabels, type Chain } from '../wallet/types'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
@@ -10,10 +14,12 @@ const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
 const route  = useRoute()
 const router = useRouter()
 
-// ─── Tab / Step state ──────────────────────────────────────────────────────────
+// ─── Mode / Tab / Step state ───────────────────────────────────────────────────
+type Mode = 'custodial' | 'nonCustodial'
 type Tab  = 'signIn' | 'signUp'
-type Step = 'form' | 'confirm'
+type Step = 'form' | 'confirm' | 'ncKey'
 
+const mode      = ref<Mode>('custodial')
 const activeTab = ref<Tab>('signIn')
 const step      = ref<Step>('form')
 
@@ -50,6 +56,83 @@ function switchTab(tab: Tab) {
   activeTab.value = tab
   step.value      = 'form'
   clearError()
+}
+
+// ─── Non-custodial (anonymous) ─────────────────────────────────────────────────
+// No Cognito, no server record: the key is the credential. It is derived to an
+// address in the browser and held in memory for this session only.
+const session = useWalletSession()
+
+const ncChain      = ref<Chain>('TRON')
+const ncPrivateKey = ref('')
+const ncGenerated  = ref<{ address: string; privateKey: string } | null>(null)
+const ncKeySaved   = ref(false)
+const ncCopied     = ref(false)
+
+function switchMode(m: Mode) {
+  mode.value         = m
+  step.value         = 'form'
+  ncPrivateKey.value = ''
+  ncGenerated.value  = null
+  ncKeySaved.value   = false
+  clearError()
+}
+
+function deriveAddress(chain: Chain, privateKey: string): string {
+  return chain === 'SOL' ? deriveSolanaAddress(privateKey) : deriveTronAddress(privateKey)
+}
+
+function handleNonCustodialSignIn() {
+  clearError()
+  const key = ncPrivateKey.value.trim()
+  if (!key) {
+    error.value = 'Enter your private key.'
+    return
+  }
+  try {
+    const address = deriveAddress(ncChain.value, key)
+    session.addWallet({ chain: ncChain.value, address, privateKey: key })
+    ncPrivateKey.value = ''
+    router.push({ name: 'wallet' })
+  } catch (e: unknown) {
+    error.value = (e as Error).message ?? 'Invalid private key.'
+  }
+}
+
+async function handleNonCustodialGenerate() {
+  clearError()
+  loading.value = true
+  try {
+    const wallet = ncChain.value === 'SOL'
+      ? generateSolanaWallet()
+      : await generateTronWallet()
+    ncGenerated.value = { address: wallet.address, privateKey: wallet.privateKey }
+    ncKeySaved.value  = false
+    step.value        = 'ncKey'
+  } catch (e: unknown) {
+    error.value = 'Failed to generate wallet. Please try again.'
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function copyNcKey() {
+  if (!ncGenerated.value) return
+  await navigator.clipboard.writeText(ncGenerated.value.privateKey)
+  ncCopied.value = true
+  setTimeout(() => { ncCopied.value = false }, 2000)
+}
+
+function activateNonCustodial() {
+  if (!ncGenerated.value || !ncKeySaved.value) return
+  session.addWallet({
+    chain: ncChain.value,
+    address: ncGenerated.value.address,
+    privateKey: ncGenerated.value.privateKey,
+  })
+  ncGenerated.value = null
+  router.push({ name: 'wallet' })
 }
 
 // ─── Sign In ───────────────────────────────────────────────────────────────────
@@ -236,6 +319,8 @@ onMounted(async () => {
           </h1>
           <p class="font-body-base text-body-base text-text-secondary">
             <template v-if="step === 'confirm'">Check your inbox</template>
+            <template v-else-if="step === 'ncKey'">Save your private key</template>
+            <template v-else-if="mode === 'nonCustodial'">Your keys, your assets. No account, no trace.</template>
             <template v-else-if="activeTab === 'signUp'">Join Loudibly Infrastructure</template>
             <template v-else>Your account, your assets.</template>
           </p>
@@ -313,8 +398,113 @@ onMounted(async () => {
           </CForm>
         </template>
 
-        <!-- ── Main form (sign in / sign up tabs) ─────────────────────────── -->
+        <!-- ── Non-custodial: the generated key, shown once ────────────────── -->
+        <template v-else-if="step === 'ncKey'">
+          <div class="flex items-start gap-space-3 p-space-4 bg-status-danger/10 border border-status-danger/30 rounded">
+            <span class="material-symbols-outlined text-status-danger shrink-0" style="font-size: 20px;">lock</span>
+            <p class="font-body-base text-body-base text-status-danger leading-relaxed">
+              <strong>This is the only time your private key will be shown.</strong>
+              It is the only way back into this account — Loudibly stores nothing about it.
+              Copy it somewhere safe before continuing.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-space-2">
+            <label class="font-caption text-caption uppercase tracking-widest text-text-secondary">
+              Your private key ({{ chainLabels[ncChain] }})
+            </label>
+            <div class="relative">
+              <div class="w-full bg-surface-container-high border border-border-subtle rounded
+                          px-space-4 py-space-3 font-label-mono-base text-label-mono-base
+                          text-text-primary break-all pr-20">
+                {{ ncGenerated?.privateKey }}
+              </div>
+              <button
+                type="button"
+                @click="copyNcKey"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-space-3 py-1.5 bg-accent-lime
+                       text-black font-caption text-caption font-bold rounded hover:bg-[#d6ff33] transition-colors"
+              >
+                {{ ncCopied ? 'Copied!' : 'Copy' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-space-2">
+            <label class="font-caption text-caption uppercase tracking-widest text-text-secondary">
+              Your wallet address
+            </label>
+            <div class="w-full bg-surface-container-high border border-border-subtle rounded
+                        px-space-4 py-space-3 font-label-mono-base text-label-mono-base
+                        text-text-secondary break-all">
+              {{ ncGenerated?.address }}
+            </div>
+          </div>
+
+          <label class="flex items-start gap-space-3 cursor-pointer">
+            <input type="checkbox" v-model="ncKeySaved" class="mt-1 shrink-0 accent-[#CCFF00]" />
+            <span class="font-body-base text-body-base text-text-secondary leading-relaxed">
+              I have saved my private key. I understand it is never stored and cannot be recovered —
+              losing it means permanently losing this account and its funds.
+            </span>
+          </label>
+
+          <p v-if="error" role="alert" class="font-body-base text-body-base text-status-danger">
+            {{ error }}
+          </p>
+
+          <CButton
+            type="button"
+            :disabled="!ncKeySaved"
+            @click="activateNonCustodial"
+            class="w-full bg-accent-lime text-black font-body-large text-body-large font-bold
+                   py-space-3 rounded border-0 hover:bg-[#d6ff33] transition-colors
+                   active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            Enter wallet
+          </CButton>
+
+          <button
+            type="button"
+            @click="switchMode('nonCustodial')"
+            class="font-caption text-caption text-text-secondary hover:text-text-primary transition-colors"
+          >
+            ← Back
+          </button>
+        </template>
+
+        <!-- ── Main form (mode → sign in / sign up tabs) ───────────────────── -->
         <template v-else>
+
+          <!-- Mode: which universe you sign into -->
+          <div
+            role="group"
+            aria-label="Account mode"
+            class="flex bg-surface-container-high border border-border-subtle rounded p-1 gap-1"
+          >
+            <button
+              type="button"
+              @click="switchMode('custodial')"
+              :aria-pressed="mode === 'custodial'"
+              class="flex-1 py-space-2 rounded font-body-base text-body-base font-bold transition-all"
+              :class="mode === 'custodial'
+                ? 'bg-accent-lime text-black'
+                : 'text-text-secondary hover:text-text-primary'"
+            >
+              Custodial
+            </button>
+            <button
+              type="button"
+              @click="switchMode('nonCustodial')"
+              :aria-pressed="mode === 'nonCustodial'"
+              class="flex-1 py-space-2 rounded font-body-base text-body-base font-bold transition-all"
+              :class="mode === 'nonCustodial'
+                ? 'bg-accent-lime text-black'
+                : 'text-text-secondary hover:text-text-primary'"
+            >
+              Non-Custodial
+            </button>
+          </div>
 
           <!-- Tabs -->
           <nav
@@ -352,7 +542,7 @@ onMounted(async () => {
 
           <!-- ── Sign In panel ─────────────────────────────────────────────── -->
           <div
-            v-show="activeTab === 'signIn'"
+            v-show="mode === 'custodial' && activeTab === 'signIn'"
             id="panel-signin"
             role="tabpanel"
             aria-labelledby="tab-signin"
@@ -433,7 +623,7 @@ onMounted(async () => {
 
           <!-- ── Create Account panel ──────────────────────────────────────── -->
           <div
-            v-show="activeTab === 'signUp'"
+            v-show="mode === 'custodial' && activeTab === 'signUp'"
             id="panel-signup"
             role="tabpanel"
             aria-labelledby="tab-signup"
@@ -606,6 +796,117 @@ onMounted(async () => {
                   </template>
                 </CButton>
               </div>
+            </CForm>
+          </div>
+
+          <!-- ── Non-custodial: Sign In (private key) ───────────────────────── -->
+          <div
+            v-show="mode === 'nonCustodial' && activeTab === 'signIn'"
+            id="panel-nc-signin"
+            role="tabpanel"
+            aria-labelledby="tab-signin"
+          >
+            <CForm @submit.prevent="handleNonCustodialSignIn" class="flex flex-col gap-space-4">
+              <p v-if="error" role="alert" class="font-body-base text-body-base text-status-danger">
+                {{ error }}
+              </p>
+
+              <div class="flex flex-col gap-space-2">
+                <label for="nc-chain" class="font-body-base text-[13px] font-medium text-text-secondary">
+                  Blockchain
+                </label>
+                <select
+                  id="nc-chain"
+                  v-model="ncChain"
+                  class="w-full bg-surface-container-high border border-border-subtle rounded
+                         text-text-primary font-label-mono-base text-label-mono-base
+                         px-space-4 py-space-3 focus:outline-none focus:border-accent-lime
+                         focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                >
+                  <option v-for="c in CHAINS" :key="c" :value="c">{{ chainLabels[c] }}</option>
+                </select>
+              </div>
+
+              <div class="flex flex-col gap-space-2">
+                <label for="nc-key" class="font-body-base text-[13px] font-medium text-text-secondary">
+                  Private key
+                </label>
+                <input
+                  id="nc-key"
+                  v-model="ncPrivateKey"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Paste your private key"
+                  required
+                  class="w-full bg-surface-container-high border border-border-subtle rounded
+                         text-text-primary font-label-mono-base text-label-mono-base
+                         px-space-4 py-space-3 placeholder:text-text-muted/80
+                         focus:outline-none focus:border-accent-lime
+                         focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                />
+                <p class="font-caption text-caption text-text-muted">
+                  Your key never leaves this browser and is never stored — you re-enter it each session.
+                </p>
+              </div>
+
+              <CButton
+                type="submit"
+                class="mt-space-4 w-full bg-accent-lime text-black font-body-large text-body-large
+                       font-bold py-space-3 rounded border-0 hover:bg-[#d6ff33] transition-colors
+                       active:scale-[0.98]"
+              >
+                Unlock Wallet
+              </CButton>
+            </CForm>
+          </div>
+
+          <!-- ── Non-custodial: Create Account (generate) ───────────────────── -->
+          <div
+            v-show="mode === 'nonCustodial' && activeTab === 'signUp'"
+            id="panel-nc-signup"
+            role="tabpanel"
+            aria-labelledby="tab-signup"
+          >
+            <CForm @submit.prevent="handleNonCustodialGenerate" class="flex flex-col gap-space-4">
+              <p v-if="error" role="alert" class="font-body-base text-body-base text-status-danger">
+                {{ error }}
+              </p>
+
+              <div class="flex items-start gap-space-3 p-space-4 bg-amber-400/10 border border-amber-400/30 rounded">
+                <span class="material-symbols-outlined text-amber-400 shrink-0" style="font-size: 20px;">key</span>
+                <p class="font-body-base text-body-base text-amber-300 leading-relaxed">
+                  Your key is generated in this browser and never sent to us. No email, no identity —
+                  the key alone is your account.
+                  <strong>Lose it and the account and its funds are gone for good.</strong>
+                </p>
+              </div>
+
+              <div class="flex flex-col gap-space-2">
+                <label for="nc-chain-new" class="font-body-base text-[13px] font-medium text-text-secondary">
+                  Blockchain
+                </label>
+                <select
+                  id="nc-chain-new"
+                  v-model="ncChain"
+                  class="w-full bg-surface-container-high border border-border-subtle rounded
+                         text-text-primary font-label-mono-base text-label-mono-base
+                         px-space-4 py-space-3 focus:outline-none focus:border-accent-lime
+                         focus:shadow-[0_0_0_2px_rgba(204,255,0,0.1)] transition-all duration-200"
+                >
+                  <option v-for="c in CHAINS" :key="c" :value="c">{{ chainLabels[c] }}</option>
+                </select>
+              </div>
+
+              <CButton
+                type="submit"
+                :disabled="loading"
+                class="mt-space-2 w-full bg-accent-lime text-black font-body-large text-body-large
+                       font-bold py-space-3 rounded border-0 hover:bg-[#d6ff33] transition-colors
+                       active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {{ loading ? 'Generating…' : 'Generate Wallet' }}
+              </CButton>
             </CForm>
           </div>
 
