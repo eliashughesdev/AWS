@@ -304,11 +304,6 @@ const validators = [
           class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-[#CCFF00] text-[#CCFF00] rounded hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
         </button>
-        <RouterLink
-          to="/accounts/setup/non-custodial"
-          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-white/20 text-white/50 rounded hover:bg-white/5 active:scale-95 transition-all">
-          Non-Custodial →
-        </RouterLink>
       </div>
     </div>
 
