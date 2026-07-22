@@ -5,6 +5,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* ─── NODA brand ──────────────────────────────── */
+  --color-noda-teal:        #0DC1C6;  /* primary accent */
+  --color-noda-teal-bright: #44EAEE;  /* bright accent / hover */
+  --color-noda-navy:        #060C39;  /* brand deep navy (page base) */
+  --color-noda-navy-2:      #0B1445;  /* panel / card surface */
+  --color-noda-navy-3:      #141E5C;  /* elevated / input / hover */
+
   /* ─── Colors ────────────────────────────────────────── */
   --color-accent-lime:               #CCFF00;
   --color-surface-dark:              #0A0B0D;
@@ -88,14 +95,14 @@
   --spacing-margin-desktop: 32px;
 
   /* ─── Font Families ─────────────────────────────────── */
-  --font-headline-h1:        "Geist", sans-serif;
-  --font-headline-h2:        "Geist", sans-serif;
-  --font-headline-h3:        "Geist", sans-serif;
-  --font-body-base:          "Geist", sans-serif;
-  --font-body-large:         "Geist", sans-serif;
-  --font-display-lg:         "Geist", sans-serif;
-  --font-caption:            "Geist", sans-serif;
-  --font-headline-h1-mobile: "Geist", sans-serif;
+  --font-headline-h1:        "Inter", sans-serif;
+  --font-headline-h2:        "Inter", sans-serif;
+  --font-headline-h3:        "Inter", sans-serif;
+  --font-body-base:          "Inter", sans-serif;
+  --font-body-large:         "Inter", sans-serif;
+  --font-display-lg:         "Inter", sans-serif;
+  --font-caption:            "Inter", sans-serif;
+  --font-headline-h1-mobile: "Inter", sans-serif;
   --font-label-mono-base:    "JetBrains Mono", monospace;
   --font-label-mono-lg:      "JetBrains Mono", monospace;
 
@@ -127,6 +134,22 @@ html, body {
 body {
   background: linear-gradient(180deg, #0A0B0D 0%, #111508 100%);
   color: #FFFFFF;
+}
+
+/* ─── NODA brand backgrounds ──────────────────────────────────── */
+.bg-noda-gradient {
+  background: linear-gradient(135deg, #060C39 0%, #0DC1C6 100%);
+}
+.bg-noda-page {
+  background:
+    radial-gradient(120% 90% at 15% 0%, rgba(13, 193, 198, 0.16) 0%, rgba(13, 193, 198, 0) 55%),
+    radial-gradient(120% 90% at 100% 100%, rgba(68, 234, 238, 0.10) 0%, rgba(68, 234, 238, 0) 50%),
+    linear-gradient(180deg, #060C39 0%, #04081f 100%);
+}
+
+.noda-focus-ring:focus-within {
+  border-color: #0DC1C6;
+  box-shadow: 0 0 0 2px rgba(13, 193, 198, 0.15);
 }
 
 /* ─── Input focus ring ──────────────────────────────────────────────── */
