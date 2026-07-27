@@ -139,24 +139,24 @@ async function handleSignOut() {
   <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
     <section class="p-8 max-w-7xl mx-auto w-full">
 
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Transfer</h1>
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Transfer</h1>
 
       <!-- Loading skeleton -->
       <div v-if="loading" class="max-w-lg mx-auto space-y-4">
-        <div class="h-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
-        <div class="h-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
+        <div class="h-20 bg-noda-navy-2 border border-border-subtle rounded-xl animate-pulse" />
+        <div class="h-20 bg-noda-navy-2 border border-border-subtle rounded-xl animate-pulse" />
       </div>
 
       <template v-else>
 
         <!-- No accounts -->
         <div v-if="accounts.length === 0"
-          class="max-w-lg mx-auto flex flex-col items-center justify-center py-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl text-center">
-          <span class="material-symbols-outlined text-5xl text-[#52525B] mb-4">compare_arrows</span>
-          <p class="text-[#A1A1AA] text-sm mb-1">You need an account to transfer from.</p>
-          <p class="text-[#52525B] text-xs mb-6">Create one from your dashboard.</p>
+          class="max-w-lg mx-auto flex flex-col items-center justify-center py-20 bg-noda-navy-2 border border-border-subtle rounded-xl text-center">
+          <span class="material-symbols-outlined text-5xl text-text-muted mb-4">compare_arrows</span>
+          <p class="text-text-secondary text-sm mb-1">You need an account to transfer from.</p>
+          <p class="text-text-muted text-xs mb-6">Create one from your dashboard.</p>
           <RouterLink :to="{ name: 'dashboard' }"
-            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded hover:bg-lime-300 active:scale-95 transition-all">
+            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-noda-teal text-noda-navy rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all">
             Go to Dashboard
           </RouterLink>
         </div>
@@ -167,24 +167,24 @@ async function handleSignOut() {
           <!-- Status overlay -->
           <Transition name="overlay">
             <div v-if="transferStatus !== 'idle'"
-              class="absolute inset-0 z-10 bg-[#0A0B0D]/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4 p-8 text-center">
+              class="absolute inset-0 z-10 bg-noda-navy/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4 p-8 text-center">
 
               <template v-if="transferStatus === 'processing'">
                 <span class="material-symbols-outlined text-6xl text-amber-400 animate-spin" style="animation-duration: 1.5s">autorenew</span>
-                <p class="font-['JetBrains_Mono'] text-sm text-[#A1A1AA]">Processing transfer…</p>
+                <p class="font-['JetBrains_Mono'] text-sm text-text-secondary">Processing transfer…</p>
               </template>
 
               <template v-else-if="transferStatus === 'success'">
-                <span class="material-symbols-outlined text-6xl text-[#CCFF00]" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                <span class="material-symbols-outlined text-6xl text-noda-teal" style="font-variation-settings: 'FILL' 1">check_circle</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Transfer Complete!</p>
-                <p class="text-xs text-[#52525B]">The funds have been moved between your accounts.</p>
+                <p class="text-xs text-text-muted">The funds have been moved between your accounts.</p>
                 <div class="flex gap-3 mt-2">
                   <button @click="resetForm"
-                    class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#1a1d10] border border-white/[0.08] text-white rounded-lg hover:bg-[#282b1d] active:scale-95 transition-all">
+                    class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-noda-navy-2 border border-border-subtle text-white rounded-full hover:bg-noda-navy-3 active:scale-95 transition-all">
                     New Transfer
                   </button>
                   <RouterLink :to="{ name: 'ledger' }"
-                    class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded-lg hover:bg-lime-300 active:scale-95 transition-all">
+                    class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-noda-teal text-noda-navy rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all">
                     View Ledger
                   </RouterLink>
                 </div>
@@ -195,7 +195,7 @@ async function handleSignOut() {
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Transfer Failed</p>
                 <p class="text-sm text-red-400">{{ transferError }}</p>
                 <button @click="resetForm"
-                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-[#1a1d10] border border-white/[0.08] text-white rounded-lg hover:bg-[#282b1d] active:scale-95 transition-all">
+                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-noda-navy-2 border border-border-subtle text-white rounded-full hover:bg-noda-navy-3 active:scale-95 transition-all">
                   Try Again
                 </button>
               </template>
@@ -204,15 +204,15 @@ async function handleSignOut() {
           </Transition>
 
           <!-- Form panel -->
-          <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-6 flex flex-col gap-6">
-            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">New Transfer</h2>
+          <div class="bg-noda-navy-2 border border-border-subtle rounded-xl p-6 flex flex-col gap-6">
+            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">New Transfer</h2>
 
             <!-- From account -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">From</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">From</label>
               <select
                 v-model="selectedFrom"
-                class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors appearance-none cursor-pointer">
+                class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors appearance-none cursor-pointer">
                 <option v-for="acc in accounts" :key="acc.accountNo" :value="acc.accountNo">
                   {{ acc.chain }} — Balance: {{ acc.balance }} {{ acc.chain }}
                 </option>
@@ -221,18 +221,18 @@ async function handleSignOut() {
 
             <!-- To account -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">To (Account Number)</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">To (Account Number)</label>
               <input
                 v-model="selectedTo"
                 type="text"
                 placeholder="Paste destination account number"
-                class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
+                class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
               />
             </div>
 
             <!-- Amount -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">Amount</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Amount</label>
               <div class="flex gap-3">
                 <input
                   v-model="amount"
@@ -240,13 +240,13 @@ async function handleSignOut() {
                   min="0.000001"
                   step="any"
                   placeholder="0.00"
-                  class="flex-1 bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
+                  class="flex-1 bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
                 />
-                <div class="flex items-center px-4 bg-[#0A0B0D] border border-white/[0.08] rounded-lg text-sm font-['JetBrains_Mono'] text-[#52525B] shrink-0">
+                <div class="flex items-center px-4 bg-noda-navy border border-border-subtle rounded-lg text-sm font-['JetBrains_Mono'] text-text-muted shrink-0">
                   {{ fromAccount?.chain ?? '—' }}
                 </div>
               </div>
-              <p v-if="fromAccount" class="mt-1.5 text-[10px] text-[#52525B] font-['JetBrains_Mono']">
+              <p v-if="fromAccount" class="mt-1.5 text-[10px] text-text-muted font-['JetBrains_Mono']">
                 Available: {{ fromAccount.balance }} {{ fromAccount.chain }}
               </p>
             </div>
@@ -259,7 +259,7 @@ async function handleSignOut() {
               type="button"
               @click="submit"
               :disabled="submitting"
-              class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              class="w-full bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               {{ submitting ? 'Processing…' : 'Transfer' }}
             </button>
           </div>
