@@ -53,13 +53,13 @@ function txToDisplay(tx: OnChainTx) {
   const counterparty = incoming ? tx.from : tx.to
   return {
     icon: incoming ? 'call_received' : 'call_made',
-    iconBg: incoming ? 'bg-[#CCFF00]/10' : 'bg-blue-400/10',
-    iconColor: incoming ? 'text-[#CCFF00]' : 'text-blue-400',
+    iconBg: incoming ? 'bg-noda-teal/10' : 'bg-blue-400/10',
+    iconColor: incoming ? 'text-noda-teal' : 'text-blue-400',
     direction: incoming ? 'Received' : 'Sent',
     counterparty: counterparty ?? 'unknown',
     date: tx.timestamp ? new Date(tx.timestamp).toLocaleString() : '—',
     amount: `${incoming ? '+' : ''}${tx.amount.toFixed(6)} ${tx.currency}`,
-    amountClass: incoming ? 'text-[#CCFF00]' : '',
+    amountClass: incoming ? 'text-noda-teal' : '',
   }
 }
 
@@ -74,10 +74,10 @@ function handleSignOut() {
     <section class="p-8 max-w-5xl mx-auto w-full">
 
       <div class="flex justify-between items-center mb-8">
-        <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">Ledger</h1>
+        <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">Ledger</h1>
         <button
           @click="refresh(true)"
-          class="flex items-center gap-2 px-3 py-1.5 border border-white/[0.08] rounded-lg text-[#A1A1AA] hover:text-white hover:bg-white/5 transition-all">
+          class="flex items-center gap-2 px-3 py-1.5 border border-border-subtle rounded-full text-text-secondary hover:text-white hover:bg-white/5 transition-all">
           <span class="material-symbols-outlined text-sm">refresh</span>
           <span class="font-['JetBrains_Mono'] text-xs">Refresh</span>
         </button>
@@ -85,16 +85,16 @@ function handleSignOut() {
 
       <p v-if="errorMsg" class="mb-6 text-sm text-red-400">{{ errorMsg }}</p>
 
-      <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
+      <div class="bg-noda-navy-2 border border-border-subtle rounded-xl overflow-hidden">
         <table class="w-full text-left">
-          <thead class="bg-[#282b1d] border-b border-white/[0.08]">
+          <thead class="bg-noda-navy-3 border-b border-border-subtle">
             <tr>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Transaction</th>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Chain</th>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase text-right">Amount</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Chain</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase text-right">Amount</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-white/[0.08]">
+          <tbody class="divide-y divide-border-subtle">
             <template v-if="loading">
               <tr v-for="i in 5" :key="i" class="animate-pulse">
                 <td class="px-6 py-4">
@@ -112,7 +112,7 @@ function handleSignOut() {
             </template>
 
             <tr v-else-if="rows.length === 0">
-              <td colspan="3" class="px-6 py-10 text-center text-[#52525B] font-['JetBrains_Mono'] text-xs">
+              <td colspan="3" class="px-6 py-10 text-center text-text-muted font-['JetBrains_Mono'] text-xs">
                 No transactions on this address yet
               </td>
             </tr>
@@ -129,16 +129,16 @@ function handleSignOut() {
                   <div class="min-w-0">
                     <p class="text-[14px]">
                       {{ txToDisplay(row.tx).direction }}
-                      <span class="text-[#52525B]">·</span>
-                      <span class="font-['JetBrains_Mono'] text-[12px] text-[#A1A1AA]">
+                      <span class="text-text-muted">·</span>
+                      <span class="font-['JetBrains_Mono'] text-[12px] text-text-secondary">
                         {{ txToDisplay(row.tx).counterparty }}
                       </span>
                     </p>
-                    <p class="text-[12px] text-[#52525B]">{{ txToDisplay(row.tx).date }}</p>
+                    <p class="text-[12px] text-text-muted">{{ txToDisplay(row.tx).date }}</p>
                   </div>
                 </div>
               </td>
-              <td class="px-6 py-4 font-['JetBrains_Mono'] text-xs text-[#A1A1AA]">
+              <td class="px-6 py-4 font-['JetBrains_Mono'] text-xs text-text-secondary">
                 {{ chainLabels[row.chain] }}
               </td>
               <td class="px-6 py-4 text-right font-['JetBrains_Mono'] text-sm"
@@ -150,7 +150,7 @@ function handleSignOut() {
         </table>
       </div>
 
-      <p class="mt-4 font-['JetBrains_Mono'] text-[11px] text-[#52525B]">
+      <p class="mt-4 font-['JetBrains_Mono'] text-[11px] text-text-muted">
         Read live from the blockchain — the most recent 100 transactions per address. Nothing is stored.
       </p>
 
