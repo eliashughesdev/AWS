@@ -188,22 +188,22 @@ async function pollImportStatus(attempt = 0) {
   <MainLayout :displayName="displayName" :userEmail="userEmail">
 
     <section class="p-8 max-w-2xl mx-auto w-full">
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">
         Non-Custodial Wallet Setup
       </h1>
 
       <!-- Step: intro -->
       <div v-if="step === 'intro'"
-        class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col gap-6">
+        class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col gap-6">
 
         <!-- Mode selector -->
-        <div class="flex bg-[#0A0B0D] border border-white/[0.08] rounded-lg p-1 gap-1">
+        <div class="flex bg-noda-navy border border-border-subtle rounded-lg p-1 gap-1">
           <button
             type="button"
             @click="mode = 'generate'; errorMsg = ''"
             :class="[
               'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
-              mode === 'generate' ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+              mode === 'generate' ? 'bg-noda-teal text-noda-navy' : 'text-text-secondary hover:text-white'
             ]">
             Generate New
           </button>
@@ -212,7 +212,7 @@ async function pollImportStatus(attempt = 0) {
             @click="mode = 'import'; errorMsg = ''"
             :class="[
               'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
-              mode === 'import' ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+              mode === 'import' ? 'bg-noda-teal text-noda-navy' : 'text-text-secondary hover:text-white'
             ]">
             Import Existing
           </button>
@@ -220,10 +220,10 @@ async function pollImportStatus(attempt = 0) {
 
         <template v-if="mode === 'generate'">
           <div class="flex items-start gap-4">
-            <span class="material-symbols-outlined text-[#CCFF00] text-3xl shrink-0">key</span>
+            <span class="material-symbols-outlined text-noda-teal text-3xl shrink-0">key</span>
             <div>
               <h2 class="text-lg font-semibold mb-2">You control your keys</h2>
-              <p class="text-[#A1A1AA] text-sm leading-relaxed">
+              <p class="text-text-secondary text-sm leading-relaxed">
                 With a non-custodial wallet, your private key is generated in your browser and
                 never sent to our servers. You are the sole owner of your funds.
               </p>
@@ -241,10 +241,10 @@ async function pollImportStatus(attempt = 0) {
 
         <template v-else>
           <div class="flex items-start gap-4">
-            <span class="material-symbols-outlined text-[#CCFF00] text-3xl shrink-0">sync</span>
+            <span class="material-symbols-outlined text-noda-teal text-3xl shrink-0">sync</span>
             <div>
               <h2 class="text-lg font-semibold mb-2">Track a wallet you already own</h2>
-              <p class="text-[#A1A1AA] text-sm leading-relaxed">
+              <p class="text-text-secondary text-sm leading-relaxed">
                 Paste the public address of an existing wallet and we'll sync its balance and
                 transaction history from the blockchain. We only ever need the address —
                 <strong>never paste your private key or seed phrase here.</strong> You'll still sign
@@ -256,10 +256,10 @@ async function pollImportStatus(attempt = 0) {
 
         <!-- Chain selector -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Select Blockchain
           </label>
-          <div class="flex bg-[#0A0B0D] border border-white/[0.08] rounded-lg p-1 gap-1">
+          <div class="flex bg-noda-navy border border-border-subtle rounded-lg p-1 gap-1">
             <button
               v-for="c in (['TRON', 'SOL'] as const)"
               :key="c"
@@ -267,7 +267,7 @@ async function pollImportStatus(attempt = 0) {
               @click="selectedChain = c"
               :class="[
                 'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
-                selectedChain === c ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+                selectedChain === c ? 'bg-noda-teal text-noda-navy' : 'text-text-secondary hover:text-white'
               ]">
               {{ chainLabels[c] }}
             </button>
@@ -276,14 +276,14 @@ async function pollImportStatus(attempt = 0) {
 
         <!-- Import: address input -->
         <div v-if="mode === 'import'">
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Wallet Address ({{ chainLabels[selectedChain] }})
           </label>
           <input
             v-model="importAddress"
             type="text"
             placeholder="Paste your public address"
-            class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
+            class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
           />
         </div>
 
@@ -293,14 +293,14 @@ async function pollImportStatus(attempt = 0) {
           v-if="mode === 'generate'"
           @click="generate"
           :disabled="generating"
-          class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="w-full bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ generating ? 'Generating…' : 'Generate My Wallet' }}
         </button>
         <button
           v-else
           @click="importWallet"
           :disabled="activating"
-          class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="w-full bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ activating ? 'Importing…' : 'Import Wallet' }}
         </button>
 
@@ -308,7 +308,7 @@ async function pollImportStatus(attempt = 0) {
 
       <!-- Step: show private key -->
       <div v-else-if="step === 'key'"
-        class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col gap-6">
+        class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col gap-6">
 
         <div class="flex items-start gap-4 p-4 bg-red-400/10 border border-red-400/30 rounded-lg">
           <span class="material-symbols-outlined text-red-400 shrink-0">lock</span>
@@ -320,16 +320,16 @@ async function pollImportStatus(attempt = 0) {
 
         <!-- Private key display -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Your Private Key
           </label>
           <div class="relative">
-            <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-white break-all pr-20">
+            <div class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-white break-all pr-20">
               {{ wallet?.privateKey }}
             </div>
             <button
               @click="copyKey"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#CCFF00] text-black font-['JetBrains_Mono'] text-[10px] font-bold rounded transition-all hover:bg-lime-300">
+              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-[10px] font-bold rounded transition-all hover:bg-noda-teal-bright">
               {{ copied ? 'Copied!' : 'Copy' }}
             </button>
           </div>
@@ -337,10 +337,10 @@ async function pollImportStatus(attempt = 0) {
 
         <!-- Wallet address (public — safe to show) -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Your Wallet Address ({{ chainLabels[selectedChain] }})
           </label>
-          <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-[#A1A1AA] break-all">
+          <div class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-text-secondary break-all">
             {{ wallet?.address }}
           </div>
         </div>
@@ -350,9 +350,9 @@ async function pollImportStatus(attempt = 0) {
           <input
             type="checkbox"
             v-model="confirmed"
-            class="mt-0.5 shrink-0 accent-[#CCFF00]"
+            class="mt-0.5 shrink-0 accent-[#0DC1C6]"
           />
-          <span class="text-sm text-[#A1A1AA] leading-relaxed">
+          <span class="text-sm text-text-secondary leading-relaxed">
             I have saved my private key in a secure location and understand that losing it means permanent loss of access to my funds.
           </span>
         </label>
@@ -362,7 +362,7 @@ async function pollImportStatus(attempt = 0) {
         <button
           @click="activate"
           :disabled="!confirmed || activating"
-          class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="w-full bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ activating ? 'Activating…' : 'Activate Account' }}
         </button>
 
@@ -370,14 +370,14 @@ async function pollImportStatus(attempt = 0) {
 
       <!-- Step: syncing (import only) -->
       <div v-else-if="step === 'syncing'"
-        class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col items-center gap-6 text-center">
+        class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-6 text-center">
 
-        <span class="material-symbols-outlined text-6xl text-[#CCFF00] animate-spin" style="animation-duration: 1.5s">
+        <span class="material-symbols-outlined text-6xl text-noda-teal animate-spin" style="animation-duration: 1.5s">
           autorenew
         </span>
         <div>
           <h2 class="text-lg font-semibold mb-2">Syncing your wallet</h2>
-          <p class="text-[#A1A1AA] text-sm">
+          <p class="text-text-secondary text-sm">
             Fetching your balance and transaction history from the blockchain. This can take a
             moment for addresses with a long history — feel free to head to the dashboard, we'll
             keep syncing in the background.
@@ -386,7 +386,7 @@ async function pollImportStatus(attempt = 0) {
 
         <RouterLink
           :to="{ name: 'dashboard' }"
-          class="font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 border border-white/20 text-white/70 rounded-lg hover:bg-white/5 active:scale-95 transition-all">
+          class="font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 border border-white/20 text-white/70 rounded-full hover:bg-white/5 active:scale-95 transition-all">
           Go to Dashboard →
         </RouterLink>
 
@@ -394,23 +394,23 @@ async function pollImportStatus(attempt = 0) {
 
       <!-- Step: done -->
       <div v-else-if="step === 'done'"
-        class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col items-center gap-6 text-center">
+        class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-6 text-center">
 
-        <span class="material-symbols-outlined text-6xl text-[#CCFF00]" style="font-variation-settings: 'FILL' 1">
+        <span class="material-symbols-outlined text-6xl text-noda-teal" style="font-variation-settings: 'FILL' 1">
           check_circle
         </span>
         <div>
           <h2 class="text-lg font-semibold mb-2">Wallet {{ mode === 'import' ? 'Imported' : 'Activated' }}</h2>
-          <p class="text-[#A1A1AA] text-sm">Your non-custodial {{ chainLabels[selectedChain] }} wallet is ready. Share your address to receive funds.</p>
+          <p class="text-text-secondary text-sm">Your non-custodial {{ chainLabels[selectedChain] }} wallet is ready. Share your address to receive funds.</p>
         </div>
 
-        <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-[#A1A1AA] break-all text-left">
+        <div class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 font-['JetBrains_Mono'] text-xs text-text-secondary break-all text-left">
           {{ wallet?.address ?? importAddress }}
         </div>
 
         <RouterLink
           :to="{ name: 'dashboard' }"
-          class="font-['JetBrains_Mono'] text-sm font-bold px-6 py-3 bg-[#CCFF00] text-black rounded-lg hover:bg-lime-300 active:scale-95 transition-all">
+          class="font-['JetBrains_Mono'] text-sm font-bold px-6 py-3 bg-noda-teal text-noda-navy rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all">
           Go to Dashboard →
         </RouterLink>
 

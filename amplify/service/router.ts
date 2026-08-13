@@ -12,6 +12,7 @@ import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import accountDeposit from './routes/accounts/deposit'
 import accountWithdraw from './routes/accounts/withdraw'
+import cardsIssue from './routes/cards/issue'
 import webhookHandler from './routes/webhook/cb'
 import stripeWebhook from './routes/webhook/stripe'
 import savePayment from './routes/payments/save'
@@ -44,6 +45,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'userId', 'destinationAddress'], method: 'POST' }],
+  ['/cards/issue', { handler: cardsIssue, requiredParams: ['first_name', 'last_name', 'email', 'phone_number', 'card_name'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
   ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
