@@ -15,7 +15,6 @@ import TransactionsView from '../views/TransactionsView.vue'
 import TransferView from '../views/TransferView.vue'
 import ReceiveView from '../views/ReceiveView.vue'
 import ConfirmView from '../views/ConfirmView.vue'
-import NonCustodialSetupView from '../views/NonCustodialSetupView.vue'
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -97,12 +96,6 @@ const router = createRouter({
       path: '/confirm',
       name: 'confirm',
       component: ConfirmView,
-    },
-    {
-      path: '/accounts/setup/non-custodial',
-      name: 'non-custodial-setup',
-      component: NonCustodialSetupView,
-      meta: { requiresAuth: true, custodialOnly: true },
     },
     {
       path: '/',

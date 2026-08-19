@@ -9,3 +9,4 @@ amplify/service/routes/e2e/GetAccountUser.ts
 .devbox/
 devbox.json
 devbox.lock
+vue-app/NODA_MONEY/

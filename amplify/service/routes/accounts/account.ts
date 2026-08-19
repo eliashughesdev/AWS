@@ -7,9 +7,6 @@ import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
-import { sendToQueue, getQueueUrl } from '../../../utils/sqs'
-import { Result } from 'aws-cdk-lib/aws-stepfunctions'
-import { Address } from '@tatumio/tatum'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
@@ -18,7 +15,6 @@ export default class AccountHandler {
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const userId      = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
-    const walletType  = event.body.walletType ?? 'custodial'
     const chain       = event.body.chain
     const provider    = event.body.provider as ProviderName
     const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
@@ -37,16 +33,6 @@ export default class AccountHandler {
     console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(userProfileRecord))
 
     try {
-      if (walletType === 'non-custodial') {
-        return await this.createNonCustodialAccount({
-          userId, chain, provider, accountNumber, webhookUrl,
-          publicAddress: event.body.publicAddress,
-          accountingCurrency: event.body.accounting_currency,
-          userProfileRecord,
-          isImport: event.body.external === true,
-        })
-      }
-
       return await this.createCustodialAccount({
         userId, chain, provider, accountNumber, webhookUrl,
         accountingCurrency: event.body.accounting_currency,
@@ -57,97 +43,6 @@ export default class AccountHandler {
       console.error('FATAL ERROR: Account creation error:', err)
       return processError(100002, 'Failed to create account')
     }
-  }
-
-  private async createNonCustodialAccount({
-    userId, chain, provider, accountNumber, webhookUrl, publicAddress, accountingCurrency, userProfileRecord, isImport,
-  }: {
-    userId: string; chain: string; provider: ProviderName; accountNumber: string
-    webhookUrl: string; publicAddress: string; accountingCurrency: string
-    userProfileRecord: Record<string, any>
-    isImport: boolean
-  }) {
-    console.log(`DEBUG: Non-custodial account creation. chain=${chain}, address=${publicAddress}`)
-
-    const vaProvider = ProviderRegistry.getProvider(provider)
-
-    // ADDRESS_TRANSACTION subscriptions work without a VA — subscribe directly to the user's address.
-    // const { subscriptionId } = await vaProvider.createSubscription({
-    //   accountId: accountNumber,
-    //   address: publicAddress,
-    //   chain,
-    //   webhookUrl,
-    // })
-    // console.log(`DEBUG: Non-custodial subscription created. subscriptionId=${subscriptionId}`)
-
-    const accountRecord: Record<string, any> = {
-      id: userId,
-      sk: `ACCOUNT#${accountNumber}`,
-      walletType: 'non-custodial',
-      currency: accountingCurrency,
-      provider,
-      accountNo: accountNumber,
-      chain,
-      depositAddress: publicAddress,
-      created_at: Date.now(),
-      fees: 'default',
-      status: isImport ? 'importing' :'active',
-    }
-
-    // Balance record keyed by accountNo (no vAccountId for non-custodial).
-    const balanceRecord: Record<string, any> = {
-      id: accountNumber,
-      availableBalance: 0.0,
-      balance: 0.0,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    }
-
-    const result = await transactWriteItems({
-      puts: [
-        { tableName: 'v2CustomerTable', item: userProfileRecord },
-        { tableName: 'v2CustomerTable', item: accountRecord },
-        { tableName: 'v1AccountBalanceTable', item: balanceRecord },
-      ]
-    })
-
-    if (!result.success || !result.res) {
-      console.log('Failed to perform atomic write for non-custodial account records')
-      return processError(100003)
-    }
-
-    if (isImport) {
-      await this.enqueueBackFill({ userId, accountNo: accountNumber, address: publicAddress, chain })
-    }
-
-    console.log('DEBUG: Non-custodial account creation successful.')
-    return response({
-      statusCode: 200,
-      headers: null,
-      bodyObject: {
-        success: true,
-        res: { data: { id: userId, accountNo: accountNumber, depositAddress: publicAddress } }
-      }
-    })
-  }
-
-  private async enqueueBackFill({userId, accountNo, address, chain}:{
-    userId: string; accountNo: string; address:string; chain: string
-  }) {
-    const QUEUE_NAME = 'v1-account-backfill-queue'
-    const queueUrl = await getQueueUrl(QUEUE_NAME)
-    if (!queueUrl) {
-      console.error(`BACKFILL: could not resolve URL for ${QUEUE_NAME}; skipping enqueue`)
-      return
-    }
-    const result = await sendToQueue(queueUrl, {
-      queue: QUEUE_NAME,
-      userId,
-      accountNo,
-      address,
-      chain,
-    })
-    result.success ? console.log(`BACKFILL: enqueued ${accountNo} (${chain} ${address})`) : console.error('BACKFILL: enqueue failed', result.e)
   }
 
   private async createCustodialAccount({
