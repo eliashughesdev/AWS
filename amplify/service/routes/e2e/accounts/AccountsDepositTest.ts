@@ -4,12 +4,13 @@ import { customer } from '../credentials'
 const path = '/v1/accounts/deposit'
 console.log('path: ', path)
 
+// accountNumber must belong to the caller's own identity (X-Project key or JWT sub) —
+// the owner is no longer taken from the body, see accounts/deposit.ts.
 const body = JSON.stringify({
   accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4',
   currency: 'USD',
   amount: 50.00,
   paymentId: '2b987037-5b9b-472c-93e3-c29e2e5c99c2',
-  userId: 'a1bd5b77-bd4a-4d39-b65b-db371299ae26',
   depositMode: true,
   email: 'user@example.com',
 })

@@ -42,7 +42,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId', 'userId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
+  ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'userId', 'destinationAddress'], method: 'POST' }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],

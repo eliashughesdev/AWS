@@ -10,7 +10,7 @@ import {
   updateOrderStatus,
   PaymentLogStatus,
 } from '../../../utils/paymentLogger'
-import { handleBalanceUpdate } from './balanceUpdateHandler'
+import { creditAccountByVAccountId } from './balanceUpdateHandler'
 import { loadConfig } from '../../../utils/config'
 
 /**
@@ -259,23 +259,27 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     } else if (paymentResult.status === 'succeeded') {
       console.log('DEBUG: Payment succeeded')
 
+      let depositCredited: boolean | undefined
       if (depositMode && vAccountId) {
         const creditAmount = cryptoAmount !== undefined ? String(cryptoAmount) : String(amount)
         const creditCurrency = cryptoCurrency || currency
         console.log(`DEBUG: Deposit mode — crediting ${creditAmount} ${creditCurrency} to vAccountId: ${vAccountId}`)
-        await handleBalanceUpdate({
-          accountId: vAccountId,
+        depositCredited = await creditAccountByVAccountId({
+          vAccountId,
           amount: creditAmount,
           currency: creditCurrency,
           txId: paymentResult.transactionId || paymentOrderId,
         })
+        if (!depositCredited) {
+          console.error(`DEPOSIT_CREDIT_FAILED: payment succeeded but balance was not credited. vAccountId=${vAccountId}, txId=${paymentResult.transactionId || paymentOrderId}`)
+        }
       }
 
       await notifyPaymentResult(wsTransactionId, userId, {
         success: true,
         status: 'succeeded',
         paymentTransactionId: paymentResult.transactionId,
-        ...(depositMode ? { depositCredited: true } : {}),
+        ...(depositCredited !== undefined ? { depositCredited } : {}),
       }, paymentId)
 
       return true

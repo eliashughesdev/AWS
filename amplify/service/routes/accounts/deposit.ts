@@ -13,7 +13,16 @@ export default class DepositHandler {
     console.log('DEBUG: DepositHandler execution started.')
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const { accountNumber, currency, amount, paymentId, userId, transactionId, email } = event.body
+    const userId = event.requestContext?.authorizer?.userId
+    const { accountNumber, currency, amount, paymentId, transactionId, email } = event.body
+
+    if (!userId) {
+      return response({
+        statusCode: 401,
+        headers: null,
+        bodyObject: { message: 'User ID not found in authorization context' }
+      })
+    }
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({

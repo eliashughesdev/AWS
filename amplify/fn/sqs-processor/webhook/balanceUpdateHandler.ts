@@ -119,6 +119,32 @@ async function applyBalanceChange(params: {
   return true
 }
 
+// Credits a known custodial account directly by vAccountId — used when the caller
+// already knows which balance record to credit (e.g. a card deposit) and doesn't have
+// an on-chain address to look up. Idempotent per (account, txId) via the same
+// transaction-log claim as applyBalanceChange.
+export async function creditAccountByVAccountId(params: {
+  vAccountId: string
+  amount: number | string
+  currency: string
+  txId: string
+}): Promise<boolean> {
+  const amount = typeof params.amount === 'string' ? parseFloat(params.amount) : params.amount
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    console.error(`VALIDATION_ERROR: invalid amount "${params.amount}" for vAccountId ${params.vAccountId}`)
+    return false
+  }
+
+  return applyBalanceChange({
+    account: { walletType: 'custodial', vAccountId: params.vAccountId },
+    direction: 'CREDIT',
+    amount,
+    currency: params.currency,
+    txId: params.txId,
+  })
+}
+
 // Collects the counterparty address(es) across chain shapes: TRON sends a single
 // `counterAddress` string, Solana sends a `counterAddresses` array.
 function collectCounterparties(body: IncomingBlockchainTransactionRequest): string[] {
