@@ -13,7 +13,16 @@ export default class WithdrawHandler {
     console.log('DEBUG: WithdrawHandler execution started.')
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, userId, destinationAddress, transactionId } = event.body
+    const userId = event.requestContext?.authorizer?.userId
+    const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body
+
+    if (!userId) {
+      return response({
+        statusCode: 401,
+        headers: null,
+        bodyObject: { message: 'User ID not found in authorization context' }
+      })
+    }
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({

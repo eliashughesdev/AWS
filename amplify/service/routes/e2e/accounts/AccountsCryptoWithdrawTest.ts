@@ -8,7 +8,6 @@ const body = JSON.stringify({
   accountNumber: 'PCF000126711815e0f1481591e2cf11e2edbc88',
   currency: 'USD',
   amount: 10.00,
-  userId: '59a34955-700d-4532-a733-a7dbe5628747',
   destinationAddress: 'TBypofoy6CJaSY1VrcrUjgFzDCNer7iVLW',
 })
 
