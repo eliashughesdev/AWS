@@ -93,53 +93,75 @@ export async function logAttempt(params: LogAttemptParams) {
 
 export async function updateAttemptStatus(params: UpdateAttemptParams) {
   const now = new Date().toISOString()
+
+  // providerRef is the partition key of ProviderRefIndex (a GSI) — DynamoDB's
+  // UpdateItem rejects SET-ing a GSI key attribute to an empty string, so only
+  // include it when there's a real value.
+  const sets = ['#status = :status', '#updatedAt = :updatedAt', '#errorMessage = :errorMessage', '#providerMetadata = :providerMetadata']
+  const attributeNames: Record<string, string> = {
+    '#status': 'status',
+    '#updatedAt': 'updatedAt',
+    '#errorMessage': 'errorMessage',
+    '#providerMetadata': 'providerMetadata',
+  }
+  const attributeValues: Record<string, any> = {
+    ':status': params.status,
+    ':updatedAt': now,
+    ':errorMessage': params.errorMessage || '',
+    ':providerMetadata': params.providerMetadata || {},
+  }
+
+  if (params.providerRef) {
+    sets.push('#providerRef = :providerRef')
+    attributeNames['#providerRef'] = 'providerRef'
+    attributeValues[':providerRef'] = params.providerRef
+  }
+
   return updateItem({
     tableName: PAYMENT_LOGS_TABLE,
     key: {
       id: params.paymentOrderId,
       sk: `ATTEMPT#${params.attemptNumber}#${params.provider}`,
     },
-    updateExpression: 'SET #status = :status, #updatedAt = :updatedAt, #providerRef = :providerRef, #errorMessage = :errorMessage, #providerMetadata = :providerMetadata',
-    attributeNames: {
-      '#status': 'status',
-      '#updatedAt': 'updatedAt',
-      '#providerRef': 'providerRef',
-      '#errorMessage': 'errorMessage',
-      '#providerMetadata': 'providerMetadata',
-    },
-    attributeValues: {
-      ':status': params.status,
-      ':updatedAt': now,
-      ':providerRef': params.providerRef || '',
-      ':errorMessage': params.errorMessage || '',
-      ':providerMetadata': params.providerMetadata || {},
-    },
+    updateExpression: `SET ${sets.join(', ')}`,
+    attributeNames,
+    attributeValues,
   })
 }
 
 export async function updateOrderStatus(params: UpdateOrderStatusParams) {
   const now = new Date().toISOString()
+
+  // Same GSI-key-empty-string constraint as updateAttemptStatus above.
+  const sets = ['#finalStatus = :finalStatus', '#finalProvider = :finalProvider', '#totalAttempts = :totalAttempts', '#updatedAt = :updatedAt']
+  const attributeNames: Record<string, string> = {
+    '#finalStatus': 'finalStatus',
+    '#finalProvider': 'finalProvider',
+    '#totalAttempts': 'totalAttempts',
+    '#updatedAt': 'updatedAt',
+  }
+  const attributeValues: Record<string, any> = {
+    ':finalStatus': params.finalStatus,
+    ':finalProvider': params.finalProvider || '',
+    ':totalAttempts': params.totalAttempts,
+    ':updatedAt': now,
+  }
+
+  if (params.providerRef) {
+    sets.push('#providerRef = :providerRef')
+    attributeNames['#providerRef'] = 'providerRef'
+    attributeValues[':providerRef'] = params.providerRef
+  }
+
   return updateItem({
     tableName: PAYMENT_LOGS_TABLE,
     key: {
       id: params.paymentOrderId,
       sk: 'ORDER#META',
     },
-    updateExpression: 'SET #finalStatus = :finalStatus, #finalProvider = :finalProvider, #providerRef = :providerRef, #totalAttempts = :totalAttempts, #updatedAt = :updatedAt',
-    attributeNames: {
-      '#finalStatus': 'finalStatus',
-      '#finalProvider': 'finalProvider',
-      '#providerRef': 'providerRef',
-      '#totalAttempts': 'totalAttempts',
-      '#updatedAt': 'updatedAt',
-    },
-    attributeValues: {
-      ':finalStatus': params.finalStatus,
-      ':finalProvider': params.finalProvider || '',
-      ':providerRef': params.providerRef || '',
-      ':totalAttempts': params.totalAttempts,
-      ':updatedAt': now,
-    },
+    updateExpression: `SET ${sets.join(', ')}`,
+    attributeNames,
+    attributeValues,
   })
 }
 

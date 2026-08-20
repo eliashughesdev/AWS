@@ -1,6 +1,10 @@
 import Evervault from '@evervault/sdk'
 import { PaymentProcessor, PaymentParams, PaymentResult, PaymentProcessorConfig } from './PaymentProcessor'
 
+function generateExternalReferenceId(): string {
+  return Date.now().toString().slice(-12)
+}
+
 export class CloverPaymentProcessor implements PaymentProcessor {
   private cloverPrivateToken: string
   private cloverPublicKey: string
@@ -56,7 +60,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         currency: 'usd',
         capture: true,
         source: customerId,
-        external_reference_id: `payment_${Date.now()}`.slice(0, 12),
+        external_reference_id: generateExternalReferenceId(),
         stored_credentials: {
           sequence: 'SUBSEQUENT',
           initiator: 'MERCHANT',
@@ -107,7 +111,7 @@ export class CloverPaymentProcessor implements PaymentProcessor {
         currency: 'usd',
         capture: true,
         source: customerId,
-        external_reference_id: `payment_${Date.now()}`.slice(0, 12),
+        external_reference_id: generateExternalReferenceId(),
       }
 
       const chargeResult = await this.cloverPost('/v1/charges', chargeBody, params.metadata?.clientIp)
@@ -163,10 +167,10 @@ export class CloverPaymentProcessor implements PaymentProcessor {
       throw new Error(`Clover tokenization failed: ${tokenResult.error.message || tokenResult.error}`)
     }
 
-    // Evervault may wrap the response under .result; normalise both shapes
-    const token = tokenResult.result?.id || tokenResult.id
+    // Evervault wraps Clover's response under .result — that's the only place a real
+    const token = tokenResult.result?.id
     if (!token) {
-      throw new Error('Clover tokenization did not return a token')
+      throw new Error(`Clover tokenization did not return a token: ${JSON.stringify(tokenResult.result ?? tokenResult)}`)
     }
 
     return token

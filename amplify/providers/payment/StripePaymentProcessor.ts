@@ -2,6 +2,13 @@ import Stripe from 'stripe'
 import Evervault from '@evervault/sdk'
 import { PaymentProcessor, PaymentParams, PaymentResult, PaymentProcessorConfig } from './PaymentProcessor'
 
+// Stripe amounts are always in the currency's smallest unit (cents for USD) — `amount`
+// throughout this codebase is a decimal major-unit value (e.g. 20 for $20.00).
+// Assumes 2-decimal currencies, which is all this codebase currently uses (USD).
+function toStripeAmount(amount: number): number {
+  return Math.round(amount * 100)
+}
+
 export class StripePaymentProcessor implements PaymentProcessor {
   private stripeApiKey: string
   private evervault: Evervault
@@ -50,7 +57,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
 
       const stripe = new Stripe(this.stripeApiKey)
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: params.amount,
+        amount: toStripeAmount(params.amount),
         currency: params.currency,
         customer: customerId,
         payment_method: paymentMethodId,
@@ -115,7 +122,7 @@ export class StripePaymentProcessor implements PaymentProcessor {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: {
-          amount: params.amount.toString(),
+          amount: toStripeAmount(params.amount).toString(),
           currency: params.currency,
           'payment_method_data[type]': 'card',
           'payment_method_data[card][number]': '{{CARD_NUMBER}}',
