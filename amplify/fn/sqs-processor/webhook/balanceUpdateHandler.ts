@@ -47,11 +47,12 @@ async function applyBalanceChange(params: {
   to?: string
   blockNumber?: number
   index?: number
+  type?: string
 }): Promise<boolean> {
   const { account, direction, amount, currency, txId } = params
   const balanceKey: string = account.vAccountId
   const signedDelta = direction === 'CREDIT' ? amount : -amount
-  const txType = direction === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL'
+  const txType = params.type ?? (direction === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL')
 
   console.log(`${direction} ${amount.toFixed(6)} ${currency} on ${balanceKey} tx ${txId}`)
 
@@ -153,11 +154,56 @@ function collectCounterparties(body: IncomingBlockchainTransactionRequest): stri
   return Array.from(new Set(list))
 }
 
+// Chains disagree on which field names the fee payer: TRON's `fee` event has no
+// `address` at all (payer only in `counterAddress`); Solana's has `address` as the
+// payer. An asset with no entry here is left unhandled on purpose — safer to skip
+// than to guess at a shape we haven't verified (see SOL: deferred).
+const FEE_PAYER_RESOLVERS: Record<string, (body: IncomingBlockchainTransactionRequest) => string | undefined> = {
+  TRON: (body) => body.counterAddress,
+}
+
+// Debits the real on-chain fee once it's known — withdraw.ts only pre-debits the
+// principal, so this is the sole fee charge, not a top-up. Idempotent via the same
+// (account, txId) claim as applyBalanceChange; safe to no-op if unresolvable.
+async function handleFeeEvent(body: IncomingBlockchainTransactionRequest): Promise<boolean> {
+  const txId = body.txId || 'unknown'
+  const asset = body.asset ?? body.currency ?? ''
+  const resolvePayer = FEE_PAYER_RESOLVERS[asset]
+  if (!resolvePayer) {
+    console.log(`SKIP_FEE: No fee-payer resolver for asset '${asset}', tx ${txId}`)
+    return true
+  }
+
+  const payerAddress = resolvePayer(body)
+  if (!payerAddress) {
+    console.log(`SKIP_FEE: Could not resolve payer address, tx ${txId}`)
+    return true
+  }
+
+  const amount = Math.abs(parseFloat(body.amount))
+  if (!Number.isFinite(amount) || amount === 0) {
+    console.log(`SKIP_FEE: Invalid or zero fee amount "${body.amount}", tx ${txId}`)
+    return true
+  }
+
+  const account = await findAccountByAddress(payerAddress)
+  if (!account) {
+    console.log(`SKIP_FEE: No account for payer ${payerAddress}, tx ${txId}`)
+    return true
+  }
+
+  return applyBalanceChange({
+    account, direction: 'DEBIT', amount, currency: asset, txId, from: payerAddress, type: 'FEE',
+  })
+}
+
 export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   const body: IncomingBlockchainTransactionRequest = message
 
-  // A single on-chain transfer can emit several events (e.g. a `fee` event).
-  // Only the native transfer moves balances.
+  if (body.type === 'fee') return handleFeeEvent(body)
+
+  // A single on-chain transfer can emit several events. Only the native transfer
+  // moves the principal balance (fee events are handled above).
   if (body.type && body.type !== 'native') {
     console.log(`SKIP_NON_NATIVE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
     return true
