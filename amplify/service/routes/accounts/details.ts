@@ -29,6 +29,13 @@ export default class DetailsHandler {
 
     console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account))
 
+    // ignore Legacy non-custodial backend records 
+    // tihs is test code to quickly test a few things but this will never happen
+    if (!accountDet.vAccountId) {
+      console.error(`ERROR: Account ${event.body.account_id} has no vAccountId`)
+      return processError(100001)
+    }
+
     const balanceKey = accountDet.vAccountId
 
     console.log('DEBUG: Balance lookup key:', balanceKey)

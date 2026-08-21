@@ -28,7 +28,9 @@ export default class AccountsListHandler {
       })
     }
 
-    const accountRecords = result.res ?? []
+    // ignore Legacy non-custodial backend records 
+    // tihs is test code to quickly test a few things but this will never happen
+    const accountRecords = (result.res ?? []).filter((item: any) => !!item.vAccountId)
 
     const balanceResults = await Promise.all(
       accountRecords.map((item: any) => getRecord('v1AccountBalanceTable', item.vAccountId))

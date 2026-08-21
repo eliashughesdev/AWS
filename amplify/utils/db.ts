@@ -13,11 +13,11 @@ import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 const db = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-2' })
 
 export const getRecord = async (tableName: string | undefined, id: string) => {
-  const input = new GetItemCommand({
-    TableName: tableName,
-    Key: marshall({ id }),
-  })
   try {
+    const input = new GetItemCommand({
+      TableName: tableName,
+      Key: marshall({ id }),
+    })
     const res = await db.send(input)
     console.log(JSON.stringify(res))
     return {
