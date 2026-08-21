@@ -31,10 +31,7 @@ export default class AccountsListHandler {
     const accountRecords = result.res ?? []
 
     const balanceResults = await Promise.all(
-      accountRecords.map((item: any) => {
-        const balanceKey = item.walletType === 'non-custodial' ? item.accountNo : item.vAccountId
-        return getRecord('v1AccountBalanceTable', balanceKey)
-      })
+      accountRecords.map((item: any) => getRecord('v1AccountBalanceTable', item.vAccountId))
     )
 
     const accounts = accountRecords.map((item: any, i: number) => {
@@ -45,7 +42,6 @@ export default class AccountsListHandler {
         depositAddress: item.depositAddress,
         currency: item.currency,
         status: item.status,
-        walletType: item.walletType ?? 'custodial',
         createdAt: item.created_at,
         balance: bal?.balance ?? 0,
         availableBalance: bal?.availableBalance ?? 0,

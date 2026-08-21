@@ -49,12 +49,11 @@ async function applyBalanceChange(params: {
   index?: number
 }): Promise<boolean> {
   const { account, direction, amount, currency, txId } = params
-  const isNonCustodial = account.walletType === 'non-custodial'
-  const balanceKey: string = isNonCustodial ? account.accountNo : account.vAccountId
+  const balanceKey: string = account.vAccountId
   const signedDelta = direction === 'CREDIT' ? amount : -amount
   const txType = direction === 'CREDIT' ? 'DEPOSIT' : 'WITHDRAWAL'
 
-  console.log(`${direction} ${amount.toFixed(6)} ${currency} on ${balanceKey} (${isNonCustodial ? 'non-custodial' : 'custodial'}) tx ${txId}`)
+  console.log(`${direction} ${amount.toFixed(6)} ${currency} on ${balanceKey} tx ${txId}`)
 
   const claim = await putItem(
     'v1TransactionLogsTable',
@@ -137,7 +136,7 @@ export async function creditAccountByVAccountId(params: {
   }
 
   return applyBalanceChange({
-    account: { walletType: 'custodial', vAccountId: params.vAccountId },
+    account: { vAccountId: params.vAccountId },
     direction: 'CREDIT',
     amount,
     currency: params.currency,
@@ -195,38 +194,15 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
   console.log(`--- Processing TX [${txId}] amount ${rawAmount} ${currency} (address=${body.address}, counterparties=[${counterparties.join(', ') || 'n/a'}]) ---`)
 
-  let ok = true
+  // `address` sent funds — nothing to do. Withdrawals are already debited atomically
+  // by the withdraw route before broadcast, so debiting here would double-count.
+  if (isOutgoing) return true
 
-  if (isOutgoing) {
-    // `address` sent funds. Debit it only when non-custodial — custodial sends are
-    // already debited by their route handler (withdrawal pre-queue / transfer), so
-    // debiting here would double-count. Solana emits this signed event per address.
-    if (primary && primary.walletType === 'non-custodial') {
-      ok = await applyBalanceChange({
-        account: primary, direction: 'DEBIT', amount, currency, txId,
-        from: body.address, to: counterparties[0], blockNumber: body.blockNumber, index: body.index,
-      }) && ok
-    }
-  } else {
-    // `address` received funds — credit it (custodial and non-custodial).
-    if (primary) {
-      ok = await applyBalanceChange({
-        account: primary, direction: 'CREDIT', amount, currency, txId,
-        from: counterparties[0], to: body.address, blockNumber: body.blockNumber, index: body.index,
-      }) && ok
-    }
+  // `address` received funds — credit it.
+  if (!primary) return true
 
-    // TRON carries the sender as a counterparty in this same event; debit non-custodial
-    // senders here. Idempotent if Solana already debited it via its own signed event.
-    for (const acc of counterAccounts) {
-      if (acc.walletType === 'non-custodial') {
-        ok = await applyBalanceChange({
-          account: acc, direction: 'DEBIT', amount, currency, txId,
-          from: acc.depositAddress, to: body.address, blockNumber: body.blockNumber, index: body.index,
-        }) && ok
-      }
-    }
-  }
-
-  return ok
+  return applyBalanceChange({
+    account: primary, direction: 'CREDIT', amount, currency, txId,
+    from: counterparties[0], to: body.address, blockNumber: body.blockNumber, index: body.index,
+  })
 }

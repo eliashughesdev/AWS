@@ -3,8 +3,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { sendTronTransaction } from '../wallet/tron'
-import { sendSolanaTransaction } from '../wallet/solana'
 
 const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 const WS_BASE  = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
@@ -24,7 +22,6 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
-  walletType?: string
 }
 
 const accounts = ref<Account[]>([])
@@ -33,12 +30,9 @@ const loading  = ref(true)
 const selectedAccount    = ref('')
 const amount             = ref('')
 const destinationAddress = ref('')
-const privateKey         = ref('')
 const formError          = ref('')
 const submitting         = ref(false)
 const withdrawMode       = ref<'usd' | 'crypto'>('usd')
-
-const isNonCustodial = computed(() => selectedAccountData.value?.walletType === 'non-custodial')
 
 const exchangeRate = ref<number | null>(null)
 const rateLoading  = ref(false)
@@ -153,44 +147,7 @@ async function submit() {
     return
   }
 
-  if (isNonCustodial.value) {
-    if (!privateKey.value.trim()) {
-      formError.value = 'Enter your private key to sign the transaction.'
-      return
-    }
-    await submitNonCustodial(parsed)
-  } else {
-    await submitCustodial(parsed)
-  }
-}
-
-async function submitNonCustodial(parsed: number) {
-  // Non-custodial: sign and broadcast directly from the browser using TronWalletProvider.
-  // No backend involvement for the transfer itself.
-  const cryptoAmt = withdrawMode.value === 'crypto'
-    ? parsed.toString()
-    : cryptoEquivalent.value ?? '0'
-
-  withdrawStatus.value = 'processing'
-  submitting.value     = true
-
-  try {
-    const send = selectedAccountData.value?.chain === 'SOL'
-      ? sendSolanaTransaction
-      : sendTronTransaction
-    const txId = await send(
-      privateKey.value.trim(),
-      destinationAddress.value.trim(),
-      cryptoAmt,
-    )
-    withdrawStatus.value = 'success'
-    withdrawError.value  = txId  // reuse field to surface the txId in the success overlay
-  } catch (e: any) {
-    withdrawStatus.value = 'failed'
-    withdrawError.value  = e?.message ?? 'Transaction failed. Check your private key and balance.'
-  } finally {
-    submitting.value = false
-  }
+  await submitCustodial(parsed)
 }
 
 async function submitCustodial(parsed: number) {
@@ -265,7 +222,6 @@ function resetForm() {
   formError.value          = ''
   amount.value             = ''
   destinationAddress.value = ''
-  privateKey.value         = ''
 }
 
 async function handleSignOut() {
@@ -319,10 +275,6 @@ async function handleSignOut() {
                 <span class="material-symbols-outlined text-6xl text-[#CCFF00]" style="font-variation-settings: 'FILL' 1">check_circle</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Submitted!</p>
                 <p class="text-xs text-[#52525B]">Your balance will be updated once confirmed on-chain.</p>
-                <template v-if="isNonCustodial && withdrawError">
-                  <p class="font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase tracking-widest">Transaction ID</p>
-                  <p class="font-['JetBrains_Mono'] text-xs text-[#CCFF00] break-all text-center">{{ withdrawError }}</p>
-                </template>
                 <RouterLink :to="{ name: 'dashboard' }"
                   class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-[#CCFF00] text-black rounded-lg hover:bg-lime-300 active:scale-95 transition-all">
                   Back to Dashboard
@@ -423,22 +375,6 @@ async function handleSignOut() {
                 placeholder="Paste blockchain address"
                 class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
               />
-            </div>
-
-            <!-- Private key input — only shown for non-custodial accounts -->
-            <div v-if="isNonCustodial">
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">
-                Your Private Key
-              </label>
-              <input
-                v-model="privateKey"
-                type="password"
-                placeholder="Paste your private key to sign"
-                class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
-              />
-              <p class="mt-1.5 text-[10px] text-[#52525B]">
-                Signed locally in your browser. Never sent to our servers.
-              </p>
             </div>
 
             <!-- Error -->

@@ -44,18 +44,6 @@ export default class WithdrawHandler {
 
     const accountRecord = account.res[0]
 
-    // Non-custodial accounts sign and broadcast from the client — reject server-side withdrawal.
-    if (accountRecord.walletType === 'non-custodial') {
-      return response({
-        statusCode: 400,
-        headers: null,
-        bodyObject: {
-          success: false,
-          message: 'Non-custodial withdrawals must be signed and broadcast from the client.'
-        }
-      })
-    }
-
     if (accountRecord.id !== userId) {
       console.error(`ERROR: Account ${accountNumber} does not belong to user ${userId}`)
       return processError(100005)

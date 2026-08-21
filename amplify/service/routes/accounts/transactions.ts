@@ -32,7 +32,7 @@ export default class TransactionsHandler {
       return response({ statusCode: 403, headers: null, bodyObject: { message: 'Forbidden' } })
     }
 
-    const txKey = account.walletType === 'non-custodial' ? account.accountNo : account.vAccountId
+    const txKey = account.vAccountId
 
     const txResult = await queryRecord(
       'v1TransactionLogsTable',

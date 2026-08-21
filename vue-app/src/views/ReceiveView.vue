@@ -20,7 +20,6 @@ interface Account {
   depositAddress: string
   status: string
   balance: number
-  walletType: string
 }
 
 const accounts       = ref<Account[]>([])
@@ -40,10 +39,6 @@ const chainMeta: Record<string, { label: string; ticker: string; icon: string; i
 const FALLBACK_META = { label: 'Unknown', ticker: '', icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white' }
 function meta(chain: string) {
   return chainMeta[chain] ?? { ...FALLBACK_META, label: chain, ticker: chain }
-}
-
-function walletLabel(walletType: string) {
-  return walletType === 'non-custodial' ? 'Non-custodial' : 'Custodial'
 }
 
 // Chains the user does not yet have an account on — offered as create buttons.
@@ -176,7 +171,7 @@ async function handleSignOut() {
             :key="acc.accountNo"
             class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-5 flex flex-col gap-4">
 
-            <!-- Header: chain + wallet type -->
+            <!-- Header: chain -->
             <div class="flex items-center gap-3">
               <span
                 class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -191,13 +186,6 @@ async function handleSignOut() {
                   {{ acc.accountNo }}
                 </p>
               </div>
-              <span
-                class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest px-2 py-1 rounded border"
-                :class="acc.walletType === 'non-custodial'
-                  ? 'text-amber-300 border-amber-400/30 bg-amber-400/5'
-                  : 'text-[#A1A1AA] border-white/10 bg-white/5'">
-                {{ walletLabel(acc.walletType) }}
-              </span>
             </div>
 
             <!-- Address + copy -->
@@ -268,7 +256,7 @@ async function handleSignOut() {
           <div class="text-center">
             <p class="text-sm font-bold text-white">{{ meta(qrModalAccount.chain).label }}</p>
             <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B]">
-              {{ walletLabel(qrModalAccount.walletType) }} deposit address
+              Deposit address
             </p>
           </div>
 

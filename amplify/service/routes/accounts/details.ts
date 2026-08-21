@@ -29,12 +29,9 @@ export default class DetailsHandler {
 
     console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account))
 
-    // Non-custodial accounts have no vAccountId — balance is keyed by accountNo.
-    const balanceKey = accountDet.walletType === 'non-custodial'
-      ? accountDet.accountNo
-      : accountDet.vAccountId
+    const balanceKey = accountDet.vAccountId
 
-    console.log('DEBUG: Balance lookup key:', balanceKey, '(walletType:', accountDet.walletType ?? 'custodial', ')')
+    console.log('DEBUG: Balance lookup key:', balanceKey)
 
     const balanceResult = await getRecord('v1AccountBalanceTable', balanceKey)
 
