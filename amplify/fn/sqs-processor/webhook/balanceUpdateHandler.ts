@@ -156,10 +156,11 @@ function collectCounterparties(body: IncomingBlockchainTransactionRequest): stri
 
 // Chains disagree on which field names the fee payer: TRON's `fee` event has no
 // `address` at all (payer only in `counterAddress`); Solana's has `address` as the
-// payer. An asset with no entry here is left unhandled on purpose — safer to skip
-// than to guess at a shape we haven't verified (see SOL: deferred).
+// payer and no `counterAddress`. An asset with no entry here is left unhandled on
+// purpose — safer to skip than to guess at an unverified shape.
 const FEE_PAYER_RESOLVERS: Record<string, (body: IncomingBlockchainTransactionRequest) => string | undefined> = {
   TRON: (body) => body.counterAddress,
+  SOL: (body) => body.address,
 }
 
 // Debits the real on-chain fee once it's known — withdraw.ts only pre-debits the
@@ -181,8 +182,8 @@ async function handleFeeEvent(body: IncomingBlockchainTransactionRequest): Promi
   }
 
   const amount = Math.abs(parseFloat(body.amount))
-  if (!Number.isFinite(amount) || amount === 0) {
-    console.log(`SKIP_FEE: Invalid or zero fee amount "${body.amount}", tx ${txId}`)
+  if (!Number.isFinite(amount)) {
+    console.log(`SKIP_FEE: Invalid fee amount "${body.amount}", tx ${txId}`)
     return true
   }
 
