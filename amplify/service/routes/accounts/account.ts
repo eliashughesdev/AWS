@@ -5,6 +5,7 @@ import { processError } from '../../../errors/http'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { createBlockchainKey } from '../../../utils/awsKms'
+import { networkFor } from '../../../utils/currencies'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 
@@ -32,6 +33,11 @@ export default class AccountHandler {
 
     console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(userProfileRecord))
 
+    if (!networkFor(chain)) {
+      console.error(`ERROR: Unsupported ledger currency: ${chain}`)
+      return processError(100009)
+    }
+
     try {
       return await this.createCustodialAccount({
         userId, chain, provider, accountNumber, webhookUrl,
@@ -52,9 +58,13 @@ export default class AccountHandler {
     webhookUrl: string; accountingCurrency: string; userProfileRecord: Record<string, any>
     email?: string
   }) {
+    // `chain` is a Tatum ledger currency (TRON, SOL, USDT_TRON); the key and the
+    // subscription need the network it settles on.
+    const network = networkFor(chain)!
+
     // Create key in AWS KMS and derive deposit address
-    console.log(`DEBUG: Creating AWS KMS key for chain: ${chain}, accountId: ${accountNumber}`)
-    const { kmsKeyId, address: depositAddress } = await createBlockchainKey(chain as 'TRON' | 'SOL', accountNumber)
+    console.log(`DEBUG: Creating AWS KMS key for network: ${network}, accountId: ${accountNumber}`)
+    const { kmsKeyId, address: depositAddress } = await createBlockchainKey(network, accountNumber)
     console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
 
     const vaProvider = ProviderRegistry.getProvider(provider)
@@ -74,7 +84,7 @@ export default class AccountHandler {
     console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
 
     console.log(`DEBUG: Creating ADDRESS_TRANSACTION subscription. webhookUrl: ${webhookUrl}`)
-    const { subscriptionId } = await vaProvider.createSubscription({ accountId, address: assignedAddress, chain, webhookUrl })
+    const { subscriptionId } = await vaProvider.createSubscription({ accountId, address: assignedAddress, chain: network, webhookUrl })
     console.log(`DEBUG: Subscription created. subscriptionId: ${subscriptionId}`)
 
     const accountRecord: Record<string, any> = {

@@ -3,6 +3,7 @@ import { queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
+import { isNativeCurrency } from '../../../utils/currencies'
 
 /**
  * Queues a deposit for async processing.
@@ -59,6 +60,12 @@ export default class DepositHandler {
     const vAccountId = accountRecord.vAccountId
     const accountChain = accountRecord.chain  // e.g. 'BTC', 'SOL', 'ETH' — only present for crypto accounts
     const effectiveTransactionId = transactionId || `dep_${Date.now()}`
+
+    // Buying a token with a card is not suppported yet 
+    if (accountChain && !isNativeCurrency(accountChain)) {
+      console.error(`ERROR: Card deposits are not supported for currency ${accountChain}`)
+      return processError(100009)
+    }
 
     // For crypto accounts, convert fiat amount → crypto units using Binance rate
     let cryptoAmount: number | undefined

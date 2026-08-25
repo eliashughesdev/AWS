@@ -3,6 +3,7 @@ import { queryItemFromIndex, updateItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
+import { isNativeCurrency } from '../../../utils/currencies'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -62,6 +63,12 @@ export default class WithdrawHandler {
     if (!kmsKeyId) {
       console.error(`ERROR: Account ${accountNumber} has no kmsKeyId — cannot create AWS KMS signing request`)
       return processError(100006)
+    }
+
+    // Token withdrawals not implemented yet
+    if (!isNativeCurrency(accountChain)) {
+      console.error(`ERROR: Withdrawals are not supported for currency ${accountChain}`)
+      return processError(100009)
     }
 
     if (!destinationAddress) {
