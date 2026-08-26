@@ -98,15 +98,15 @@ export default class TransferFundsHandler {
         updateItem({
           tableName: 'v1AccountBalanceTable',
           key: { id: senderVAccountId },
-          updateExpression: 'SET #balance = #balance - :amount, #lastUpdated = :now',
-          attributeNames: { '#balance': 'balance', '#lastUpdated': 'lastUpdated' },
+          updateExpression: 'SET #balance = #balance - :amount, #availableBalance = #availableBalance - :amount, #lastUpdated = :now',
+          attributeNames: { '#balance': 'balance', '#availableBalance': 'availableBalance', '#lastUpdated': 'lastUpdated' },
           attributeValues: { ':amount': parsedAmount, ':now': createdAt },
         }),
         updateItem({
           tableName: 'v1AccountBalanceTable',
           key: { id: recipientVAccountId },
-          updateExpression: 'SET #balance = #balance + :amount, #lastUpdated = :now',
-          attributeNames: { '#balance': 'balance', '#lastUpdated': 'lastUpdated' },
+          updateExpression: 'SET #balance = #balance + :amount, #availableBalance = #availableBalance + :amount, #lastUpdated = :now',
+          attributeNames: { '#balance': 'balance', '#availableBalance': 'availableBalance', '#lastUpdated': 'lastUpdated' },
           attributeValues: { ':amount': parsedAmount, ':now': createdAt },
         }),
       ])

@@ -179,10 +179,11 @@ const quickActions = [
 ]
 
 const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: string; barColor: string }> = {
-  BTC:  { icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',  iconColor: 'text-amber-400',  barColor: 'bg-amber-400'  },
-  ETH:  { icon: 'eco',              iconBg: 'bg-blue-400/10',   iconColor: 'text-blue-400',   barColor: 'bg-blue-400'   },
-  SOL:  { icon: 'api',              iconBg: 'bg-purple-500/10', iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
-  TRON: { icon: 'toll',             iconBg: 'bg-red-400/10',    iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
+  BTC:       { icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',   iconColor: 'text-amber-400',  barColor: 'bg-amber-400'  },
+  ETH:       { icon: 'eco',              iconBg: 'bg-blue-400/10',    iconColor: 'text-blue-400',   barColor: 'bg-blue-400'   },
+  SOL:       { icon: 'api',              iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
+  TRON:      { icon: 'toll',             iconBg: 'bg-red-400/10',     iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
+  USDT_TRON: { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
 }
 
 
@@ -194,6 +195,7 @@ const assets = computed(() => {
       : { icon: 'payments', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-[#CCFF00]' }
     const pct = totalBal > 0 ? Math.round((a.balance ?? 0) / totalBal * 100) : 0
     return {
+      accountNo: a.accountNo,
       ticker: a.chain ?? a.currency,
       icon: cfg.icon,
       iconBg: cfg.iconBg,
@@ -239,6 +241,10 @@ function txToDisplay(tx: any) {
       : `-${tx.amount} ${tx.currency}`,
     amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-[#CCFF00]' : '',
   }
+}
+
+function shortAccountNo(accountNo?: string) {
+  return accountNo ? `···${accountNo.slice(-4)}` : ''
 }
 
 const validators = [
@@ -343,7 +349,7 @@ const validators = [
             </div>
           </template>
           <!-- Real account cards -->
-          <div v-else v-for="asset in assets" :key="asset.ticker"
+          <div v-else v-for="asset in assets" :key="asset.accountNo ?? asset.ticker"
             class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden">
             <div class="flex justify-between items-start mb-6">
               <div class="p-2 rounded" :class="asset.iconBg">
@@ -354,7 +360,9 @@ const validators = [
                 <span class="material-symbols-outlined text-xs animate-spin" style="animation-duration: 1.5s">autorenew</span>
                 Syncing
               </span>
-              <span v-else class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.ticker }}</span>
+              <span v-else class="font-['JetBrains_Mono'] text-xs text-[#52525B]">
+                {{ asset.ticker }}<template v-if="asset.accountNo"> · {{ shortAccountNo(asset.accountNo) }}</template>
+              </span>
             </div>
             <p class="font-['JetBrains_Mono'] text-2xl font-bold">{{ asset.amount }}</p>
             <p class="text-[12px] text-[#A1A1AA] mt-1">{{ asset.syncing ? `${asset.label} — history syncing` : asset.label }}</p>

@@ -32,8 +32,9 @@ const qrModalAccount = ref<Account | null>(null)
 const qrDataUrl      = ref('')
 
 const chainMeta: Record<string, { label: string; ticker: string; icon: string; iconBg: string; iconColor: string }> = {
-  TRON: { label: 'TRON', ticker: 'TRX', icon: 'toll',  iconBg: 'bg-red-400/10',    iconColor: 'text-red-400'    },
-  SOL:  { label: 'Solana', ticker: 'SOL', icon: 'api', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-400' },
+  TRON:      { label: 'TRON',        ticker: 'TRX',  icon: 'toll',  iconBg: 'bg-red-400/10',     iconColor: 'text-red-400'    },
+  SOL:       { label: 'Solana',      ticker: 'SOL',  icon: 'api',   iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400' },
+  USDT_TRON: { label: 'USDT (TRON)', ticker: 'USDT', icon: 'toll',  iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400' },
 }
 
 const FALLBACK_META = { label: 'Unknown', ticker: '', icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white' }
