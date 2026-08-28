@@ -229,7 +229,7 @@ export default class AccountHandler {
         const emailProvider = getEmailProvider()
         await emailProvider.sendEmail(
           email,
-          'Welcome to Loudibly — your account is ready',
+          'Welcome to NODA — your account is ready',
           `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
         )
         console.log(`DEBUG: Welcome email sent to ${email}`)
