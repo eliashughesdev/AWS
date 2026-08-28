@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useEvervault } from '@evervault/react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { RELAY_BASE } from '../config'
 
 interface AddCardProps {
   user: any;
@@ -62,7 +63,7 @@ export default function AddCard({ user }: AddCardProps) {
       const token = session.tokens?.accessToken?.toString()
 
       console.log('Sending request to backend...')
-      const response = await axios.post('https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1/payments/save', {
+      const response = await axios.post(`${RELAY_BASE}/payments/save`, {
         paymentMethod: {
           lastFour,
           bin,

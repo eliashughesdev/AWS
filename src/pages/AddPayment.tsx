@@ -2,6 +2,7 @@ import { Card, themes } from '@evervault/react'
 import { useState } from 'react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE } from '../config'
 
 const theme = themes.clean()
 
@@ -27,7 +28,7 @@ export default function AddPayment({ user }: AddPaymentProps) {
       const session = await fetchAuthSession()
       const token = session.tokens?.accessToken?.toString()
 
-      const response = await axios.post('https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/save', {
+      const response = await axios.post(`${API_BASE}/payments/save`, {
         cardData,
         userId: user.username,
         bin: cardData.card?.bin,

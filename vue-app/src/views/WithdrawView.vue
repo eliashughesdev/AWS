@@ -5,9 +5,7 @@ import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { sendTronTransaction } from '../wallet/tron'
 import { sendSolanaTransaction } from '../wallet/solana'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
-const WS_BASE  = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE, WS_BASE } from '../config'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 

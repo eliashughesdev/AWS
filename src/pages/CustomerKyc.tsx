@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE } from '../config'
 
 export default function CustomerKyc() {
   useEffect(() => {
@@ -9,7 +10,7 @@ export default function CustomerKyc() {
       const token = session.tokens?.accessToken?.toString()
 
       const { data } = await axios.post(
-        'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc/didit/session',
+        `${API_BASE}/accounts/kyc/didit/session`,
         {},
         {
           headers: {

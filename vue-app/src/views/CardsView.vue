@@ -3,9 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE   = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
-const RELAY_BASE = 'https://siao2sha29-execute-api-us-east-2-amazonaws-com-app-322d8e2bc10b.relay.evervault.app/v1'
+import { API_BASE, RELAY_BASE } from '../config'
 
 const router = useRouter()
 

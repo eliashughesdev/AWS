@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE } from '../config'
 
 export default function KycIdUpload() {
   const [frontFile, setFrontFile] = useState<File | null>(null)
@@ -33,7 +34,7 @@ export default function KycIdUpload() {
       const backBase64 = backFile ? await toBase64(backFile) : undefined
 
       const { data } = await axios.post(
-        'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc/didit/id-verify',
+        `${API_BASE}/accounts/kyc/didit/id-verify`,
         { front_image: frontBase64, back_image: backBase64 },
         { headers: { 'X-Project': 'e2e-hmac', Authorization: `Bearer ${token}` } }
       )

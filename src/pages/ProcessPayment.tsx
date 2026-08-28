@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE, WS_BASE } from '../config'
 
 interface ProcessPaymentProps {
   user: any;
@@ -82,7 +83,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
   const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
-  const WS_URL = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
+  const WS_URL = WS_BASE
 
   useEffect(() => {
     loadPaymentMethods()
@@ -100,7 +101,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
       const token = session.tokens?.accessToken?.toString()
 
       const response = await axios.get(
-        'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/list',
+        `${API_BASE}/payments/list`,
         {
           headers: {
             'X-Project': 'e2e-hmac',
@@ -202,7 +203,7 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
       const selectedCard = paymentMethods.find(pm => pm.id === selectedPaymentId)
 
       await axios.post(
-        'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process',
+        `${API_BASE}/payments/process`,
         {
           paymentId: selectedPaymentId,
           userId: user.username,

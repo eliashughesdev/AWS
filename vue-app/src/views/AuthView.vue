@@ -8,8 +8,8 @@ import { deriveSolanaAddress, generateSolanaWallet } from '../wallet/solana'
 import { useWalletSession } from '../wallet/session'
 import { CHAINS, chainLabels, type Chain } from '../wallet/types'
 import nodaLogo from '../assets/noda-logo.png'
+import { API_BASE } from '../config'
 
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
 const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
 
 const route  = useRoute()

@@ -3,8 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE } from '../config'
 
 const route  = useRoute()
 const router = useRouter()
@@ -184,7 +183,6 @@ const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: str
   SOL:  { icon: 'api',              iconBg: 'bg-purple-500/10', iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
   TRON: { icon: 'toll',             iconBg: 'bg-red-400/10',    iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
 }
-
 
 const assets = computed(() => {
   const totalBal = accounts.value.reduce((sum, a) => sum + (a.balance ?? 0), 0)

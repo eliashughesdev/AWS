@@ -4,8 +4,7 @@ import { fetchUserAttributes, fetchAuthSession, getCurrentUser, signOut } from '
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE } from '../config'
 
 const router = useRouter()
 
