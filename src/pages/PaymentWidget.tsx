@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useEvervault } from '@evervault/react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE, WS_BASE } from '../config'
 
 interface PaymentWidgetProps {
   user?: any;
@@ -25,8 +26,8 @@ const paymentMethods: SidebarMethod[] = [
   { id: 'epay', image: '/src/assets/epay-logo.png', label: 'ePay' },
 ]
 
-const API_URL = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/payments/process/guest'
-const WS_URL = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
+const API_URL = `${API_BASE}/payments/process/guest`
+const WS_URL = WS_BASE
 const AMOUNT = 149.00
 const CURRENCY = 'USD'
 
