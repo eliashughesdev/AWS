@@ -10,3 +10,5 @@ amplify/service/routes/e2e/GetAccountUser.ts
 devbox.json
 devbox.lock
 vue-app/NODA_MONEY/
+energy-test.env
+.wallets.nile.json
