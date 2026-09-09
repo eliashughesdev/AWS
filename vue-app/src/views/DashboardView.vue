@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
+import { brand } from '../brands'
 import { API_BASE } from '../config'
 
 const route  = useRoute()
@@ -467,9 +468,9 @@ const validators = [
     <!-- Footer -->
     <footer class="w-full py-8 px-8 flex flex-col md:flex-row justify-between items-center border-t border-border-subtle mt-12">
       <div class="font-['JetBrains_Mono'] text-[13px] text-white mb-4 md:mb-0">
-        NODA <span class="text-text-muted">v2.4.12</span>
+        {{ brand.name }} <span class="text-text-muted">v2.4.12</span>
       </div>
-      <p class="text-[12px] text-text-muted">© 2024 NODA. All rights reserved.</p>
+      <p class="text-[12px] text-text-muted">© 2024 {{ brand.name }}. All rights reserved.</p>
       <div class="flex gap-6 mt-4 md:mt-0">
         <a class="text-[12px] text-text-muted hover:text-brand underline transition-colors" href="#">Privacy Policy</a>
         <a class="text-[12px] text-text-muted hover:text-brand underline transition-colors" href="#">Compliance</a>

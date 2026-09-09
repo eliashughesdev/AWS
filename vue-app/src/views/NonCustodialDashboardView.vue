@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
+import { brand } from '../brands'
 import { useWalletSession } from '../wallet/session'
 import { readWallet, READ_TTL_MS, type WalletRead } from '../wallet/reads'
 import { chainLabels, type OnChainTx } from '../wallet/types'
@@ -124,7 +125,7 @@ const lastUpdatedLabel = computed(() =>
       <span class="material-symbols-outlined text-amber-400 shrink-0">key</span>
       <p class="text-sm text-amber-300 flex-1">
         Anonymous session. Your key is held in this tab only — closing it signs you out, and
-        you'll need the key to return. NODA stores nothing.
+        you'll need the key to return. {{ brand.name }} stores nothing.
       </p>
     </div>
 

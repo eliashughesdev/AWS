@@ -7,7 +7,8 @@ import { deriveTronAddress, generateTronWallet } from '../wallet/tron'
 import { deriveSolanaAddress, generateSolanaWallet } from '../wallet/solana'
 import { useWalletSession } from '../wallet/session'
 import { CHAINS, chainLabels, type Chain } from '../wallet/types'
-import nodaLogo from '../assets/noda-logo.png'
+import BrandLogo from '../components/BrandLogo.vue'
+import { brand } from '../brands'
 import { API_BASE } from '../config'
 
 const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
@@ -305,7 +306,7 @@ onMounted(async () => {
 
       <!-- ── Header ─────────────────────────────────────────────────────── -->
       <header class="text-center flex flex-col items-center gap-space-4">
-        <img :src="nodaLogo" alt="NODA" class="h-9 w-auto" />
+        <BrandLogo variant="mark" size="lg" />
         <div>
           <h1
             v-if="activeTab === 'signUp' && step === 'form'"
@@ -313,11 +314,18 @@ onMounted(async () => {
           >
             Create account
           </h1>
+          <!-- Brands without a logo image carry their name here instead -->
+          <h1
+            v-else-if="!brand.logoSrc"
+            class="font-headline-h1-mobile text-headline-h1-mobile text-text-primary font-semibold mb-space-2"
+          >
+            {{ brand.name }}
+          </h1>
           <p class="font-body-base text-body-base text-text-secondary">
             <template v-if="step === 'confirm'">Check your inbox</template>
             <template v-else-if="step === 'ncKey'">Save your private key</template>
             <template v-else-if="mode === 'nonCustodial'">Your keys, your assets. No account, no trace.</template>
-            <template v-else-if="activeTab === 'signUp'">Join NODA</template>
+            <template v-else-if="activeTab === 'signUp'">Join {{ brand.name }}</template>
             <template v-else>Your account, your assets.</template>
           </p>
         </div>
@@ -400,7 +408,7 @@ onMounted(async () => {
             <span class="material-symbols-outlined text-status-danger shrink-0" style="font-size: 20px;">lock</span>
             <p class="font-body-base text-body-base text-status-danger leading-relaxed">
               <strong>This is the only time your private key will be shown.</strong>
-              It is the only way back into this account — NODA stores nothing about it.
+              It is the only way back into this account — {{ brand.name }} stores nothing about it.
               Copy it somewhere safe before continuing.
             </p>
           </div>

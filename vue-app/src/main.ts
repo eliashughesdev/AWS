@@ -6,6 +6,9 @@ import router from './router'
 import './assets/main.css'
 import App from './App.vue'
 import tracker from './tracker'
+import { applyBrand } from './brands'
+
+applyBrand()
 
 Amplify.configure(outputs)
 tracker.start()

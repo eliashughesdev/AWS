@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import nodaLogo from '../assets/noda-logo.png'
+import BrandLogo from '../components/BrandLogo.vue'
+import { brand } from '../brands'
 
 const props = withDefaults(defineProps<{
   displayName: string
@@ -40,8 +41,8 @@ const navItems = computed(() => {
     <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
     <aside class="hidden md:flex flex-col h-screen p-4 gap-2 bg-surface-1 border-r border-border-subtle w-64 shrink-0">
       <div class="px-2 py-4">
-        <img :src="nodaLogo" alt="NODA" class="h-7 w-auto" />
-        <p class="text-[10px] uppercase tracking-widest text-text-muted mt-2 font-bold">Smart Wallet</p>
+        <BrandLogo variant="wordmark" size="md" />
+        <p class="text-[10px] uppercase tracking-widest text-text-muted mt-2 font-bold">{{ brand.tagline }}</p>
       </div>
 
       <nav class="flex-1 flex flex-col gap-1 mt-6">
@@ -88,7 +89,7 @@ const navItems = computed(() => {
 
       <!-- TopAppBar -->
       <header class="flex justify-between items-center px-8 h-16 w-full border-b border-border-subtle sticky top-0 bg-page/80 backdrop-blur-md z-10">
-        <img :src="nodaLogo" alt="NODA" class="md:hidden h-6 w-auto" />
+        <BrandLogo class="md:hidden" variant="wordmark" size="sm" />
         <div></div>
         <button @click="emit('signOut')" class="text-text-secondary hover:text-white text-[14px] transition-colors">
           Logout

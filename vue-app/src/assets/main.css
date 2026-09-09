@@ -5,16 +5,19 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ─── Brand roles ───────────────────────────────────── */
-  --color-brand:       #0DC1C6;
-  --color-brand-hover: #44EAEE;
-  --color-on-brand:    #060C39;  /* text/icons drawn on top of --color-brand */
+  /* ─── Brand roles — Loudibly, the default when no brand is selected ───────
+     Another brand overrides these in its [data-brand] block at the foot of
+     this file. --color-brand must stay a hex literal: the QR views read it
+     back via getComputedStyle and pass it to qrcode, which rejects color-mix(). */
+  --color-brand:       #CCFF00;
+  --color-brand-hover: #D6FF33;
+  --color-on-brand:    #000000;  /* text/icons drawn on top of --color-brand */
 
   /* ─── Surfaces ──────────────────────────────────────── */
-  --color-page:      #060C39;  /* base layer: page background and recessed inputs */
-  --color-page-deep: #04081F;  /* page gradient end stop */
-  --color-surface-1: #0B1445;  /* panels, cards, sidebar */
-  --color-surface-2: #141E5C;  /* elevated / hover */
+  --color-page:      #0A0B0D;  /* base layer: page background and recessed inputs */
+  --color-page-deep: #111508;  /* page gradient end stop */
+  --color-surface-1: #1A1D10;  /* panels, cards, sidebar */
+  --color-surface-2: #282B1D;  /* elevated / hover */
 
   /* ─── Neutrals ──────────────────────────────────────── */
   --color-text-primary:   #FFFFFF;
@@ -42,16 +45,20 @@
   --spacing-margin-desktop: 32px;
 
   /* ─── Font Families ─────────────────────────────────── */
-  --font-headline-h1:        "Inter", sans-serif;
-  --font-headline-h2:        "Inter", sans-serif;
-  --font-headline-h3:        "Inter", sans-serif;
-  --font-body-base:          "Inter", sans-serif;
-  --font-body-large:         "Inter", sans-serif;
-  --font-display-lg:         "Inter", sans-serif;
-  --font-caption:            "Inter", sans-serif;
-  --font-headline-h1-mobile: "Inter", sans-serif;
-  --font-label-mono-base:    "JetBrains Mono", monospace;
-  --font-label-mono-lg:      "JetBrains Mono", monospace;
+  /* Every role points at --font-sans, so a brand swaps one value, not eight. */
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --font-headline-h1:        var(--font-sans);
+  --font-headline-h2:        var(--font-sans);
+  --font-headline-h3:        var(--font-sans);
+  --font-body-base:          var(--font-sans);
+  --font-body-large:         var(--font-sans);
+  --font-display-lg:         var(--font-sans);
+  --font-caption:            var(--font-sans);
+  --font-headline-h1-mobile: var(--font-sans);
+  --font-label-mono-base:    var(--font-mono);
+  --font-label-mono-lg:      var(--font-mono);
 
   /* ─── Font Sizes ────────────────────────────────────── */
   --text-display-lg:        48px;
@@ -94,4 +101,21 @@ body {
 .focus-ring:focus-within {
   border-color: var(--color-brand);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 15%, transparent);
+}
+
+/* ─── Brand overrides ───────────────────────────────────────────────────
+   One block per client. These sit outside @layer, so they beat the @theme
+   defaults regardless of specificity. Adding a client is a block here plus
+   an entry in src/brands.ts — no view touches a brand colour directly. */
+:root[data-brand="noda"] {
+  --color-brand:       #0DC1C6;
+  --color-brand-hover: #44EAEE;
+  --color-on-brand:    #060C39;
+
+  --color-page:      #060C39;
+  --color-page-deep: #04081F;
+  --color-surface-1: #0B1445;
+  --color-surface-2: #141E5C;
+
+  --font-sans: "Inter", sans-serif;
 }
