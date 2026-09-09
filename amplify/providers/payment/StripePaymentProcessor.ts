@@ -112,7 +112,11 @@ export class StripePaymentProcessor implements PaymentProcessor {
     try {
       console.log('StripePaymentProcessor: Processing first-time payment')
 
-      const returnUrl = params.metadata?.returnUrl || 'https://my.staging.loudibly.com/'
+      const returnUrl = params.metadata?.returnUrl || process.env.FRONTEND_URL
+      if (!returnUrl) {
+        console.error('StripePaymentProcessor: no returnUrl and FRONTEND_URL unset — cannot build a 3DS return URL')
+        return { success: false, error: 'Payment configuration error', status: 'error', retryable: false }
+      }
 
       const stripeRequest = {
         url: 'https://api.stripe.com/v1/payment_intents',

@@ -8,6 +8,6 @@ export const mainApiFn = defineFunction({
     // Static infrastructure constants — these never change between environments
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_STAGE: 'v1',
-    // All other config and secrets are loaded from SSM at runtime under /loudibly/api/
+    SSM_PATH: process.env.SSM_PATH ?? '/loudibly/api/',
   },
 })

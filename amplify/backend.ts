@@ -133,6 +133,7 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
+    SSM_PATH: process.env.SSM_PATH ?? '/loudibly/api/',
   },
 })
 

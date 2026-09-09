@@ -5,70 +5,27 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* ─── Colors ────────────────────────────────────────── */
-  --color-accent-lime:               #CCFF00;
-  --color-surface-dark:              #0A0B0D;
-  --color-surface-dim:               #111508;
-  --color-surface:                   #111508;
-  --color-surface-bright:            #373b2c;
-  --color-surface-light:             #FAFAF7;
-  --color-surface-container-lowest:  #0c0f04;
-  --color-surface-container-low:     #1a1d10;
-  --color-surface-container:         #1e2113;
-  --color-surface-container-high:    #282b1d;
-  --color-surface-container-highest: #333627;
-  --color-surface-variant:           #333627;
-  --color-surface-tint:              #abd600;
-  --color-background:                #111508;
+  /* ─── Brand roles — Loudibly, the default when no brand is selected ───────
+     Another brand overrides these in its [data-brand] block at the foot of
+     this file. --color-brand must stay a hex literal: the QR views read it
+     back via getComputedStyle and pass it to qrcode, which rejects color-mix(). */
+  --color-brand:       #CCFF00;
+  --color-brand-hover: #D6FF33;
+  --color-on-brand:    #000000;  /* text/icons drawn on top of --color-brand */
 
+  /* ─── Surfaces ──────────────────────────────────────── */
+  --color-page:      #0A0B0D;  /* base layer: page background and recessed inputs */
+  --color-page-deep: #111508;  /* page gradient end stop */
+  --color-surface-1: #1A1D10;  /* panels, cards, sidebar */
+  --color-surface-2: #282B1D;  /* elevated / hover */
+
+  /* ─── Neutrals ──────────────────────────────────────── */
   --color-text-primary:   #FFFFFF;
   --color-text-secondary: #A1A1AA;
   --color-text-muted:     #52525B;
+  --color-border-subtle:  rgba(255, 255, 255, 0.08);
 
-  --color-border-subtle:    rgba(255, 255, 255, 0.08);
-  --color-outline:          #8e9379;
-  --color-outline-variant:  #444933;
-
-  --color-on-surface:         #e2e4cf;
-  --color-on-surface-variant: #c4c9ac;
-  --color-on-background:      #e2e4cf;
-
-  --color-primary:                  #ffffff;
-  --color-on-primary:               #283500;
-  --color-primary-container:        #c3f400;
-  --color-on-primary-container:     #556d00;
-  --color-primary-fixed:            #c3f400;
-  --color-primary-fixed-dim:        #abd600;
-  --color-on-primary-fixed:         #161e00;
-  --color-on-primary-fixed-variant: #3c4d00;
-  --color-inverse-primary:          #506600;
-
-  --color-secondary:                  #c7c6c9;
-  --color-on-secondary:               #303033;
-  --color-secondary-container:        #464749;
-  --color-on-secondary-container:     #b6b5b7;
-  --color-secondary-fixed:            #e3e2e5;
-  --color-secondary-fixed-dim:        #c7c6c9;
-  --color-on-secondary-fixed:         #1b1c1e;
-  --color-on-secondary-fixed-variant: #464749;
-
-  --color-tertiary:                  #ffffff;
-  --color-on-tertiary:               #2f312f;
-  --color-tertiary-container:        #e2e3e0;
-  --color-on-tertiary-container:     #636563;
-  --color-tertiary-fixed:            #e2e3e0;
-  --color-tertiary-fixed-dim:        #c6c7c4;
-  --color-on-tertiary-fixed:         #1a1c1b;
-  --color-on-tertiary-fixed-variant: #454745;
-
-  --color-error:              #ffb4ab;
-  --color-on-error:           #690005;
-  --color-error-container:    #93000a;
-  --color-on-error-container: #ffdad6;
-
-  --color-inverse-surface:    #e2e4cf;
-  --color-inverse-on-surface: #2f3223;
-
+  /* ─── Status ────────────────────────────────────────── */
   --color-status-info:    #3B82F6;
   --color-status-success: #10B981;
   --color-status-warning: #F59E0B;
@@ -88,16 +45,20 @@
   --spacing-margin-desktop: 32px;
 
   /* ─── Font Families ─────────────────────────────────── */
-  --font-headline-h1:        "Geist", sans-serif;
-  --font-headline-h2:        "Geist", sans-serif;
-  --font-headline-h3:        "Geist", sans-serif;
-  --font-body-base:          "Geist", sans-serif;
-  --font-body-large:         "Geist", sans-serif;
-  --font-display-lg:         "Geist", sans-serif;
-  --font-caption:            "Geist", sans-serif;
-  --font-headline-h1-mobile: "Geist", sans-serif;
-  --font-label-mono-base:    "JetBrains Mono", monospace;
-  --font-label-mono-lg:      "JetBrains Mono", monospace;
+  /* Every role points at --font-sans, so a brand swaps one value, not eight. */
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --font-headline-h1:        var(--font-sans);
+  --font-headline-h2:        var(--font-sans);
+  --font-headline-h3:        var(--font-sans);
+  --font-body-base:          var(--font-sans);
+  --font-body-large:         var(--font-sans);
+  --font-display-lg:         var(--font-sans);
+  --font-caption:            var(--font-sans);
+  --font-headline-h1-mobile: var(--font-sans);
+  --font-label-mono-base:    var(--font-mono);
+  --font-label-mono-lg:      var(--font-mono);
 
   /* ─── Font Sizes ────────────────────────────────────── */
   --text-display-lg:        48px;
@@ -125,99 +86,36 @@ html, body {
 }
 
 body {
-  background: linear-gradient(180deg, #0A0B0D 0%, #111508 100%);
-  color: #FFFFFF;
+  background: var(--color-page);
+  color: var(--color-text-primary);
 }
 
-/* ─── Input focus ring ──────────────────────────────────────────────── */
-.input-focus-ring:focus-within {
-  border-color: #CCFF00;
-  box-shadow: 0 0 0 2px rgba(204, 255, 0, 0.10);
+/* ─── Themed backgrounds ────────────────────────────────────────────── */
+.bg-page-gradient {
+  background:
+    radial-gradient(120% 90% at 15% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 55%),
+    radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--color-brand-hover) 10%, transparent) 0%, transparent 50%),
+    linear-gradient(180deg, var(--color-page) 0%, var(--color-page-deep) 100%);
 }
 
-/* ─── Amplify CSS variable bridge ───────────────────────────────────── */
-/* Maps design tokens to Amplify's CSS custom property namespace so any  */
-/* Amplify-internal elements that bypass slot overrides stay on-theme.   */
-:root {
-  /* Brand / primary */
-  --amplify-colors-brand-primary-10:  #1a2200;
-  --amplify-colors-brand-primary-20:  #253100;
-  --amplify-colors-brand-primary-40:  #3c4d00;
-  --amplify-colors-brand-primary-60:  #556d00;
-  --amplify-colors-brand-primary-80:  #CCFF00;
-  --amplify-colors-brand-primary-90:  #CCFF00;
-  --amplify-colors-brand-primary-100: #e6ff66;
+.focus-ring:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 15%, transparent);
+}
 
-  /* Background / surface */
-  --amplify-colors-background-primary:   #111508;
-  --amplify-colors-background-secondary: #1a1d10;
-  --amplify-colors-background-tertiary:  #282b1d;
+/* ─── Brand overrides ───────────────────────────────────────────────────
+   One block per client. These sit outside @layer, so they beat the @theme
+   defaults regardless of specificity. Adding a client is a block here plus
+   an entry in src/brands.ts — no view touches a brand colour directly. */
+:root[data-brand="noda"] {
+  --color-brand:       #0DC1C6;
+  --color-brand-hover: #44EAEE;
+  --color-on-brand:    #060C39;
 
-  /* Text */
-  --amplify-colors-font-primary:   #FFFFFF;
-  --amplify-colors-font-secondary: #A1A1AA;
-  --amplify-colors-font-tertiary:  #52525B;
-  --amplify-colors-font-inverse:   #000000;
-  --amplify-colors-font-active:    #CCFF00;
-  --amplify-colors-font-focus:     #CCFF00;
+  --color-page:      #060C39;
+  --color-page-deep: #04081F;
+  --color-surface-1: #0B1445;
+  --color-surface-2: #141E5C;
 
-  /* Border */
-  --amplify-colors-border-primary:   rgba(255, 255, 255, 0.12);
-  --amplify-colors-border-secondary: rgba(255, 255, 255, 0.08);
-  --amplify-colors-border-focus:     #CCFF00;
-  --amplify-colors-border-error:     #ffb4ab;
-
-  /* Authenticator router (card) */
-  --amplify-components-authenticator-router-background-color: #141517;
-  --amplify-components-authenticator-router-border-color:     rgba(255, 255, 255, 0.08);
-  --amplify-components-authenticator-router-border-width:     1px;
-  --amplify-components-authenticator-router-border-style:     solid;
-  --amplify-components-authenticator-router-box-shadow:       0 4px 24px rgba(0, 0, 0, 0.4);
-  --amplify-components-authenticator-router-border-radius:    0.5rem;
-
-  /* Button — primary */
-  --amplify-components-button-primary-background-color:         #CCFF00;
-  --amplify-components-button-primary-color:                    #000000;
-  --amplify-components-button-primary-border-color:             transparent;
-  --amplify-components-button-primary-hover-background-color:   #d6ff33;
-  --amplify-components-button-primary-hover-color:              #000000;
-  --amplify-components-button-primary-focus-background-color:   #CCFF00;
-  --amplify-components-button-primary-active-background-color:  #b8e600;
-
-  /* Button — default */
-  --amplify-components-button-color:              #A1A1AA;
-  --amplify-components-button-background-color:   transparent;
-  --amplify-components-button-border-color:       rgba(255, 255, 255, 0.08);
-  --amplify-components-button-hover-color:        #FFFFFF;
-  --amplify-components-button-focus-box-shadow:   0 0 0 2px rgba(204, 255, 0, 0.2);
-
-  /* Tabs */
-  --amplify-components-tabs-background-color:          transparent;
-  --amplify-components-tabs-border-color:              rgba(255, 255, 255, 0.08);
-  --amplify-components-tabs-item-color:                #A1A1AA;
-  --amplify-components-tabs-item-active-color:         #FFFFFF;
-  --amplify-components-tabs-item-active-border-color:  #CCFF00;
-  --amplify-components-tabs-item-hover-color:          #FFFFFF;
-  --amplify-components-tabs-item-focus-color:          #FFFFFF;
-  --amplify-components-tabs-item-background-color:     transparent;
-
-  /* Input / field */
-  --amplify-components-field-label-color:                  #FFFFFF;
-  --amplify-components-fieldcontrol-color:                 #FFFFFF;
-  --amplify-components-fieldcontrol-background-color:      #141517;
-  --amplify-components-fieldcontrol-border-color:          rgba(255, 255, 255, 0.08);
-  --amplify-components-fieldcontrol-focus-border-color:    #CCFF00;
-  --amplify-components-fieldcontrol-focus-box-shadow:      0 0 0 2px rgba(204, 255, 0, 0.1);
-  --amplify-components-fieldcontrol-placeholder-color:     rgba(161, 161, 170, 0.5);
-
-  /* Heading inside authenticator */
-  --amplify-components-heading-color: #FFFFFF;
-
-  /* Link */
-  --amplify-components-link-color:       #A1A1AA;
-  --amplify-components-link-hover-color: #CCFF00;
-
-  /* Alert / error */
-  --amplify-components-alert-error-background-color: rgba(147, 0, 10, 0.3);
-  --amplify-components-alert-error-color:            #ffb4ab;
+  --font-sans: "Inter", sans-serif;
 }

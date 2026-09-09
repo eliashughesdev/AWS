@@ -3,8 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE } from '../config'
 
 const router = useRouter()
 
@@ -88,8 +87,8 @@ function txToDisplay(tx: any) {
   return {
     id:          tx.txId,
     icon:        isTransferSent ? 'compare_arrows' : isIncoming ? 'call_received' : 'call_made',
-    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-[#CCFF00]/10',
-    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-[#CCFF00]',
+    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-brand/10',
+    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-brand',
     description: isTransferReceived
       ? `Transfer from ${String(tx.from ?? '').slice(0, 8)}…`
       : isTransferSent
@@ -105,7 +104,7 @@ function txToDisplay(tx: any) {
     amount:      isIncoming && !isFailed
       ? `+${tx.amount} ${tx.currency}`
       : `-${tx.amount} ${tx.currency}`,
-    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-[#CCFF00]' : '',
+    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-brand' : '',
     accountLabel: (() => {
       const acct = accounts.value.find(a => a.accountNumber === tx.accountNumber)
       return acct?.chain ?? acct?.currency ?? '—'
@@ -121,8 +120,8 @@ const showAccountColumn = () => selectedAccount.value === null
     <section class="p-8 max-w-7xl mx-auto w-full">
 
       <div class="mb-8">
-        <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-1">Ledger</h1>
-        <p class="text-[14px] text-[#A1A1AA]">Full transaction history, newest first.</p>
+        <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-1">Ledger</h1>
+        <p class="text-[14px] text-text-secondary">Full transaction history, newest first.</p>
       </div>
 
       <!-- Account selector -->
@@ -130,8 +129,8 @@ const showAccountColumn = () => selectedAccount.value === null
         <button
           @click="selectAccount(null)"
           :class="selectedAccount === null
-            ? 'bg-[#CCFF00] text-[#0A0B0D] font-bold'
-            : 'bg-[#1a1d10] text-[#A1A1AA] border border-white/[0.08] hover:text-white hover:border-white/20'"
+            ? 'bg-brand text-on-brand font-bold'
+            : 'bg-surface-1 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
           class="font-['JetBrains_Mono'] text-xs px-4 py-2 rounded-full transition-all">
           All Accounts
         </button>
@@ -140,25 +139,25 @@ const showAccountColumn = () => selectedAccount.value === null
           :key="acct.accountNumber"
           @click="selectAccount(acct.accountNumber)"
           :class="selectedAccount === acct.accountNumber
-            ? 'bg-[#CCFF00] text-[#0A0B0D] font-bold'
-            : 'bg-[#1a1d10] text-[#A1A1AA] border border-white/[0.08] hover:text-white hover:border-white/20'"
+            ? 'bg-brand text-on-brand font-bold'
+            : 'bg-surface-1 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
           class="font-['JetBrains_Mono'] text-xs px-4 py-2 rounded-full transition-all">
           {{ acct.chain ?? acct.currency ?? acct.accountNumber }}
         </button>
       </div>
 
       <!-- Transaction table -->
-      <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
         <table class="w-full text-left">
-          <thead class="bg-[#282b1d] border-b border-white/[0.08]">
+          <thead class="bg-surface-2 border-b border-border-subtle">
             <tr>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Transaction</th>
-              <th v-if="showAccountColumn()" class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Account</th>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Status</th>
-              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase text-right">Amount</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
+              <th v-if="showAccountColumn()" class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Account</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Status</th>
+              <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase text-right">Amount</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-white/[0.08]">
+          <tbody class="divide-y divide-border-subtle">
             <!-- Loading skeleton -->
             <template v-if="transactionsLoading">
               <tr v-for="i in 5" :key="i" class="animate-pulse">
@@ -178,7 +177,7 @@ const showAccountColumn = () => selectedAccount.value === null
             </template>
             <!-- Empty state -->
             <tr v-else-if="transactions.length === 0">
-              <td :colspan="showAccountColumn() ? 4 : 3" class="px-6 py-12 text-center text-[#52525B] font-['JetBrains_Mono'] text-xs">
+              <td :colspan="showAccountColumn() ? 4 : 3" class="px-6 py-12 text-center text-text-muted font-['JetBrains_Mono'] text-xs">
                 No transactions found for this account.
               </td>
             </tr>
@@ -195,12 +194,12 @@ const showAccountColumn = () => selectedAccount.value === null
                   </div>
                   <div>
                     <p class="text-[14px]">{{ tx.description }}</p>
-                    <p class="text-[12px] text-[#52525B]">{{ tx.date }}</p>
+                    <p class="text-[12px] text-text-muted">{{ tx.date }}</p>
                   </div>
                 </div>
               </td>
               <td v-if="showAccountColumn()" class="px-6 py-4">
-                <span class="font-['JetBrains_Mono'] text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/[0.08] text-[#A1A1AA]">
+                <span class="font-['JetBrains_Mono'] text-[10px] px-2 py-0.5 rounded bg-white/5 border border-border-subtle text-text-secondary">
                   {{ tx.accountLabel }}
                 </span>
               </td>

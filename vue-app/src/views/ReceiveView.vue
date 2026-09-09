@@ -4,8 +4,7 @@ import { fetchUserAttributes, fetchAuthSession, getCurrentUser, signOut } from '
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE } from '../config'
 
 const router = useRouter()
 
@@ -62,10 +61,11 @@ async function loadAccounts() {
 
 async function generateQr(address: string) {
   try {
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--color-brand').trim()
     qrDataUrl.value = await QRCode.toDataURL(address, {
       width: 200,
       margin: 2,
-      color: { dark: '#000000', light: '#CCFF00' },
+      color: { dark: '#000000', light: brand },
     })
   } catch {
     qrDataUrl.value = ''
@@ -145,12 +145,12 @@ async function handleSignOut() {
   <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
     <section class="p-8 max-w-7xl mx-auto w-full">
 
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Receive Crypto</h1>
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Receive Crypto</h1>
 
       <!-- Loading skeleton -->
       <div v-if="loading" class="max-w-2xl mx-auto space-y-4">
-        <div class="h-28 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
-        <div class="h-28 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
+        <div class="h-28 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
+        <div class="h-28 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
       </div>
 
       <template v-else>
@@ -158,11 +158,11 @@ async function handleSignOut() {
 
           <!-- Empty state: no accounts at all -->
           <div v-if="accounts.length === 0"
-            class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col items-center gap-4 text-center">
-            <span class="material-symbols-outlined text-5xl text-[#52525B]">account_balance_wallet</span>
+            class="bg-surface-1 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-4 text-center">
+            <span class="material-symbols-outlined text-5xl text-text-muted">account_balance_wallet</span>
             <div>
-              <p class="text-sm text-[#A1A1AA] mb-1">No accounts yet.</p>
-              <p class="text-xs text-[#52525B]">Create one to get a deposit address.</p>
+              <p class="text-sm text-text-secondary mb-1">No accounts yet.</p>
+              <p class="text-xs text-text-muted">Create one to get a deposit address.</p>
             </div>
           </div>
 
@@ -170,7 +170,7 @@ async function handleSignOut() {
           <div
             v-for="acc in accounts"
             :key="acc.accountNo"
-            class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-5 flex flex-col gap-4">
+            class="bg-surface-1 border border-border-subtle rounded-xl p-5 flex flex-col gap-4">
 
             <!-- Header: chain -->
             <div class="flex items-center gap-3">
@@ -183,21 +183,21 @@ async function handleSignOut() {
               </span>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-bold text-white">{{ meta(acc.chain).label }}</p>
-                <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] truncate">
+                <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted truncate">
                   {{ acc.accountNo }}
                 </p>
               </div>
             </div>
 
             <!-- Address + copy -->
-            <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 flex items-center gap-3">
+            <div class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 flex items-center gap-3">
               <span class="flex-1 font-['JetBrains_Mono'] text-xs text-white break-all">
                 {{ acc.depositAddress }}
               </span>
               <button
                 @click="copyAddress(acc.depositAddress)"
                 class="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest transition-colors"
-                :class="copiedAddress === acc.depositAddress ? 'text-[#CCFF00]' : 'text-[#52525B] hover:text-white'">
+                :class="copiedAddress === acc.depositAddress ? 'text-brand' : 'text-text-muted hover:text-white'">
                 <span class="material-symbols-outlined text-sm">
                   {{ copiedAddress === acc.depositAddress ? 'check' : 'content_copy' }}
                 </span>
@@ -213,7 +213,7 @@ async function handleSignOut() {
               </p>
               <button
                 @click="showQr(acc)"
-                class="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-widest px-3 py-2 bg-[#0A0B0D] border border-white/[0.08] text-white rounded-lg hover:border-[#CCFF00]/50 transition-colors">
+                class="shrink-0 flex items-center gap-1.5 font-['JetBrains_Mono'] text-[10px] font-bold uppercase tracking-widest px-3 py-2 bg-page border border-border-subtle text-white rounded-full hover:border-brand/50 transition-colors">
                 <span class="material-symbols-outlined text-sm">qr_code_2</span>
                 Show QR
               </button>
@@ -229,7 +229,7 @@ async function handleSignOut() {
                 :key="chain"
                 @click="createAccount(chain)"
                 :disabled="creatingChain !== null"
-                class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2.5 border border-[#CCFF00]/40 text-[#CCFF00] rounded-lg hover:bg-[#CCFF00]/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2.5 border border-brand/40 text-brand rounded-full hover:bg-brand/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 {{ creatingChain === chain ? 'Creating…' : `Create ${meta(chain).ticker} Account` }}
               </button>
             </div>
@@ -245,24 +245,24 @@ async function handleSignOut() {
       <div
         v-if="qrModalAccount"
         @click.self="closeQr"
-        class="fixed inset-0 z-50 bg-[#0A0B0D]/90 backdrop-blur-sm flex items-center justify-center p-6">
-        <div class="bg-[#1a1d10] border border-white/[0.08] rounded-2xl p-6 max-w-sm w-full flex flex-col items-center gap-5 relative">
+        class="fixed inset-0 z-50 bg-page/90 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="bg-surface-1 border border-border-subtle rounded-2xl p-6 max-w-sm w-full flex flex-col items-center gap-5 relative">
 
           <button
             @click="closeQr"
-            class="absolute right-4 top-4 text-[#52525B] hover:text-white transition-colors">
+            class="absolute right-4 top-4 text-text-muted hover:text-white transition-colors">
             <span class="material-symbols-outlined">close</span>
           </button>
 
           <div class="text-center">
             <p class="text-sm font-bold text-white">{{ meta(qrModalAccount.chain).label }}</p>
-            <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B]">
+            <p class="font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted">
               Deposit address
             </p>
           </div>
 
           <!-- QR code -->
-          <div class="p-3 bg-[#CCFF00] rounded-xl">
+          <div class="p-3 bg-brand rounded-xl">
             <img
               v-if="qrDataUrl"
               :src="qrDataUrl"
@@ -270,19 +270,19 @@ async function handleSignOut() {
               class="w-48 h-48 block"
             />
             <div v-else class="w-48 h-48 flex items-center justify-center">
-              <span class="material-symbols-outlined text-4xl text-[#0A0B0D] animate-spin">autorenew</span>
+              <span class="material-symbols-outlined text-4xl text-on-brand animate-spin">autorenew</span>
             </div>
           </div>
 
           <!-- Address + copy -->
-          <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 flex items-center gap-3">
+          <div class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 flex items-center gap-3">
             <span class="flex-1 font-['JetBrains_Mono'] text-xs text-white break-all">
               {{ qrModalAccount.depositAddress }}
             </span>
             <button
               @click="copyAddress(qrModalAccount.depositAddress)"
               class="shrink-0 flex items-center gap-1 font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest transition-colors"
-              :class="copiedAddress === qrModalAccount.depositAddress ? 'text-[#CCFF00]' : 'text-[#52525B] hover:text-white'">
+              :class="copiedAddress === qrModalAccount.depositAddress ? 'text-brand' : 'text-text-muted hover:text-white'">
               <span class="material-symbols-outlined text-sm">
                 {{ copiedAddress === qrModalAccount.depositAddress ? 'check' : 'content_copy' }}
               </span>

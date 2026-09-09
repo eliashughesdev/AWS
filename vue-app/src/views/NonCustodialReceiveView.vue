@@ -22,10 +22,11 @@ const displayName = computed(() => {
 
 async function generateQr(address: string) {
   try {
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--color-brand').trim()
     qrDataUrl.value = await QRCode.toDataURL(address, {
       width: 220,
       margin: 2,
-      color: { dark: '#000000', light: '#CCFF00' },
+      color: { dark: '#000000', light: brand },
     })
   } catch {
     qrDataUrl.value = ''
@@ -58,17 +59,17 @@ function handleSignOut() {
 <template>
   <MainLayout :displayName="displayName" userEmail="" :nonCustodial="true" @signOut="handleSignOut">
     <section class="p-8 max-w-xl mx-auto w-full">
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Receive</h1>
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Receive</h1>
 
-      <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col items-center gap-6">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-6">
 
         <div class="w-full">
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Wallet
           </label>
           <select
             v-model="selected"
-            class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 transition-colors">
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors">
             <option v-for="w in session.wallets.value" :key="w.address" :value="w.address">
               {{ chainLabels[w.chain] }} — {{ w.address }}
             </option>
@@ -78,22 +79,22 @@ function handleSignOut() {
         <img v-if="qrDataUrl" :src="qrDataUrl" alt="Wallet address QR code" class="rounded-lg" />
 
         <div class="w-full">
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Your {{ wallet ? chainLabels[wallet.chain] : '' }} address
           </label>
           <div class="relative">
-            <div class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 pr-20 font-['JetBrains_Mono'] text-xs text-white break-all">
+            <div class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 pr-20 font-['JetBrains_Mono'] text-xs text-white break-all">
               {{ wallet?.address }}
             </div>
             <button
               @click="copyAddress"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#CCFF00] text-black font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:bg-lime-300 transition-colors">
+              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand text-on-brand font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:bg-brand-hover transition-colors">
               {{ copied ? 'Copied!' : 'Copy' }}
             </button>
           </div>
         </div>
 
-        <p class="font-['JetBrains_Mono'] text-[11px] text-[#52525B] text-center">
+        <p class="font-['JetBrains_Mono'] text-[11px] text-text-muted text-center">
           Send only {{ wallet ? chainLabels[wallet.chain] : '' }} assets to this address.
           Incoming funds appear on your wallet within about 30 seconds.
         </p>

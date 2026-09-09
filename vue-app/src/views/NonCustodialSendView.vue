@@ -107,33 +107,33 @@ function handleSignOut() {
 <template>
   <MainLayout :displayName="displayName" userEmail="" :nonCustodial="true" @signOut="handleSignOut">
     <section class="p-8 max-w-2xl mx-auto w-full">
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Send</h1>
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Send</h1>
 
-      <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-8 flex flex-col gap-6">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl p-8 flex flex-col gap-6">
 
         <!-- Success -->
-        <div v-if="txId" class="flex items-start gap-4 p-4 bg-[#CCFF00]/10 border border-[#CCFF00]/30 rounded-lg">
-          <span class="material-symbols-outlined text-[#CCFF00] shrink-0">check_circle</span>
+        <div v-if="txId" class="flex items-start gap-4 p-4 bg-brand/10 border border-brand/30 rounded-lg">
+          <span class="material-symbols-outlined text-brand shrink-0">check_circle</span>
           <div class="min-w-0">
-            <p class="text-sm text-[#CCFF00] mb-1">Broadcast to the network.</p>
-            <p class="font-['JetBrains_Mono'] text-[11px] text-[#A1A1AA] break-all">{{ txId }}</p>
+            <p class="text-sm text-brand mb-1">Broadcast to the network.</p>
+            <p class="font-['JetBrains_Mono'] text-[11px] text-text-secondary break-all">{{ txId }}</p>
           </div>
         </div>
 
         <!-- From -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             From
           </label>
           <select
             v-model="fromAddress"
             @change="loadBalance"
-            class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 transition-colors">
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors">
             <option v-for="w in session.wallets.value" :key="w.address" :value="w.address">
               {{ chainLabels[w.chain] }} — {{ w.address }}
             </option>
           </select>
-          <p class="mt-2 font-['JetBrains_Mono'] text-[11px] text-[#52525B]">
+          <p class="mt-2 font-['JetBrains_Mono'] text-[11px] text-text-muted">
             Balance:
             <span v-if="balance === null">reading…</span>
             <span v-else>{{ balance.toFixed(6) }} {{ wallet?.chain === 'SOL' ? 'SOL' : 'TRX' }}</span>
@@ -142,7 +142,7 @@ function handleSignOut() {
 
         <!-- Destination -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Destination address
           </label>
           <input
@@ -150,13 +150,13 @@ function handleSignOut() {
             type="text"
             spellcheck="false"
             placeholder="Paste the recipient's address"
-            class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 transition-colors"
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors"
           />
         </div>
 
         <!-- Amount -->
         <div>
-          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+          <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
             Amount
           </label>
           <div class="relative">
@@ -165,17 +165,17 @@ function handleSignOut() {
               type="text"
               inputmode="decimal"
               placeholder="0.00"
-              class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 pr-16 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 transition-colors"
+              class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 pr-16 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors"
             />
             <button
               type="button"
               @click="setMax"
               :disabled="balance === null"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white/5 border border-white/[0.08] text-[#A1A1AA] font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:text-white disabled:opacity-40">
+              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white/5 border border-border-subtle text-text-secondary font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:text-white disabled:opacity-40">
               MAX
             </button>
           </div>
-          <p v-if="wallet?.chain === 'SOL'" class="mt-2 font-['JetBrains_Mono'] text-[11px] text-[#52525B]">
+          <p v-if="wallet?.chain === 'SOL'" class="mt-2 font-['JetBrains_Mono'] text-[11px] text-text-muted">
             ~{{ SOL_FEE_BUFFER }} SOL is held back for network fees.
           </p>
         </div>
@@ -185,11 +185,11 @@ function handleSignOut() {
         <button
           @click="handleSend"
           :disabled="sending || !destination || !amount"
-          class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="w-full bg-brand text-on-brand font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ sending ? 'Signing & broadcasting…' : 'Sign & Send' }}
         </button>
 
-        <p class="font-['JetBrains_Mono'] text-[11px] text-[#52525B] text-center">
+        <p class="font-['JetBrains_Mono'] text-[11px] text-text-muted text-center">
           Signed locally with your key. It never leaves this browser.
         </p>
 

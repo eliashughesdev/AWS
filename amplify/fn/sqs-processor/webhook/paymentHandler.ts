@@ -91,12 +91,18 @@ export const handlePayment = async (message: any): Promise<boolean> => {
   try {
     // Build configuration for payment processor
     const processorConfig = {
-      evervaultAppId: 'app_322d8e2bc10b',
+      evervaultAppId: process.env.EVERVAULT_APP_ID || '',
       evervaultApiKey: process.env.EVERVAULT_API_KEY || '',
       stripeApiKey: process.env.STRIPE_API_KEY,
       cloverPrivateToken: process.env.CLOVER_PRIVATE_TOKEN,
       cloverPublicKey: process.env.CLOVER_PUBLIC_KEY
     }
+
+    if (!processorConfig.evervaultAppId) {
+      console.error('EVERVAULT_APP_ID is not set in SSM — cannot build an Evervault client')
+      return false
+    }
+
     console.log('DEBUG: Payment processor configuration built.', JSON.stringify(processorConfig))
 
     // Determine provider based on BIN lookup (US/CA → Clover, otherwise → Stripe)

@@ -3,9 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-
-const API_BASE = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1'
-const WS_BASE  = 'wss://v4vqz0z2q4.execute-api.us-east-2.amazonaws.com/v1'
+import { API_BASE, WS_BASE } from '../config'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 
@@ -235,24 +233,24 @@ async function handleSignOut() {
   <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
     <section class="p-8 max-w-7xl mx-auto w-full">
 
-      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-8">Withdraw</h1>
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Withdraw</h1>
 
       <!-- Loading skeleton -->
       <div v-if="loading" class="max-w-lg mx-auto space-y-4">
-        <div class="h-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
-        <div class="h-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl animate-pulse" />
+        <div class="h-20 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
+        <div class="h-20 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
       </div>
 
       <template v-else>
 
         <!-- Empty state: no crypto accounts -->
         <div v-if="accounts.length === 0"
-          class="max-w-lg mx-auto flex flex-col items-center justify-center py-20 bg-[#1a1d10] border border-white/[0.08] rounded-xl text-center">
-          <span class="material-symbols-outlined text-5xl text-[#52525B] mb-4">account_balance_wallet</span>
-          <p class="text-[#A1A1AA] text-sm mb-1">No crypto account found.</p>
-          <p class="text-[#52525B] text-xs mb-6">Please create one from your dashboard.</p>
+          class="max-w-lg mx-auto flex flex-col items-center justify-center py-20 bg-surface-1 border border-border-subtle rounded-xl text-center">
+          <span class="material-symbols-outlined text-5xl text-text-muted mb-4">account_balance_wallet</span>
+          <p class="text-text-secondary text-sm mb-1">No crypto account found.</p>
+          <p class="text-text-muted text-xs mb-6">Please create one from your dashboard.</p>
           <RouterLink :to="{ name: 'dashboard' }"
-            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-[#CCFF00] text-black rounded hover:bg-lime-300 active:scale-95 transition-all">
+            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all">
             Go to Dashboard
           </RouterLink>
         </div>
@@ -263,20 +261,20 @@ async function handleSignOut() {
           <!-- Processing overlay -->
           <Transition name="overlay">
             <div v-if="withdrawStatus !== 'idle'"
-              class="absolute inset-0 z-10 bg-[#0A0B0D]/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4 p-8 text-center">
+              class="absolute inset-0 z-10 bg-page/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4 p-8 text-center">
 
               <template v-if="withdrawStatus === 'processing'">
-                <span class="material-symbols-outlined text-6xl text-[#CCFF00] animate-spin" style="animation-duration: 1.5s">autorenew</span>
-                <p class="font-['JetBrains_Mono'] text-sm text-[#A1A1AA]">Processing your withdrawal…</p>
-                <p class="text-xs text-[#52525B]">This may take a moment. Please don't close this page.</p>
+                <span class="material-symbols-outlined text-6xl text-brand animate-spin" style="animation-duration: 1.5s">autorenew</span>
+                <p class="font-['JetBrains_Mono'] text-sm text-text-secondary">Processing your withdrawal…</p>
+                <p class="text-xs text-text-muted">This may take a moment. Please don't close this page.</p>
               </template>
 
               <template v-else-if="withdrawStatus === 'success'">
-                <span class="material-symbols-outlined text-6xl text-[#CCFF00]" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                <span class="material-symbols-outlined text-6xl text-brand" style="font-variation-settings: 'FILL' 1">check_circle</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Submitted!</p>
-                <p class="text-xs text-[#52525B]">Your balance will be updated once confirmed on-chain.</p>
+                <p class="text-xs text-text-muted">Your balance will be updated once confirmed on-chain.</p>
                 <RouterLink :to="{ name: 'dashboard' }"
-                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-[#CCFF00] text-black rounded-lg hover:bg-lime-300 active:scale-95 transition-all">
+                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all">
                   Back to Dashboard
                 </RouterLink>
               </template>
@@ -286,7 +284,7 @@ async function handleSignOut() {
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Failed</p>
                 <p class="text-sm text-red-400">{{ withdrawError }}</p>
                 <button @click="resetForm"
-                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-[#1a1d10] border border-white/[0.08] text-white rounded-lg hover:bg-[#282b1d] active:scale-95 transition-all">
+                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-surface-1 border border-border-subtle text-white rounded-full hover:bg-surface-2 active:scale-95 transition-all">
                   Try Again
                 </button>
               </template>
@@ -295,17 +293,17 @@ async function handleSignOut() {
           </Transition>
 
           <!-- Form panel -->
-          <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl p-6 flex flex-col gap-6">
-            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">New Withdrawal</h2>
+          <div class="bg-surface-1 border border-border-subtle rounded-xl p-6 flex flex-col gap-6">
+            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">New Withdrawal</h2>
 
             <!-- Mode toggle -->
-            <div class="flex bg-[#0A0B0D] border border-white/[0.08] rounded-lg p-1 gap-1">
+            <div class="flex bg-page border border-border-subtle rounded-lg p-1 gap-1">
               <button
                 type="button"
                 @click="withdrawMode = 'usd'; amount = ''"
                 :class="[
                   'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
-                  withdrawMode === 'usd' ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+                  withdrawMode === 'usd' ? 'bg-brand text-on-brand' : 'text-text-secondary hover:text-white'
                 ]">
                 Pay in USD
               </button>
@@ -314,7 +312,7 @@ async function handleSignOut() {
                 @click="withdrawMode = 'crypto'; amount = ''"
                 :class="[
                   'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
-                  withdrawMode === 'crypto' ? 'bg-[#CCFF00] text-[#0A0B0D]' : 'text-[#A1A1AA] hover:text-white'
+                  withdrawMode === 'crypto' ? 'bg-brand text-on-brand' : 'text-text-secondary hover:text-white'
                 ]">
                 Pay in {{ selectedAccountData?.chain ?? 'Crypto' }}
               </button>
@@ -322,10 +320,10 @@ async function handleSignOut() {
 
             <!-- Account selector -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">Account</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Account</label>
               <select
                 v-model="selectedAccount"
-                class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors appearance-none cursor-pointer">
+                class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors appearance-none cursor-pointer">
                 <option v-for="acc in accounts" :key="acc.accountNo" :value="acc.accountNo">
                   {{ acc.chain }} — Balance: {{ acc.balance }} {{ acc.chain }}
                 </option>
@@ -334,7 +332,7 @@ async function handleSignOut() {
 
             <!-- Amount -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">Amount</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Amount</label>
               <div class="flex gap-3">
                 <input
                   v-model="amount"
@@ -342,38 +340,38 @@ async function handleSignOut() {
                   min="0.000001"
                   step="any"
                   placeholder="0.00"
-                  class="flex-1 bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
+                  class="flex-1 bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
                 />
-                <div class="flex items-center px-4 bg-[#0A0B0D] border border-white/[0.08] rounded-lg text-sm font-['JetBrains_Mono'] text-[#52525B] shrink-0">
+                <div class="flex items-center px-4 bg-page border border-border-subtle rounded-lg text-sm font-['JetBrains_Mono'] text-text-muted shrink-0">
                   {{ withdrawMode === 'crypto' ? (selectedAccountData?.chain ?? '—') : 'USD' }}
                 </div>
               </div>
               <!-- Equivalent preview -->
               <div class="mt-2 h-5 flex items-center">
                 <template v-if="rateLoading">
-                  <span class="text-xs text-[#52525B] animate-pulse">Fetching rate…</span>
+                  <span class="text-xs text-text-muted animate-pulse">Fetching rate…</span>
                 </template>
                 <template v-else-if="withdrawMode === 'usd' && cryptoEquivalent && selectedAccountData">
-                  <span class="text-xs text-[#CCFF00] font-['JetBrains_Mono']">
+                  <span class="text-xs text-brand font-['JetBrains_Mono']">
                     ≈ {{ cryptoEquivalent }} {{ selectedAccountData.chain }}
                   </span>
-                  <span class="text-xs text-[#52525B] ml-2">(live rate)</span>
+                  <span class="text-xs text-text-muted ml-2">(live rate)</span>
                 </template>
                 <template v-else-if="withdrawMode === 'crypto' && usdEquivalent && selectedAccountData">
-                  <span class="text-xs text-[#CCFF00] font-['JetBrains_Mono']">≈ ${{ usdEquivalent }}</span>
-                  <span class="text-xs text-[#52525B] ml-2">(live rate)</span>
+                  <span class="text-xs text-brand font-['JetBrains_Mono']">≈ ${{ usdEquivalent }}</span>
+                  <span class="text-xs text-text-muted ml-2">(live rate)</span>
                 </template>
               </div>
             </div>
 
             <!-- Destination address -->
             <div>
-              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-[#52525B] mb-1.5">Destination Address</label>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Destination Address</label>
               <input
                 v-model="destinationAddress"
                 type="text"
                 placeholder="Paste blockchain address"
-                class="w-full bg-[#0A0B0D] border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-white placeholder-[#52525B] font-['JetBrains_Mono'] focus:outline-none focus:border-[#CCFF00]/50 focus:ring-1 focus:ring-[#CCFF00]/30 transition-colors"
+                class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
               />
             </div>
 
@@ -385,7 +383,7 @@ async function handleSignOut() {
               type="button"
               @click="submit"
               :disabled="submitting"
-              class="w-full bg-[#CCFF00] text-[#0A0B0D] font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-lg hover:bg-lime-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              class="w-full bg-brand text-on-brand font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               {{ submitting ? 'Submitting…' : 'Withdraw' }}
             </button>
           </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { fetchAuthSession } from 'aws-amplify/auth'
+import { API_BASE } from '../config'
 
 type KycStatus = 'Not Started' | 'In Progress' | 'In Review' | 'Approved' | 'Declined' | 'Abandoned' | 'Expired'
 
@@ -24,7 +25,7 @@ export default function KycComplete() {
       const token = session.tokens?.accessToken?.toString()
 
       const { data } = await axios.get(
-        'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/kyc/status',
+        `${API_BASE}/accounts/kyc/status`,
         {
           headers: {
             'X-Project': 'e2e-hmac',

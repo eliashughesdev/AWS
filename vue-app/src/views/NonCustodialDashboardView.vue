@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
+import { brand } from '../brands'
 import { useWalletSession } from '../wallet/session'
 import { readWallet, READ_TTL_MS, type WalletRead } from '../wallet/reads'
 import { chainLabels, type OnChainTx } from '../wallet/types'
@@ -100,14 +101,14 @@ function txToDisplay(tx: OnChainTx) {
   return {
     id: tx.txId,
     icon: incoming ? 'call_received' : 'call_made',
-    iconBg: incoming ? 'bg-[#CCFF00]/10' : 'bg-blue-400/10',
-    iconColor: incoming ? 'text-[#CCFF00]' : 'text-blue-400',
+    iconBg: incoming ? 'bg-brand/10' : 'bg-blue-400/10',
+    iconColor: incoming ? 'text-brand' : 'text-blue-400',
     description: incoming
       ? `Received from ${String(counterparty ?? 'unknown').slice(0, 8)}…`
       : `Sent to ${String(counterparty ?? 'unknown').slice(0, 8)}…`,
     date: tx.timestamp ? new Date(tx.timestamp).toLocaleString() : '—',
     amount: `${incoming ? '+' : ''}${tx.amount.toFixed(6)} ${tx.currency}`,
-    amountClass: incoming ? 'text-[#CCFF00]' : '',
+    amountClass: incoming ? 'text-brand' : '',
   }
 }
 
@@ -124,21 +125,21 @@ const lastUpdatedLabel = computed(() =>
       <span class="material-symbols-outlined text-amber-400 shrink-0">key</span>
       <p class="text-sm text-amber-300 flex-1">
         Anonymous session. Your key is held in this tab only — closing it signs you out, and
-        you'll need the key to return. Loudibly stores nothing.
+        you'll need the key to return. {{ brand.name }} stores nothing.
       </p>
     </div>
 
     <section class="p-8 max-w-7xl mx-auto w-full">
 
       <div class="flex justify-between items-center mb-12">
-        <p class="text-[14px] text-[#A1A1AA]">Reading live from the blockchain.</p>
+        <p class="text-[14px] text-text-secondary">Reading live from the blockchain.</p>
         <div class="flex items-center gap-4">
-          <span class="font-['JetBrains_Mono'] text-[11px] text-[#52525B]">
+          <span class="font-['JetBrains_Mono'] text-[11px] text-text-muted">
             Updated {{ lastUpdatedLabel }}
           </span>
           <button
             @click="refresh(true)"
-            class="flex items-center gap-2 px-3 py-1.5 border border-white/[0.08] rounded-lg text-[#A1A1AA] hover:text-white hover:bg-white/5 transition-all">
+            class="flex items-center gap-2 px-3 py-1.5 border border-border-subtle rounded-full text-text-secondary hover:text-white hover:bg-white/5 transition-all">
             <span class="material-symbols-outlined text-sm">refresh</span>
             <span class="font-['JetBrains_Mono'] text-xs">Refresh</span>
           </button>
@@ -149,11 +150,11 @@ const lastUpdatedLabel = computed(() =>
 
       <!-- Wallets -->
       <div class="mb-12">
-        <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B] mb-6">Your Wallets</h2>
+        <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-6">Your Wallets</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <template v-if="loading">
             <div v-for="i in 2" :key="i"
-              class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg animate-pulse">
+              class="p-5 bg-surface-1 border border-border-subtle rounded-lg animate-pulse">
               <div class="w-10 h-10 rounded bg-white/10 mb-6"></div>
               <div class="w-32 h-7 rounded bg-white/10 mb-2"></div>
               <div class="w-24 h-3 rounded bg-white/10"></div>
@@ -161,17 +162,17 @@ const lastUpdatedLabel = computed(() =>
           </template>
 
           <div v-else v-for="asset in assets" :key="asset.address"
-            class="p-5 bg-[#1a1d10] border border-white/[0.08] rounded-lg relative overflow-hidden">
+            class="p-5 bg-surface-1 border border-border-subtle rounded-lg relative overflow-hidden">
             <div class="flex justify-between items-start mb-6">
               <div class="p-2 rounded" :class="asset.iconBg">
                 <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
               </div>
-              <span class="font-['JetBrains_Mono'] text-xs text-[#52525B]">{{ asset.label }}</span>
+              <span class="font-['JetBrains_Mono'] text-xs text-text-muted">{{ asset.label }}</span>
             </div>
             <p class="font-['JetBrains_Mono'] text-2xl font-bold">{{ asset.amount }}</p>
             <button
               @click="copyAddress(asset.address)"
-              class="mt-2 flex items-center gap-1.5 text-[11px] text-[#A1A1AA] hover:text-white transition-colors font-['JetBrains_Mono'] max-w-full">
+              class="mt-2 flex items-center gap-1.5 text-[11px] text-text-secondary hover:text-white transition-colors font-['JetBrains_Mono'] max-w-full">
               <span class="truncate">{{ asset.address }}</span>
               <span class="material-symbols-outlined text-[14px] shrink-0">
                 {{ copied === asset.address ? 'check' : 'content_copy' }}
@@ -185,18 +186,18 @@ const lastUpdatedLabel = computed(() =>
       <!-- Recent activity -->
       <div>
         <div class="flex justify-between items-center mb-6">
-          <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-[#52525B]">Recent Activity</h2>
-          <RouterLink :to="{ name: 'wallet-ledger' }" class="text-[#CCFF00] font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
+          <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">Recent Activity</h2>
+          <RouterLink :to="{ name: 'wallet-ledger' }" class="text-brand font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
         </div>
-        <div class="bg-[#1a1d10] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
           <table class="w-full text-left">
-            <thead class="bg-[#282b1d] border-b border-white/[0.08]">
+            <thead class="bg-surface-2 border-b border-border-subtle">
               <tr>
-                <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase">Transaction</th>
-                <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-[#52525B] uppercase text-right">Amount</th>
+                <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
+                <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase text-right">Amount</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.08]">
+            <tbody class="divide-y divide-border-subtle">
               <template v-if="loading">
                 <tr v-for="i in 3" :key="i" class="animate-pulse">
                   <td class="px-6 py-4">
@@ -213,7 +214,7 @@ const lastUpdatedLabel = computed(() =>
               </template>
 
               <tr v-else-if="transactions.length === 0">
-                <td colspan="2" class="px-6 py-8 text-center text-[#52525B] font-['JetBrains_Mono'] text-xs">
+                <td colspan="2" class="px-6 py-8 text-center text-text-muted font-['JetBrains_Mono'] text-xs">
                   No transactions on this address yet
                 </td>
               </tr>
@@ -227,7 +228,7 @@ const lastUpdatedLabel = computed(() =>
                     </div>
                     <div>
                       <p class="text-[14px]">{{ tx.description }}</p>
-                      <p class="text-[12px] text-[#52525B]">{{ tx.date }}</p>
+                      <p class="text-[12px] text-text-muted">{{ tx.date }}</p>
                     </div>
                   </div>
                 </td>

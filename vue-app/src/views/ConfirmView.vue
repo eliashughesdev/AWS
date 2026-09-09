@@ -41,16 +41,16 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center p-8">
+  <div class="min-h-screen bg-page flex items-center justify-center p-8">
     <div class="text-center flex flex-col items-center gap-4">
       <template v-if="!failed">
-        <span class="material-symbols-outlined text-[#CCFF00] text-4xl animate-pulse">mark_email_read</span>
+        <span class="material-symbols-outlined text-brand text-4xl animate-pulse">mark_email_read</span>
         <p class="font-['JetBrains_Mono'] text-sm">Confirming your email…</p>
       </template>
       <template v-else>
         <span class="material-symbols-outlined text-red-400 text-4xl">error</span>
         <p class="font-['JetBrains_Mono'] text-sm text-red-400">{{ errorMsg }}</p>
-        <RouterLink :to="{ name: 'auth' }" class="text-[#CCFF00] text-sm hover:underline">Go to sign in →</RouterLink>
+        <RouterLink :to="{ name: 'auth' }" class="text-brand text-sm hover:underline">Go to sign in →</RouterLink>
       </template>
     </div>
   </div>
