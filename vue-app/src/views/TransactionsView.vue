@@ -87,8 +87,8 @@ function txToDisplay(tx: any) {
   return {
     id:          tx.txId,
     icon:        isTransferSent ? 'compare_arrows' : isIncoming ? 'call_received' : 'call_made',
-    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-noda-teal/10',
-    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-noda-teal',
+    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-brand/10',
+    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-brand',
     description: isTransferReceived
       ? `Transfer from ${String(tx.from ?? '').slice(0, 8)}…`
       : isTransferSent
@@ -104,7 +104,7 @@ function txToDisplay(tx: any) {
     amount:      isIncoming && !isFailed
       ? `+${tx.amount} ${tx.currency}`
       : `-${tx.amount} ${tx.currency}`,
-    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-noda-teal' : '',
+    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-brand' : '',
     accountLabel: (() => {
       const acct = accounts.value.find(a => a.accountNumber === tx.accountNumber)
       return acct?.chain ?? acct?.currency ?? '—'
@@ -129,8 +129,8 @@ const showAccountColumn = () => selectedAccount.value === null
         <button
           @click="selectAccount(null)"
           :class="selectedAccount === null
-            ? 'bg-noda-teal text-noda-navy font-bold'
-            : 'bg-noda-navy-2 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
+            ? 'bg-brand text-on-brand font-bold'
+            : 'bg-surface-1 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
           class="font-['JetBrains_Mono'] text-xs px-4 py-2 rounded-full transition-all">
           All Accounts
         </button>
@@ -139,17 +139,17 @@ const showAccountColumn = () => selectedAccount.value === null
           :key="acct.accountNumber"
           @click="selectAccount(acct.accountNumber)"
           :class="selectedAccount === acct.accountNumber
-            ? 'bg-noda-teal text-noda-navy font-bold'
-            : 'bg-noda-navy-2 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
+            ? 'bg-brand text-on-brand font-bold'
+            : 'bg-surface-1 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
           class="font-['JetBrains_Mono'] text-xs px-4 py-2 rounded-full transition-all">
           {{ acct.chain ?? acct.currency ?? acct.accountNumber }}
         </button>
       </div>
 
       <!-- Transaction table -->
-      <div class="bg-noda-navy-2 border border-border-subtle rounded-xl overflow-hidden">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
         <table class="w-full text-left">
-          <thead class="bg-noda-navy-3 border-b border-border-subtle">
+          <thead class="bg-surface-2 border-b border-border-subtle">
             <tr>
               <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
               <th v-if="showAccountColumn()" class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Account</th>

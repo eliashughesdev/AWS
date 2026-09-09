@@ -35,10 +35,10 @@ const navItems = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden bg-noda-navy text-white">
+  <div class="flex h-screen overflow-hidden bg-page text-white">
 
     <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
-    <aside class="hidden md:flex flex-col h-screen p-4 gap-2 bg-noda-navy-2 border-r border-border-subtle w-64 shrink-0">
+    <aside class="hidden md:flex flex-col h-screen p-4 gap-2 bg-surface-1 border-r border-border-subtle w-64 shrink-0">
       <div class="px-2 py-4">
         <img :src="nodaLogo" alt="NODA" class="h-7 w-auto" />
         <p class="text-[10px] uppercase tracking-widest text-text-muted mt-2 font-bold">Smart Wallet</p>
@@ -51,15 +51,15 @@ const navItems = computed(() => {
           :to="{ name: item.name }"
           class="flex items-center gap-3 px-3 py-2 transition-all"
           :class="route.name === item.name
-            ? 'bg-noda-teal/10 text-noda-teal font-bold border-r-2 border-noda-teal'
-            : 'text-text-secondary hover:text-white hover:bg-noda-navy-3'"
+            ? 'bg-brand/10 text-brand font-bold border-r-2 border-brand'
+            : 'text-text-secondary hover:text-white hover:bg-surface-2'"
         >
           <span class="material-symbols-outlined">{{ item.icon }}</span>
           <span class="font-['JetBrains_Mono'] text-[13px]">{{ item.label }}</span>
         </RouterLink>
       </nav>
 
-      <button v-if="!nonCustodial" @click="router.push({ name: 'deposit' })" class="mt-4 bg-noda-teal text-noda-navy font-bold py-2 px-4 rounded-full flex items-center justify-center gap-2 hover:bg-noda-teal-bright active:scale-95 transition-all">
+      <button v-if="!nonCustodial" @click="router.push({ name: 'deposit' })" class="mt-4 bg-brand text-on-brand font-bold py-2 px-4 rounded-full flex items-center justify-center gap-2 hover:bg-brand-hover active:scale-95 transition-all">
         <span class="material-symbols-outlined text-sm">add</span>
         <span class="font-['JetBrains_Mono'] text-[13px]">New Transaction</span>
       </button>
@@ -70,7 +70,7 @@ const navItems = computed(() => {
           <span class="font-['JetBrains_Mono'] text-[13px]">Help</span>
         </a>
         <div class="flex items-center gap-3 px-3 py-4 mt-2">
-          <div class="w-8 h-8 rounded-full bg-noda-navy-3 border border-border-subtle flex items-center justify-center">
+          <div class="w-8 h-8 rounded-full bg-surface-2 border border-border-subtle flex items-center justify-center">
             <span class="material-symbols-outlined text-sm">{{ nonCustodial ? 'key' : 'person' }}</span>
           </div>
           <div class="flex flex-col min-w-0">
@@ -87,7 +87,7 @@ const navItems = computed(() => {
     <main class="flex-1 flex flex-col overflow-y-auto">
 
       <!-- TopAppBar -->
-      <header class="flex justify-between items-center px-8 h-16 w-full border-b border-border-subtle sticky top-0 bg-noda-navy/80 backdrop-blur-md z-10">
+      <header class="flex justify-between items-center px-8 h-16 w-full border-b border-border-subtle sticky top-0 bg-page/80 backdrop-blur-md z-10">
         <img :src="nodaLogo" alt="NODA" class="md:hidden h-6 w-auto" />
         <div></div>
         <button @click="emit('signOut')" class="text-text-secondary hover:text-white text-[14px] transition-colors">
@@ -101,7 +101,7 @@ const navItems = computed(() => {
   </div>
 
   <!-- Mobile FAB -->
-  <button class="md:hidden fixed bottom-8 right-8 w-14 h-14 bg-noda-teal text-noda-navy rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-50">
+  <button class="md:hidden fixed bottom-8 right-8 w-14 h-14 bg-brand text-on-brand rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-50">
     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
   </button>
 </template>

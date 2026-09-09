@@ -53,13 +53,13 @@ function txToDisplay(tx: OnChainTx) {
   const counterparty = incoming ? tx.from : tx.to
   return {
     icon: incoming ? 'call_received' : 'call_made',
-    iconBg: incoming ? 'bg-noda-teal/10' : 'bg-blue-400/10',
-    iconColor: incoming ? 'text-noda-teal' : 'text-blue-400',
+    iconBg: incoming ? 'bg-brand/10' : 'bg-blue-400/10',
+    iconColor: incoming ? 'text-brand' : 'text-blue-400',
     direction: incoming ? 'Received' : 'Sent',
     counterparty: counterparty ?? 'unknown',
     date: tx.timestamp ? new Date(tx.timestamp).toLocaleString() : '—',
     amount: `${incoming ? '+' : ''}${tx.amount.toFixed(6)} ${tx.currency}`,
-    amountClass: incoming ? 'text-noda-teal' : '',
+    amountClass: incoming ? 'text-brand' : '',
   }
 }
 
@@ -85,9 +85,9 @@ function handleSignOut() {
 
       <p v-if="errorMsg" class="mb-6 text-sm text-red-400">{{ errorMsg }}</p>
 
-      <div class="bg-noda-navy-2 border border-border-subtle rounded-xl overflow-hidden">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
         <table class="w-full text-left">
-          <thead class="bg-noda-navy-3 border-b border-border-subtle">
+          <thead class="bg-surface-2 border-b border-border-subtle">
             <tr>
               <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
               <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Chain</th>

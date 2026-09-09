@@ -109,13 +109,13 @@ function handleSignOut() {
     <section class="p-8 max-w-2xl mx-auto w-full">
       <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Send</h1>
 
-      <div class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col gap-6">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl p-8 flex flex-col gap-6">
 
         <!-- Success -->
-        <div v-if="txId" class="flex items-start gap-4 p-4 bg-noda-teal/10 border border-noda-teal/30 rounded-lg">
-          <span class="material-symbols-outlined text-noda-teal shrink-0">check_circle</span>
+        <div v-if="txId" class="flex items-start gap-4 p-4 bg-brand/10 border border-brand/30 rounded-lg">
+          <span class="material-symbols-outlined text-brand shrink-0">check_circle</span>
           <div class="min-w-0">
-            <p class="text-sm text-noda-teal mb-1">Broadcast to the network.</p>
+            <p class="text-sm text-brand mb-1">Broadcast to the network.</p>
             <p class="font-['JetBrains_Mono'] text-[11px] text-text-secondary break-all">{{ txId }}</p>
           </div>
         </div>
@@ -128,7 +128,7 @@ function handleSignOut() {
           <select
             v-model="fromAddress"
             @change="loadBalance"
-            class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 transition-colors">
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors">
             <option v-for="w in session.wallets.value" :key="w.address" :value="w.address">
               {{ chainLabels[w.chain] }} — {{ w.address }}
             </option>
@@ -150,7 +150,7 @@ function handleSignOut() {
             type="text"
             spellcheck="false"
             placeholder="Paste the recipient's address"
-            class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 transition-colors"
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors"
           />
         </div>
 
@@ -165,7 +165,7 @@ function handleSignOut() {
               type="text"
               inputmode="decimal"
               placeholder="0.00"
-              class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 pr-16 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 transition-colors"
+              class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 pr-16 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors"
             />
             <button
               type="button"
@@ -185,7 +185,7 @@ function handleSignOut() {
         <button
           @click="handleSend"
           :disabled="sending || !destination || !amount"
-          class="w-full bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="w-full bg-brand text-on-brand font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ sending ? 'Signing & broadcasting…' : 'Sign & Send' }}
         </button>
 

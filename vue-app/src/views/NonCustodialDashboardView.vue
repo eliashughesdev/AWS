@@ -100,14 +100,14 @@ function txToDisplay(tx: OnChainTx) {
   return {
     id: tx.txId,
     icon: incoming ? 'call_received' : 'call_made',
-    iconBg: incoming ? 'bg-noda-teal/10' : 'bg-blue-400/10',
-    iconColor: incoming ? 'text-noda-teal' : 'text-blue-400',
+    iconBg: incoming ? 'bg-brand/10' : 'bg-blue-400/10',
+    iconColor: incoming ? 'text-brand' : 'text-blue-400',
     description: incoming
       ? `Received from ${String(counterparty ?? 'unknown').slice(0, 8)}…`
       : `Sent to ${String(counterparty ?? 'unknown').slice(0, 8)}…`,
     date: tx.timestamp ? new Date(tx.timestamp).toLocaleString() : '—',
     amount: `${incoming ? '+' : ''}${tx.amount.toFixed(6)} ${tx.currency}`,
-    amountClass: incoming ? 'text-noda-teal' : '',
+    amountClass: incoming ? 'text-brand' : '',
   }
 }
 
@@ -153,7 +153,7 @@ const lastUpdatedLabel = computed(() =>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <template v-if="loading">
             <div v-for="i in 2" :key="i"
-              class="p-5 bg-noda-navy-2 border border-border-subtle rounded-lg animate-pulse">
+              class="p-5 bg-surface-1 border border-border-subtle rounded-lg animate-pulse">
               <div class="w-10 h-10 rounded bg-white/10 mb-6"></div>
               <div class="w-32 h-7 rounded bg-white/10 mb-2"></div>
               <div class="w-24 h-3 rounded bg-white/10"></div>
@@ -161,7 +161,7 @@ const lastUpdatedLabel = computed(() =>
           </template>
 
           <div v-else v-for="asset in assets" :key="asset.address"
-            class="p-5 bg-noda-navy-2 border border-border-subtle rounded-lg relative overflow-hidden">
+            class="p-5 bg-surface-1 border border-border-subtle rounded-lg relative overflow-hidden">
             <div class="flex justify-between items-start mb-6">
               <div class="p-2 rounded" :class="asset.iconBg">
                 <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
@@ -186,11 +186,11 @@ const lastUpdatedLabel = computed(() =>
       <div>
         <div class="flex justify-between items-center mb-6">
           <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">Recent Activity</h2>
-          <RouterLink :to="{ name: 'wallet-ledger' }" class="text-noda-teal font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
+          <RouterLink :to="{ name: 'wallet-ledger' }" class="text-brand font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
         </div>
-        <div class="bg-noda-navy-2 border border-border-subtle rounded-xl overflow-hidden">
+        <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
           <table class="w-full text-left">
-            <thead class="bg-noda-navy-3 border-b border-border-subtle">
+            <thead class="bg-surface-2 border-b border-border-subtle">
               <tr>
                 <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
                 <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase text-right">Amount</th>

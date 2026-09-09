@@ -168,12 +168,12 @@ async function saveCard() {
 
           <!-- Loading skeleton -->
           <div v-if="cardsLoading" class="space-y-3">
-            <div v-for="n in 2" :key="n" class="h-20 bg-noda-navy-2 border border-border-subtle rounded-lg animate-pulse" />
+            <div v-for="n in 2" :key="n" class="h-20 bg-surface-1 border border-border-subtle rounded-lg animate-pulse" />
           </div>
 
           <!-- Empty state -->
           <div v-else-if="cards.length === 0"
-            class="flex flex-col items-center justify-center py-20 bg-noda-navy-2 border border-border-subtle rounded-xl text-center">
+            class="flex flex-col items-center justify-center py-20 bg-surface-1 border border-border-subtle rounded-xl text-center">
             <span class="material-symbols-outlined text-5xl text-text-muted mb-4">credit_card_off</span>
             <p class="text-text-secondary text-sm">No payment methods saved yet.</p>
             <p class="text-text-muted text-xs mt-1">Add a card using the form to get started.</p>
@@ -182,8 +182,8 @@ async function saveCard() {
           <!-- Card list -->
           <div v-else class="space-y-3">
             <div v-for="card in cards" :key="card.id"
-              class="flex items-center gap-4 px-5 py-4 bg-noda-navy-2 border border-border-subtle rounded-lg hover:border-white/20 transition-colors">
-              <div class="w-10 h-10 rounded bg-noda-navy-3 border border-border-subtle flex items-center justify-center shrink-0"
+              class="flex items-center gap-4 px-5 py-4 bg-surface-1 border border-border-subtle rounded-lg hover:border-white/20 transition-colors">
+              <div class="w-10 h-10 rounded bg-surface-2 border border-border-subtle flex items-center justify-center shrink-0"
                 :class="cardTypeConfig[card.cardType]?.color ?? 'text-text-secondary'">
                 <span class="material-symbols-outlined">credit_card</span>
               </div>
@@ -196,7 +196,7 @@ async function saveCard() {
                 </p>
               </div>
               <span v-if="card.isRecurringReady"
-                class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border bg-noda-teal/10 text-noda-teal border-noda-teal/20 font-['JetBrains_Mono'] uppercase">
+                class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border bg-brand/10 text-brand border-brand/20 font-['JetBrains_Mono'] uppercase">
                 Ready
               </span>
             </div>
@@ -204,7 +204,7 @@ async function saveCard() {
         </div>
 
         <!-- ── Add New Card ───────────────────────────────────────────────────── -->
-        <div class="bg-noda-navy-2 border border-border-subtle rounded-xl p-6 h-fit">
+        <div class="bg-surface-1 border border-border-subtle rounded-xl p-6 h-fit">
           <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-6">Add New Card</h2>
 
           <form @submit.prevent="saveCard" class="flex flex-col gap-4">
@@ -217,7 +217,7 @@ async function saveCard() {
                 type="text"
                 placeholder="Jane Doe"
                 autocomplete="cc-name"
-                class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
+                class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
               />
             </div>
 
@@ -233,7 +233,7 @@ async function saveCard() {
                   placeholder="1234 5678 9012 3456"
                   autocomplete="cc-number"
                   maxlength="19"
-                  class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 pr-10 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
+                  class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 pr-10 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
                 />
                 <span
                   class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-lg transition-colors"
@@ -255,7 +255,7 @@ async function saveCard() {
                   placeholder="MM/YY"
                   autocomplete="cc-exp"
                   maxlength="5"
-                  class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
+                  class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
                 />
               </div>
               <div>
@@ -267,7 +267,7 @@ async function saveCard() {
                   placeholder="123"
                   autocomplete="cc-csc"
                   maxlength="4"
-                  class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 focus:ring-1 focus:ring-noda-teal/30 transition-colors"
+                  class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
                 />
               </div>
             </div>
@@ -279,7 +279,7 @@ async function saveCard() {
             <button
               type="submit"
               :disabled="saving"
-              class="w-full mt-2 bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              class="w-full mt-2 bg-brand text-on-brand font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               {{ saving ? 'Saving…' : 'Save Card' }}
             </button>
 

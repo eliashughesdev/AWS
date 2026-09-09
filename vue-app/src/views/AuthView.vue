@@ -300,7 +300,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-noda-page flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
+  <div class="min-h-screen bg-page-gradient flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
     <main class="w-full max-w-[390px] mx-auto flex flex-col gap-space-8 relative z-10">
 
       <!-- ── Header ─────────────────────────────────────────────────────── -->
@@ -325,7 +325,7 @@ onMounted(async () => {
 
       <!-- ── Auth card ────────────────────────────────────────────────────── -->
       <section
-        class="bg-noda-navy-2 border border-border-subtle rounded-lg p-space-8
+        class="bg-surface-1 border border-border-subtle rounded-lg p-space-8
                flex flex-col gap-space-6 shadow-2xl shadow-black/50"
       >
 
@@ -350,7 +350,7 @@ onMounted(async () => {
               <CFormLabel for="confirm-code" class="font-body-base text-body-base text-text-secondary">
                 Verification code
               </CFormLabel>
-              <div class="relative flex items-center bg-noda-navy-3 border border-border-subtle rounded noda-focus-ring transition-all duration-200">
+              <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
                 <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                   pin
                 </span>
@@ -373,8 +373,8 @@ onMounted(async () => {
             <CButton
               type="submit"
               :disabled="loading"
-              class="mt-space-4 w-full bg-noda-teal text-noda-navy font-body-large text-body-large
-                     font-bold py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+              class="mt-space-4 w-full bg-brand text-on-brand font-body-large text-body-large
+                     font-bold py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                      active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {{ loading ? 'Verifying…' : 'Verify email' }}
@@ -385,8 +385,8 @@ onMounted(async () => {
               <button
                 type="button"
                 @click="handleResend"
-                class="text-text-primary font-bold hover:text-noda-teal transition-colors
-                       underline decoration-border-subtle hover:decoration-noda-teal underline-offset-4"
+                class="text-text-primary font-bold hover:text-brand transition-colors
+                       underline decoration-border-subtle hover:decoration-brand underline-offset-4"
               >
                 Resend code
               </button>
@@ -410,7 +410,7 @@ onMounted(async () => {
               Your private key ({{ chainLabels[ncChain] }})
             </label>
             <div class="relative">
-              <div class="w-full bg-noda-navy-3 border border-border-subtle rounded
+              <div class="w-full bg-surface-2 border border-border-subtle rounded
                           px-space-4 py-space-3 font-label-mono-base text-label-mono-base
                           text-text-primary break-all pr-20">
                 {{ ncGenerated?.privateKey }}
@@ -418,8 +418,8 @@ onMounted(async () => {
               <button
                 type="button"
                 @click="copyNcKey"
-                class="absolute right-2 top-1/2 -translate-y-1/2 px-space-3 py-1.5 bg-noda-teal
-                       text-noda-navy font-caption text-caption font-bold rounded hover:bg-noda-teal-bright transition-colors"
+                class="absolute right-2 top-1/2 -translate-y-1/2 px-space-3 py-1.5 bg-brand
+                       text-on-brand font-caption text-caption font-bold rounded hover:bg-brand-hover transition-colors"
               >
                 {{ ncCopied ? 'Copied!' : 'Copy' }}
               </button>
@@ -430,7 +430,7 @@ onMounted(async () => {
             <label class="font-caption text-caption uppercase tracking-widest text-text-secondary">
               Your wallet address
             </label>
-            <div class="w-full bg-noda-navy-3 border border-border-subtle rounded
+            <div class="w-full bg-surface-2 border border-border-subtle rounded
                         px-space-4 py-space-3 font-label-mono-base text-label-mono-base
                         text-text-secondary break-all">
               {{ ncGenerated?.address }}
@@ -438,7 +438,7 @@ onMounted(async () => {
           </div>
 
           <label class="flex items-start gap-space-3 cursor-pointer">
-            <input type="checkbox" v-model="ncKeySaved" class="mt-1 shrink-0 accent-[#0DC1C6]" />
+            <input type="checkbox" v-model="ncKeySaved" class="mt-1 shrink-0 accent-brand" />
             <span class="font-body-base text-body-base text-text-secondary leading-relaxed">
               I have saved my private key. I understand it is never stored and cannot be recovered —
               losing it means permanently losing this account and its funds.
@@ -453,8 +453,8 @@ onMounted(async () => {
             type="button"
             :disabled="!ncKeySaved"
             @click="activateNonCustodial"
-            class="w-full bg-noda-teal text-noda-navy font-body-large text-body-large font-bold
-                   py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+            class="w-full bg-brand text-on-brand font-body-large text-body-large font-bold
+                   py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                    active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Enter wallet
@@ -476,7 +476,7 @@ onMounted(async () => {
           <div
             role="group"
             aria-label="Account mode"
-            class="flex bg-noda-navy-3 border border-border-subtle rounded p-1 gap-1"
+            class="flex bg-surface-2 border border-border-subtle rounded p-1 gap-1"
           >
             <button
               type="button"
@@ -484,7 +484,7 @@ onMounted(async () => {
               :aria-pressed="mode === 'custodial'"
               class="flex-1 py-space-2 rounded font-body-base text-body-base font-bold transition-all"
               :class="mode === 'custodial'
-                ? 'bg-noda-teal text-noda-navy'
+                ? 'bg-brand text-on-brand'
                 : 'text-text-secondary hover:text-text-primary'"
             >
               Custodial
@@ -495,7 +495,7 @@ onMounted(async () => {
               :aria-pressed="mode === 'nonCustodial'"
               class="flex-1 py-space-2 rounded font-body-base text-body-base font-bold transition-all"
               :class="mode === 'nonCustodial'
-                ? 'bg-noda-teal text-noda-navy'
+                ? 'bg-brand text-on-brand'
                 : 'text-text-secondary hover:text-text-primary'"
             >
               Non-Custodial
@@ -516,7 +516,7 @@ onMounted(async () => {
               @click="switchTab('signIn')"
               class="font-body-base text-body-base pb-space-2 -mb-[9px] px-space-2 transition-colors"
               :class="activeTab === 'signIn'
-                ? 'font-bold text-text-primary border-b-2 border-noda-teal'
+                ? 'font-bold text-text-primary border-b-2 border-brand'
                 : 'text-text-secondary hover:text-text-primary'"
             >
               Sign In
@@ -529,7 +529,7 @@ onMounted(async () => {
               @click="switchTab('signUp')"
               class="font-body-base text-body-base pb-space-2 -mb-[9px] px-space-2 transition-colors"
               :class="activeTab === 'signUp'
-                ? 'font-bold text-text-primary border-b-2 border-noda-teal'
+                ? 'font-bold text-text-primary border-b-2 border-brand'
                 : 'text-text-secondary hover:text-text-primary'"
             >
               Create Account
@@ -545,7 +545,7 @@ onMounted(async () => {
           >
             <CForm @submit.prevent="handleSignIn" class="flex flex-col gap-space-4">
               <p v-if="verifiedBanner" role="status"
-                 class="font-body-base text-body-base text-noda-teal text-center">
+                 class="font-body-base text-body-base text-brand text-center">
                 Your email has been verified — sign in to continue.
               </p>
               <p v-if="error && activeTab === 'signIn'" role="alert"
@@ -557,7 +557,7 @@ onMounted(async () => {
                 <CFormLabel for="si-email" class="font-body-base text-body-base text-text-secondary">
                   Email Address
                 </CFormLabel>
-                <div class="relative flex items-center bg-noda-navy-3 border border-border-subtle rounded noda-focus-ring transition-all duration-200">
+                <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
                   <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                     mail
                   </span>
@@ -582,12 +582,12 @@ onMounted(async () => {
                   </CFormLabel>
                   <a
                     href="#"
-                    class="font-caption text-caption text-text-secondary hover:text-noda-teal transition-colors"
+                    class="font-caption text-caption text-text-secondary hover:text-brand transition-colors"
                   >
                     Forgot password?
                   </a>
                 </div>
-                <div class="relative flex items-center bg-noda-navy-3 border border-border-subtle rounded noda-focus-ring transition-all duration-200">
+                <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
                   <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
                     lock
                   </span>
@@ -608,8 +608,8 @@ onMounted(async () => {
               <CButton
                 type="submit"
                 :disabled="loading"
-                class="mt-space-4 w-full bg-noda-teal text-noda-navy font-body-large text-body-large
-                       font-bold py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+                class="mt-space-4 w-full bg-brand text-on-brand font-body-large text-body-large
+                       font-bold py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                        active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {{ loading ? 'Signing in…' : 'Sign In' }}
@@ -644,11 +644,11 @@ onMounted(async () => {
                     autocomplete="given-name"
                     placeholder="Jane"
                     required
-                    class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                    class="w-full bg-surface-2 border border-border-subtle rounded
                            text-text-primary font-label-mono-base text-label-mono-base
                            px-space-4 py-space-3 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-noda-teal
-                           focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                           focus:outline-none focus:border-brand
+                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                   />
                 </div>
                 <div class="flex flex-col gap-space-2">
@@ -663,11 +663,11 @@ onMounted(async () => {
                     autocomplete="family-name"
                     placeholder="Doe"
                     required
-                    class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                    class="w-full bg-surface-2 border border-border-subtle rounded
                            text-text-primary font-label-mono-base text-label-mono-base
                            px-space-4 py-space-3 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-noda-teal
-                           focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                           focus:outline-none focus:border-brand
+                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                   />
                 </div>
               </div>
@@ -685,11 +685,11 @@ onMounted(async () => {
                   autocomplete="email"
                   placeholder="jane.doe@company.com"
                   required
-                  class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                  class="w-full bg-surface-2 border border-border-subtle rounded
                          text-text-primary font-label-mono-base text-label-mono-base
                          px-space-4 py-space-3 placeholder:text-text-muted/80
-                         focus:outline-none focus:border-noda-teal
-                         focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                         focus:outline-none focus:border-brand
+                         focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                 />
               </div>
 
@@ -707,11 +707,11 @@ onMounted(async () => {
                     autocomplete="new-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                    class="w-full bg-surface-2 border border-border-subtle rounded
                            text-text-primary font-label-mono-base text-label-mono-base
                            px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-noda-teal
-                           focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                           focus:outline-none focus:border-brand
+                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                   />
                   <button
                     type="button"
@@ -731,7 +731,7 @@ onMounted(async () => {
                       v-for="i in 4"
                       :key="i"
                       class="flex-1 rounded-full transition-colors duration-200"
-                      :class="i <= passwordBars ? 'bg-noda-teal' : 'bg-noda-navy-3'"
+                      :class="i <= passwordBars ? 'bg-brand' : 'bg-surface-2'"
                     />
                   </div>
                   <p class="font-caption text-caption text-text-muted text-right">{{ passwordStrengthLabel }}</p>
@@ -752,11 +752,11 @@ onMounted(async () => {
                     autocomplete="new-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                    class="w-full bg-surface-2 border border-border-subtle rounded
                            text-text-primary font-label-mono-base text-label-mono-base
                            px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-noda-teal
-                           focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                           focus:outline-none focus:border-brand
+                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                   />
                   <button
                     type="button"
@@ -777,8 +777,8 @@ onMounted(async () => {
                 <CButton
                   type="submit"
                   :disabled="loading"
-                  class="w-full bg-noda-teal text-noda-navy font-body-large text-body-large
-                         font-bold py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+                  class="w-full bg-brand text-on-brand font-body-large text-body-large
+                         font-bold py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                          active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed
                          flex items-center justify-center gap-space-2 group"
                 >
@@ -814,10 +814,10 @@ onMounted(async () => {
                 <select
                   id="nc-chain"
                   v-model="ncChain"
-                  class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                  class="w-full bg-surface-2 border border-border-subtle rounded
                          text-text-primary font-label-mono-base text-label-mono-base
-                         px-space-4 py-space-3 focus:outline-none focus:border-noda-teal
-                         focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                         px-space-4 py-space-3 focus:outline-none focus:border-brand
+                         focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                 >
                   <option v-for="c in CHAINS" :key="c" :value="c">{{ chainLabels[c] }}</option>
                 </select>
@@ -835,11 +835,11 @@ onMounted(async () => {
                   spellcheck="false"
                   placeholder="Paste your private key"
                   required
-                  class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                  class="w-full bg-surface-2 border border-border-subtle rounded
                          text-text-primary font-label-mono-base text-label-mono-base
                          px-space-4 py-space-3 placeholder:text-text-muted/80
-                         focus:outline-none focus:border-noda-teal
-                         focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                         focus:outline-none focus:border-brand
+                         focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                 />
                 <p class="font-caption text-caption text-text-muted">
                   Your key never leaves this browser and is never stored — you re-enter it each session.
@@ -848,8 +848,8 @@ onMounted(async () => {
 
               <CButton
                 type="submit"
-                class="mt-space-4 w-full bg-noda-teal text-noda-navy font-body-large text-body-large
-                       font-bold py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+                class="mt-space-4 w-full bg-brand text-on-brand font-body-large text-body-large
+                       font-bold py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                        active:scale-[0.98]"
               >
                 Unlock Wallet
@@ -885,10 +885,10 @@ onMounted(async () => {
                 <select
                   id="nc-chain-new"
                   v-model="ncChain"
-                  class="w-full bg-noda-navy-3 border border-border-subtle rounded
+                  class="w-full bg-surface-2 border border-border-subtle rounded
                          text-text-primary font-label-mono-base text-label-mono-base
-                         px-space-4 py-space-3 focus:outline-none focus:border-noda-teal
-                         focus:shadow-[0_0_0_2px_rgba(13,193,198,0.15)] transition-all duration-200"
+                         px-space-4 py-space-3 focus:outline-none focus:border-brand
+                         focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
                 >
                   <option v-for="c in CHAINS" :key="c" :value="c">{{ chainLabels[c] }}</option>
                 </select>
@@ -897,8 +897,8 @@ onMounted(async () => {
               <CButton
                 type="submit"
                 :disabled="loading"
-                class="mt-space-2 w-full bg-noda-teal text-noda-navy font-body-large text-body-large
-                       font-bold py-space-3 rounded-full border-0 hover:bg-noda-teal-bright transition-colors
+                class="mt-space-2 w-full bg-brand text-on-brand font-body-large text-body-large
+                       font-bold py-space-3 rounded-full border-0 hover:bg-brand-hover transition-colors
                        active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {{ loading ? 'Generating…' : 'Generate Wallet' }}
@@ -917,8 +917,8 @@ onMounted(async () => {
             <button
               type="button"
               @click="switchTab('signUp')"
-              class="text-text-primary font-bold hover:text-noda-teal transition-colors
-                     underline decoration-border-subtle hover:decoration-noda-teal underline-offset-4"
+              class="text-text-primary font-bold hover:text-brand transition-colors
+                     underline decoration-border-subtle hover:decoration-brand underline-offset-4"
             >
               Sign up
             </button>
@@ -928,8 +928,8 @@ onMounted(async () => {
             <button
               type="button"
               @click="switchTab('signIn')"
-              class="text-text-primary font-bold hover:text-noda-teal transition-colors
-                     underline decoration-border-subtle hover:decoration-noda-teal underline-offset-4"
+              class="text-text-primary font-bold hover:text-brand transition-colors
+                     underline decoration-border-subtle hover:decoration-brand underline-offset-4"
             >
               Sign in
             </button>
@@ -945,7 +945,7 @@ onMounted(async () => {
              overflow-hidden flex items-center justify-center"
       aria-hidden="true"
     >
-      <div class="w-[800px] h-[800px] rounded-full bg-noda-teal/5 blur-[120px]"></div>
+      <div class="w-[800px] h-[800px] rounded-full bg-brand/5 blur-[120px]"></div>
     </div>
   </div>
 </template>

@@ -190,7 +190,7 @@ const assets = computed(() => {
   return accounts.value.map(a => {
     const cfg = a.chain
       ? (chainConfig[a.chain] ?? { icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-white' })
-      : { icon: 'payments', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-noda-teal' }
+      : { icon: 'payments', iconBg: 'bg-white/10', iconColor: 'text-white', barColor: 'bg-brand' }
     const pct = totalBal > 0 ? Math.round((a.balance ?? 0) / totalBal * 100) : 0
     return {
       accountNo: a.accountNo,
@@ -220,8 +220,8 @@ function txToDisplay(tx: any) {
   return {
     id:          tx.txId,
     icon:        isTransferSent ? 'compare_arrows' : isIncoming ? 'call_received' : 'call_made',
-    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-noda-teal/10',
-    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-noda-teal',
+    iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-brand/10',
+    iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-brand',
     description: isTransferReceived
       ? `Transfer from ${String(tx.from ?? '').slice(0, 8)}…`
       : isTransferSent
@@ -237,7 +237,7 @@ function txToDisplay(tx: any) {
     amount:      isIncoming && !isFailed
       ? `+${tx.amount} ${tx.currency}`
       : `-${tx.amount} ${tx.currency}`,
-    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-noda-teal' : '',
+    amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-brand' : '',
   }
 }
 
@@ -257,11 +257,11 @@ const validators = [
 
     <!-- Email Verified Banner -->
     <div v-if="verifiedBanner"
-      class="w-full bg-noda-teal/10 border-b border-noda-teal/30 px-8 py-3 flex items-center gap-4">
-      <span class="material-symbols-outlined text-noda-teal shrink-0">mark_email_read</span>
-      <p class="text-sm text-noda-teal flex-1">Your email address has been verified.</p>
+      class="w-full bg-brand/10 border-b border-brand/30 px-8 py-3 flex items-center gap-4">
+      <span class="material-symbols-outlined text-brand shrink-0">mark_email_read</span>
+      <p class="text-sm text-brand flex-1">Your email address has been verified.</p>
       <button @click="verifiedBanner = false"
-        class="shrink-0 text-noda-teal hover:text-noda-teal-bright transition-colors flex items-center"
+        class="shrink-0 text-brand hover:text-brand-hover transition-colors flex items-center"
         aria-label="Dismiss">
         <span class="material-symbols-outlined text-lg">close</span>
       </button>
@@ -281,17 +281,17 @@ const validators = [
       <button v-if="kycBanner === 'start'"
         @click="startKyc"
         :disabled="kycLoading"
-        class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-noda-navy rounded-full hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+        class="shrink-0 font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-amber-400 text-on-brand rounded-full hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
         {{ kycLoading ? 'Starting…' : 'Complete Verification →' }}
       </button>
     </div>
 
     <!-- Account Creation Banner -->
     <div v-if="createBanner"
-      class="w-full bg-noda-teal/10 border-b border-noda-teal/30 px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+      class="w-full bg-brand/10 border-b border-brand/30 px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
       <div class="flex items-center gap-3 flex-1">
-        <span class="material-symbols-outlined text-noda-teal shrink-0">account_balance_wallet</span>
-        <p class="text-sm text-noda-teal">
+        <span class="material-symbols-outlined text-brand shrink-0">account_balance_wallet</span>
+        <p class="text-sm text-brand">
           Identity verified — select a blockchain to activate your account.
         </p>
       </div>
@@ -299,13 +299,13 @@ const validators = [
         <button
           @click="createAccount('TRON')"
           :disabled="accountLoading !== null"
-          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-noda-teal text-noda-navy rounded-full hover:bg-noda-teal-bright active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ accountLoading === 'TRON' ? 'Creating…' : 'TRON' }}
         </button>
         <button
           @click="createAccount('SOL')"
           :disabled="accountLoading !== null"
-          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-noda-teal text-noda-teal rounded-full hover:bg-noda-teal/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-brand text-brand rounded-full hover:bg-brand/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
         </button>
       </div>
@@ -323,8 +323,8 @@ const validators = [
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         <button v-for="action in quickActions" :key="action.label"
           @click="handleQuickAction(action.label)"
-          class="flex flex-col items-center justify-center p-6 bg-noda-navy-2 border border-border-subtle rounded-xl hover:bg-noda-navy-3 hover:border-noda-teal transition-all group">
-          <span class="material-symbols-outlined text-3xl mb-2 text-noda-teal group-hover:scale-110 transition-transform">{{ action.icon }}</span>
+          class="flex flex-col items-center justify-center p-6 bg-surface-1 border border-border-subtle rounded-xl hover:bg-surface-2 hover:border-brand transition-all group">
+          <span class="material-symbols-outlined text-3xl mb-2 text-brand group-hover:scale-110 transition-transform">{{ action.icon }}</span>
           <span class="font-['JetBrains_Mono'] text-xs uppercase tracking-widest">{{ action.label }}</span>
         </button>
       </div>
@@ -336,7 +336,7 @@ const validators = [
           <!-- Skeleton cards while loading -->
           <template v-if="accountsLoading">
             <div v-for="i in 4" :key="i"
-              class="p-5 bg-noda-navy-2 border border-border-subtle rounded-lg relative overflow-hidden animate-pulse">
+              class="p-5 bg-surface-1 border border-border-subtle rounded-lg relative overflow-hidden animate-pulse">
               <div class="flex justify-between items-start mb-6">
                 <div class="w-10 h-10 rounded bg-white/10"></div>
                 <div class="w-10 h-3 rounded bg-white/10"></div>
@@ -348,7 +348,7 @@ const validators = [
           </template>
           <!-- Real account cards -->
           <div v-else v-for="asset in assets" :key="asset.accountNo ?? asset.ticker"
-            class="p-5 bg-noda-navy-2 border border-border-subtle rounded-lg relative overflow-hidden">
+            class="p-5 bg-surface-1 border border-border-subtle rounded-lg relative overflow-hidden">
             <div class="flex justify-between items-start mb-6">
               <div class="p-2 rounded" :class="asset.iconBg">
                 <span class="material-symbols-outlined" :class="asset.iconColor">{{ asset.icon }}</span>
@@ -375,11 +375,11 @@ const validators = [
         <div class="lg:col-span-2">
           <div class="flex justify-between items-center mb-6">
             <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">Recent Activity</h2>
-            <RouterLink :to="{ name: 'ledger' }" class="text-noda-teal font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
+            <RouterLink :to="{ name: 'ledger' }" class="text-brand font-['JetBrains_Mono'] text-xs hover:underline">View All →</RouterLink>
           </div>
-          <div class="bg-noda-navy-2 border border-border-subtle rounded-xl overflow-hidden">
+          <div class="bg-surface-1 border border-border-subtle rounded-xl overflow-hidden">
             <table class="w-full text-left">
-              <thead class="bg-noda-navy-3 border-b border-border-subtle">
+              <thead class="bg-surface-2 border-b border-border-subtle">
                 <tr>
                   <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Transaction</th>
                   <th class="px-6 py-3 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Status</th>
@@ -435,19 +435,19 @@ const validators = [
         <div class="flex flex-col gap-6">
           <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">System Intelligence</h2>
 
-          <div class="bg-noda-navy-2 border border-border-subtle p-6 rounded-xl relative overflow-hidden">
+          <div class="bg-surface-1 border border-border-subtle p-6 rounded-xl relative overflow-hidden">
             <div class="relative z-10">
-              <span class="material-symbols-outlined text-noda-teal mb-4 block">analytics</span>
+              <span class="material-symbols-outlined text-brand mb-4 block">analytics</span>
               <h3 class="text-[18px] font-semibold mb-2">Network Yield</h3>
               <p class="text-text-secondary text-sm mb-6">Current infrastructure utilization is at 84%. Recommended reallocation to SOL liquidity pools for 6.2% APY.</p>
               <button class="w-full py-2 bg-white/5 border border-border-subtle rounded-full font-['JetBrains_Mono'] text-xs uppercase tracking-widest hover:bg-white/10 transition-colors">
                 Analyze Strategy
               </button>
             </div>
-            <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-noda-teal/5 blur-3xl rounded-full"></div>
+            <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-brand/5 blur-3xl rounded-full"></div>
           </div>
 
-          <div class="bg-noda-navy-2 border border-border-subtle p-6 rounded-xl">
+          <div class="bg-surface-1 border border-border-subtle p-6 rounded-xl">
             <h3 class="font-['JetBrains_Mono'] text-xs text-text-muted uppercase mb-4">Validator Status</h3>
             <div class="space-y-4">
               <div v-for="v in validators" :key="v.name" class="flex items-center justify-between">
@@ -471,9 +471,9 @@ const validators = [
       </div>
       <p class="text-[12px] text-text-muted">© 2024 NODA. All rights reserved.</p>
       <div class="flex gap-6 mt-4 md:mt-0">
-        <a class="text-[12px] text-text-muted hover:text-noda-teal underline transition-colors" href="#">Privacy Policy</a>
-        <a class="text-[12px] text-text-muted hover:text-noda-teal underline transition-colors" href="#">Compliance</a>
-        <a class="text-[12px] text-text-muted hover:text-noda-teal underline transition-colors" href="#">SLA</a>
+        <a class="text-[12px] text-text-muted hover:text-brand underline transition-colors" href="#">Privacy Policy</a>
+        <a class="text-[12px] text-text-muted hover:text-brand underline transition-colors" href="#">Compliance</a>
+        <a class="text-[12px] text-text-muted hover:text-brand underline transition-colors" href="#">SLA</a>
       </div>
     </footer>
 

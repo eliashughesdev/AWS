@@ -22,10 +22,11 @@ const displayName = computed(() => {
 
 async function generateQr(address: string) {
   try {
+    const brand = getComputedStyle(document.documentElement).getPropertyValue('--color-brand').trim()
     qrDataUrl.value = await QRCode.toDataURL(address, {
       width: 220,
       margin: 2,
-      color: { dark: '#000000', light: '#0DC1C6' },
+      color: { dark: '#000000', light: brand },
     })
   } catch {
     qrDataUrl.value = ''
@@ -60,7 +61,7 @@ function handleSignOut() {
     <section class="p-8 max-w-xl mx-auto w-full">
       <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Receive</h1>
 
-      <div class="bg-noda-navy-2 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-6">
+      <div class="bg-surface-1 border border-border-subtle rounded-xl p-8 flex flex-col items-center gap-6">
 
         <div class="w-full">
           <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-2">
@@ -68,7 +69,7 @@ function handleSignOut() {
           </label>
           <select
             v-model="selected"
-            class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-noda-teal/50 transition-colors">
+            class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 transition-colors">
             <option v-for="w in session.wallets.value" :key="w.address" :value="w.address">
               {{ chainLabels[w.chain] }} — {{ w.address }}
             </option>
@@ -82,12 +83,12 @@ function handleSignOut() {
             Your {{ wallet ? chainLabels[wallet.chain] : '' }} address
           </label>
           <div class="relative">
-            <div class="w-full bg-noda-navy border border-border-subtle rounded-lg px-4 py-3 pr-20 font-['JetBrains_Mono'] text-xs text-white break-all">
+            <div class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 pr-20 font-['JetBrains_Mono'] text-xs text-white break-all">
               {{ wallet?.address }}
             </div>
             <button
               @click="copyAddress"
-              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-noda-teal text-noda-navy font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:bg-noda-teal-bright transition-colors">
+              class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-brand text-on-brand font-['JetBrains_Mono'] text-[10px] font-bold rounded hover:bg-brand-hover transition-colors">
               {{ copied ? 'Copied!' : 'Copy' }}
             </button>
           </div>
