@@ -62,6 +62,8 @@ interface ITransactWriteItemsRequest { // ADDED: Interface for transactional wri
   puts: {
     tableName: string;
     item: Record<string, any>;
+    // e.g. 'attribute_not_exists(id)' — the whole transaction is cancelled if it fails
+    conditionExpression?: string;
   }[]
 }
 
@@ -180,7 +182,8 @@ export const transactWriteItems = async (r: ITransactWriteItemsRequest) => {
   const transactItems = r.puts.map(putOperation => ({
     Put: {
       TableName: putOperation.tableName,
-      Item: marshall(putOperation.item),
+      Item: marshall(putOperation.item, { removeUndefinedValues: true }),
+      ConditionExpression: putOperation.conditionExpression,
     }
   }))
 
@@ -190,10 +193,10 @@ export const transactWriteItems = async (r: ITransactWriteItemsRequest) => {
 
   try {
     const response = await db.send(command)
-    return { success: true, res: response }
-  } catch (e) {
+    return { success: true, res: response, error: null }
+  } catch (e: any) {
     console.error('TransactWriteItems failed:', e)
     // In case of a transaction failure, provide the error details
-    return { success: false, res: null }
+    return { success: false, res: null, error: e }
   }
 }

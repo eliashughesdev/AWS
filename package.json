@@ -14,6 +14,7 @@
   "dependencies": {
     "@aws-amplify/ui-react": "^6.11.2",
     "@aws-sdk/client-apigatewaymanagementapi": "^3.982.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1129.0",
     "@aws-sdk/client-dynamodb": "^3.844.0",
     "@aws-sdk/client-kms": "^3.1008.0",
     "@aws-sdk/client-ses": "^3.1040.0",

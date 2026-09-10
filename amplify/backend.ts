@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as url from 'node:url'
 import { defineBackend } from '@aws-amplify/backend'
+import { SSM_PATH } from './ssmPath'
 import { Duration, Stack } from 'aws-cdk-lib'
 import {
   AccessLogFormat,
@@ -58,6 +59,22 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['ses:SendEmail', 'ses:SendRawEmail'],
     resources: ['*']
+  })
+)
+
+// Onboarding creates Cognito users on behalf of a merchant platform.
+backend.mainApiFn.addEnvironment('COGNITO_USER_POOL_ID', backend.auth.resources.userPool.userPoolId)
+
+backend.mainApiFn.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'cognito-idp:AdminCreateUser',
+      'cognito-idp:AdminAddUserToGroup',
+      'cognito-idp:AdminSetUserPassword',
+      'cognito-idp:AdminUpdateUserAttributes',
+      'cognito-idp:ListUsers',
+    ],
+    resources: [backend.auth.resources.userPool.userPoolArn]
   })
 )
 
@@ -133,7 +150,7 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
-    SSM_PATH: process.env.SSM_PATH ?? '/loudibly/api/',
+    SSM_PATH,
   },
 })
 

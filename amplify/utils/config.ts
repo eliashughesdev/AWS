@@ -19,6 +19,10 @@ export async function loadConfig(): Promise<void> {
   const now = Date.now()
   if (now - lastFetchedAt < TTL_MS) return
   const params = await getSsmParametersByPath(SSM_PATH)
+  if (Object.keys(params).length === 0) {
+    throw new Error(`No SSM parameters found under ${SSM_PATH}`)
+  }
+  console.log(`DEBUG: loaded ${Object.keys(params).length} config params from ${SSM_PATH}`)
   Object.assign(process.env, params)
   lastFetchedAt = now
 }
