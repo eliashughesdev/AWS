@@ -1,57 +1,94 @@
 # Loudibly
 
+Loudibly is a payments and wallet platform on AWS Amplify Gen2. A merchant platform charges a
+card on its own side, then calls Loudibly's B2B API to register the payer and, over time,
+custody or move their balance — either through a Loudibly-managed (custodial) account backed
+by a crypto ledger, or a non-custodial wallet where the user holds their own keys. Card
+processing is pluggable (Stripe, Clover) and identity verification runs through Didit KYC.
+
+> Status: early — only merchant onboarding intake (creating the payer's identity and a claim
+> token) is fully wired up end to end. Password claiming, email delivery, and actually moving
+> money are not live yet. See [`docs/merchant-intake-onboarding.md`](docs/merchant-intake-onboarding.md)
+> for a full trace of what happens today.
+
+## Structure
+
+This repo contains three deployable pieces:
+
+- **`amplify/`** — the backend: a single Lambda behind API Gateway that dispatches to route
+  handlers, a custom HMAC/JWT Lambda authorizer, SQS processors, a DynamoDB Streams handler,
+  and a WebSocket API. Infrastructure is defined as CDK in `amplify/backend.ts`.
+- **`src/`** — a React app with the customer-facing checkout flows: KYC upload, add-card,
+  process-payment, and an embeddable payment widget. Builds to `dist/` and deploys at `/`.
+- **`vue-app/`** — a Vue app for the account dashboard: custodial views (balance, cards,
+  deposit, withdraw, transfer) and non-custodial wallet views (dashboard, send, receive,
+  ledger) that read straight from the chain with an in-session key. Builds independently and
+  is copied into `dist/v2` at deploy time, serving at `/v2/`.
+
+## Tech stack
+
+- **Backend**: AWS Amplify Gen2, AWS CDK, Lambda, API Gateway (REST + WebSocket), DynamoDB,
+  SQS, Cognito, SES, SSM.
+- **Payments**: Stripe, Clover, Evervault (client-side card-data encryption).
+- **Crypto / ledger**: Tatum, Solana (`@solana/web3.js`), Tron (`tronweb`), `@noble/secp256k1`.
+- **KYC**: Didit.
+- **Frontend**: React 19 + Vite (`src/`), Vue 3 + Vite + Tailwind (`vue-app/`).
+
 ## Getting started
 
-## Test and Deploy
+Install and run the React app + backend tooling from the repo root, and the Vue dashboard
+from `vue-app/` separately — they have independent `package.json` files and lockfiles.
 
-Use the built-in continuous integration.
+```bash
+# React app (src/)
+yarn install
+yarn dev              # vite dev server
 
-***
+# Vue dashboard (vue-app/)
+cd vue-app
+yarn install
+yarn dev
+```
 
-# Editing this README
+### Build
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+yarn build             # root: tsc && vite build -> dist/
+cd vue-app && yarn build   # vue-tsc -b && vite build -> vue-app/dist/
+```
 
-## Suggestions for a good README
+### Lint
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```bash
+yarn lint
+```
 
-## Name
-Choose a self-explaining name for your project.
+### Backend deploy
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+The Amplify backend (Lambdas, API Gateway, DynamoDB tables, queues, Cognito) is deployed via
+the Amplify CDK pipeline:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```bash
+yarn ampx pipeline-deploy --branch <branch> --app-id <app-id>
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+This is what CI (`amplify.yml`) runs on every push; a route or backend change isn't reachable
+until this deploy completes.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Testing
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+There's no unit/integration test runner in this repo. Backend flows are verified with
+standalone scripts under `amplify/service/routes/e2e/**/*Test.ts`, each of which builds a
+signed request and calls a **live, already-deployed** API Gateway endpoint. Run one with:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+npx tsx amplify/service/routes/e2e/accounts/AccountsOnboardingTest.ts
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+## Documentation
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- [`docs/merchant-intake-onboarding.md`](docs/merchant-intake-onboarding.md) — step-by-step
+  trace of the merchant onboarding intake flow (`POST /v1/accounts/onboarding`), including
+  known issues that were found but deliberately left unfixed pending a design decision.
+- [`CLAUDE.md`](CLAUDE.md) — deeper architecture notes for working in this codebase (routing
+  pattern, auth, provider abstractions, DynamoDB schema, async/queue wiring, conventions).
