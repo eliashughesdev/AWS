@@ -38,11 +38,12 @@ This repo contains three deployable pieces:
 
 ### SSM parameters
 
-`loadConfig()` (`amplify/utils/config.ts`) loads every parameter under the `SSM_PATH` prefix
-(default `/loudibly/api/`, one level, e.g. `/loudibly/api/STRIPE_API_KEY`) into `process.env`
-on cold start, re-fetching at most once a minute. `mainApiFn`, the SQS webhook processor, and
-`customMessageFn` all call it, so these must exist in SSM Parameter Store for those functions
-to work:
+`loadConfig()` (`amplify/utils/config.ts`) loads every parameter under the fixed prefix
+`/loudibly/api/` (one level, e.g. `/loudibly/api/STRIPE_API_KEY`) into `process.env` on cold
+start, re-fetching at most once a minute. The prefix is the same for every deployment, so
+parameters are scoped per AWS account and region — the setup assumes **one brand per AWS
+account**. `mainApiFn`, the SQS webhook processor, and `customMessageFn` all call it, so these
+must exist in SSM Parameter Store for those functions to work:
 
 | Parameter | Description |
 |---|---|
@@ -59,6 +60,7 @@ to work:
 | `EMAIL_PROVIDER` | Which email provider implementation to use; defaults to `AWS_SIMPLE_EMAIL_SERVICE` if unset |
 | `SES_FROM_EMAIL` | "From" address used when sending email through Amazon SES |
 | `FRONTEND_URL` | Base URL of the frontend; used to build password-claim/verification links and Stripe 3-D-Secure return URLs |
+| `BRAND_NAME` | Product name used in every user-facing email (e.g. `NODA`). No default: the email senders throw if it is missing. Must match the frontend's `VITE_BRAND`, which is set separately in the Amplify console — otherwise payers get an email for one brand and land on a site skinned as another |
 | `TATUM_BASE_URL` | Base URL for the Tatum API; defaults to `https://api.tatum.io/v3` if unset |
 | `TATUM_WEBHOOK_URL` | Callback URL registered with Tatum for deposit/transaction webhooks |
 | `TATUM_API_KEY` | Tatum ledger API key used by `mainApiFn` (the SQS webhook processor instead gets this from an AWS Secrets Manager secret of the same name — see the environment variable table below) |
@@ -72,7 +74,6 @@ Amplify/Lambda runtime itself:
 
 | Variable | Description |
 |---|---|
-| `SSM_PATH` | Path prefix `loadConfig()` reads parameters from (see above); defaults to `/loudibly/api/`, overridable per branch via a build-time env var of the same name (`amplify/ssmPath.ts`) |
 | `COGNITO_USER_POOL_ID` | Cognito user pool id, set on `mainApiFn` so onboarding can call `AdminCreateUser` / `AdminAddUserToGroup` |
 | `CONNECTIONS_TABLE_NAME` | DynamoDB table name for WebSocket connections (`v1WebSocketConnectionsTable`) |
 | `WEBSOCKET_STAGE` | API Gateway WebSocket stage name (`v1`) |
@@ -84,7 +85,7 @@ Amplify/Lambda runtime itself:
 | `WITHDRAWAL_QUEUE_URL` | SQS queue URL for withdrawal-processing messages |
 | `WEBHOOK_QUEUE_URL` | Read (without the `V1_` prefix) by `amplify/service/routes/webhook/tatum/accountTransactions.ts`; not set anywhere in `backend.ts`, so it always falls back to a hardcoded queue URL unless added manually |
 | `AWS_REGION` | Provided automatically by the Lambda runtime; used as the SDK client region for DynamoDB/SSM |
-| `AWS_APP_ID` / `AWS_BRANCH` | Provided automatically by the Amplify Console build environment; used only for build-time logging (`ssmPath.ts`) and the `ampx pipeline-deploy` CI command |
+| `AWS_APP_ID` / `AWS_BRANCH` | Provided automatically by the Amplify Console build environment; used only by the `ampx pipeline-deploy` CI command |
 
 ## Getting started
 

@@ -1,5 +1,5 @@
 import type { CustomMessageTriggerHandler } from 'aws-lambda'
-import { loadConfig } from '../../utils/config'
+import { brandName, loadConfig } from '../../utils/config'
 
 export const handler: CustomMessageTriggerHandler = async (event) => {
   if (
@@ -7,6 +7,7 @@ export const handler: CustomMessageTriggerHandler = async (event) => {
     event.triggerSource === 'CustomMessage_ResendCode'
   ) {
     await loadConfig()
+    const brand = brandName()
     // From SSM. Without it the email ships code-only, with no one-click link.
     const frontendUrl = process.env.FRONTEND_URL
 
@@ -22,14 +23,14 @@ export const handler: CustomMessageTriggerHandler = async (event) => {
         ]
       : ['<p>Enter it in the app to confirm your email.</p>']
 
-    event.response.emailSubject = 'Confirm your NODA account'
+    event.response.emailSubject = `Confirm your ${brand} account`
     event.response.emailMessage = [
       '<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">',
-      '<h2 style="margin: 0 0 16px;">Welcome to NODA</h2>',
+      `<h2 style="margin: 0 0 16px;">Welcome to ${brand}</h2>`,
       '<p>Your confirmation code is:</p>',
       `<p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; margin: 8px 0 24px;">${code}</p>`,
       ...linkBlock,
-      '<p style="color: #666; font-size: 12px;">If you did not create a NODA account, you can safely ignore this email.</p>',
+      `<p style="color: #666; font-size: 12px;">If you did not create a ${brand} account, you can safely ignore this email.</p>`,
       '</div>',
     ].join('')
   }

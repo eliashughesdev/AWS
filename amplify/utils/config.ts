@@ -23,3 +23,13 @@ export async function loadConfig(): Promise<void> {
   Object.assign(process.env, params)
   lastFetchedAt = now
 }
+
+/**
+ * Brand name for user-facing email. No default on purpose — a fallback would
+ * quietly ship the wrong brand. Call after loadConfig().
+ */
+export function brandName(): string {
+  const name = process.env.BRAND_NAME
+  if (!name) throw new Error(`BRAND_NAME is not set under ${SSM_PATH}`)
+  return name
+}

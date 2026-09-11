@@ -8,6 +8,7 @@ import { createBlockchainKey } from '../../../utils/awsKms'
 import { networkFor } from '../../../utils/currencies'
 import { CreateAccountParams } from '../../../providers/ledger/provider'
 import { getEmailProvider } from '../../../utils/EmailProvider'
+import { brandName } from '../../../utils/config'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
@@ -134,7 +135,7 @@ export default class AccountHandler {
         const emailProvider = getEmailProvider()
         await emailProvider.sendEmail(
           email,
-          'Welcome to NODA — your account is ready',
+          `Welcome to ${brandName()} — your account is ready`,
           `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
         )
         console.log(`DEBUG: Welcome email sent to ${email}`)
