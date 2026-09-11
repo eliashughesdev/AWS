@@ -34,6 +34,58 @@ This repo contains three deployable pieces:
 - **KYC**: Didit.
 - **Frontend**: React 19 + Vite (`src/`), Vue 3 + Vite + Tailwind (`vue-app/`).
 
+## Configuration
+
+### SSM parameters
+
+`loadConfig()` (`amplify/utils/config.ts`) loads every parameter under the `SSM_PATH` prefix
+(default `/loudibly/api/`, one level, e.g. `/loudibly/api/STRIPE_API_KEY`) into `process.env`
+on cold start, re-fetching at most once a minute. `mainApiFn`, the SQS webhook processor, and
+`customMessageFn` all call it, so these must exist in SSM Parameter Store for those functions
+to work:
+
+| Parameter | Description |
+|---|---|
+| `STRIPE_API_KEY` | Stripe secret API key, used to create charges/payment intents |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret, verifies `/webhook/stripe` requests |
+| `CLOVER_PRIVATE_TOKEN` | Clover private API token for Clover card payment processing |
+| `CLOVER_PUBLIC_KEY` | Clover public key for Clover card payment processing |
+| `EVERVAULT_APP_ID` | Evervault app id, used to build the Evervault client that decrypts card data during payment processing |
+| `EVERVAULT_API_KEY` | Evervault API key, paired with `EVERVAULT_APP_ID` |
+| `DIDIT_API_KEY` | Didit KYC API key, used to create verification sessions |
+| `DIDIT_WORKFLOW_ID` | Didit workflow/template id to run for identity verification |
+| `DIDIT_CALLBACK_URL` | URL Didit redirects the user back to after completing a KYC session |
+| `DIDIT_WEBHOOK_SECRET` | Secret used to verify Didit KYC webhook signatures |
+| `EMAIL_PROVIDER` | Which email provider implementation to use; defaults to `AWS_SIMPLE_EMAIL_SERVICE` if unset |
+| `SES_FROM_EMAIL` | "From" address used when sending email through Amazon SES |
+| `FRONTEND_URL` | Base URL of the frontend; used to build password-claim/verification links and Stripe 3-D-Secure return URLs |
+| `TATUM_BASE_URL` | Base URL for the Tatum API; defaults to `https://api.tatum.io/v3` if unset |
+| `TATUM_WEBHOOK_URL` | Callback URL registered with Tatum for deposit/transaction webhooks |
+| `TATUM_API_KEY` | Tatum ledger API key used by `mainApiFn` (the SQS webhook processor instead gets this from an AWS Secrets Manager secret of the same name — see the environment variable table below) |
+
+### Environment variables
+
+These are wired directly into each Lambda's environment in CDK (`amplify/backend.ts` and the
+per-function `resource.ts` files) rather than read from SSM, either because they're
+infrastructure identifiers only known at deploy time or because they come from the
+Amplify/Lambda runtime itself:
+
+| Variable | Description |
+|---|---|
+| `SSM_PATH` | Path prefix `loadConfig()` reads parameters from (see above); defaults to `/loudibly/api/`, overridable per branch via a build-time env var of the same name (`amplify/ssmPath.ts`) |
+| `COGNITO_USER_POOL_ID` | Cognito user pool id, set on `mainApiFn` so onboarding can call `AdminCreateUser` / `AdminAddUserToGroup` |
+| `CONNECTIONS_TABLE_NAME` | DynamoDB table name for WebSocket connections (`v1WebSocketConnectionsTable`) |
+| `WEBSOCKET_STAGE` | API Gateway WebSocket stage name (`v1`) |
+| `WEBSOCKET_API_ID` | WebSocket API Gateway id, used by the SQS webhook processor to push messages to connected clients |
+| `TATUM_API_KEY` | Tatum ledger API key, injected into the SQS webhook processor directly from the `TATUM_API_KEY` AWS Secrets Manager secret (separate from the SSM parameter of the same name used by `mainApiFn`) |
+| `V1_WEBHOOK_QUEUE_URL` | SQS queue URL for general webhook events |
+| `V1_GENERAL_QUEUE_URL` | SQS queue URL for the general-purpose async queue |
+| `PAYMENT_PROCESSING_QUEUE_URL` | SQS queue URL for payment-processing messages |
+| `WITHDRAWAL_QUEUE_URL` | SQS queue URL for withdrawal-processing messages |
+| `WEBHOOK_QUEUE_URL` | Read (without the `V1_` prefix) by `amplify/service/routes/webhook/tatum/accountTransactions.ts`; not set anywhere in `backend.ts`, so it always falls back to a hardcoded queue URL unless added manually |
+| `AWS_REGION` | Provided automatically by the Lambda runtime; used as the SDK client region for DynamoDB/SSM |
+| `AWS_APP_ID` / `AWS_BRANCH` | Provided automatically by the Amplify Console build environment; used only for build-time logging (`ssmPath.ts`) and the `ampx pipeline-deploy` CI command |
+
 ## Getting started
 
 Install and run the React app + backend tooling from the repo root, and the Vue dashboard
