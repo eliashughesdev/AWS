@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as url from 'node:url'
 import { defineBackend } from '@aws-amplify/backend'
-import { SSM_PATH } from './ssmPath'
 import { Duration, Stack } from 'aws-cdk-lib'
 import {
   AccessLogFormat,
@@ -150,7 +149,6 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
     WEBSOCKET_STAGE: 'v1',
-    SSM_PATH,
   },
 })
 
@@ -284,6 +282,18 @@ webhooksPath.addMethod('POST', lambdaIntegration)
 accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
+
+// Public on purpose: the payer arrives from an email link with no session and no
+// password, so the one-time claim token is the only credential they can present.
+// Cannot live under /accounts, which requires the custom authorizer.
+const onboardingPath = loudiblyRestApi.root.addResource('onboarding', {
+  defaultMethodOptions: { authorizationType: AuthorizationType.NONE },
+})
+onboardingPath.addProxy({
+  anyMethod: true,
+  defaultIntegration: lambdaIntegration,
+  defaultMethodOptions: { authorizationType: AuthorizationType.NONE },
+})
 
 const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
   statements: [

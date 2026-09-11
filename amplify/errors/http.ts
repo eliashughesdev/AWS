@@ -12,6 +12,10 @@ const httpErrors: any = {
   100031: (params: any) => `invalid value for ${params}`,
   100032: () => 'this email is already registered to a different user',
   100033: () => 'this transaction has already been processed',
+  100034: () => 'this link is not valid',
+  100035: () => 'this link has expired',
+  100036: () => 'this link has already been used',
+  100037: (params: any) => params ?? 'the password does not meet the requirements',
 }
 
 export const processError = (code: any, params?: any) => {

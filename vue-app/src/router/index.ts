@@ -15,6 +15,7 @@ import TransactionsView from '../views/TransactionsView.vue'
 import TransferView from '../views/TransferView.vue'
 import ReceiveView from '../views/ReceiveView.vue'
 import ConfirmView from '../views/ConfirmView.vue'
+import SetPasswordView from '../views/SetPasswordView.vue'
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -96,6 +97,13 @@ const router = createRouter({
       path: '/confirm',
       name: 'confirm',
       component: ConfirmView,
+    },
+    // No requiresAuth: the payer arrives from an email link with no session and no
+    // password. The one-time token in the query string is the only credential.
+    {
+      path: '/set-password',
+      name: 'set-password',
+      component: SetPasswordView,
     },
     {
       path: '/',

@@ -9,7 +9,6 @@ backend:
         - yarn install --frozen-lockfile
         - cd ../../..
         - yarn install --frozen-lockfile
-        - echo "SHELL CHECK -- SSM_PATH=[${SSM_PATH:-unset}] AWS_BRANCH=[${AWS_BRANCH:-unset}]"
         - yarn ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
         - |
           if [ -d "evFunctions" ]; then

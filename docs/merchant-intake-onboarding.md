@@ -1,9 +1,15 @@
-# Merchant Intake Onboarding — Fase 1
+# Merchant Intake Onboarding
 
 Traza del estado del sistema desde que la plataforma del merchant manda el request hasta
-que devolvemos el token de claim. Dos almacenes se siguen en cada paso: el user pool de
-Cognito y `v2CustomerTable`. Todo lo que está acá es lo que el código hace hoy, no lo que
-va a hacer.
+que el pagador puede entrar a su cuenta.
+
+**Estado:** fase 1 (identidad) y fase 2 (contraseña) implementadas. Falta la 3 (email) y la
+4 (dinero).
+
+Dos almacenes se siguen en cada paso: el user pool de Cognito y `v2CustomerTable`. Todo lo
+que está acá es lo que el código hace hoy, no lo que va a hacer.
+
+## Fase 1 — El intake
 
 | | |
 |---|---|
@@ -168,13 +174,11 @@ recibe para poder armar el link al final del checkout.
 
 ## Lo que todavía no es cierto
 
-Con la fase 1 deployada y el 201 devuelto, nada de esto existe. Es la parte más importante
-del documento: marca exactamente dónde arrancan las fases 2, 3 y 4.
+Con las fases 1 y 2 deployadas y el pagador ya dentro de su cuenta, nada de esto existe.
+Es la parte más importante del documento: marca exactamente dónde arrancan las fases 3 y 4.
 
-- **El usuario no puede entrar.** Está en `FORCE_CHANGE_PASSWORD` y nadie conoce ninguna
-  contraseña, ni él ni nosotros.
 - **No se mandó ningún email.** El token existe pero solo lo tiene la plataforma del
-  merchant, en la respuesta HTTP.
+  merchant, en la respuesta HTTP. Hasta que exista la fase 3, el link se arma a mano.
 - **No hay cuenta.** Sin virtual account en Tatum, sin key en KMS, sin deposit address, sin
   suscripción de webhook.
 - **No hay balance.** Ni una fila en `v1AccountBalanceTable`.
@@ -185,6 +189,81 @@ del documento: marca exactamente dónde arrancan las fases 2, 3 y 4.
   transferencia al merchant.
 - **El gate de KYC está escrito pero no aplicado.** `tier: 'unverified'` y `kyc: null`
   quedan en el perfil; todavía no hay ruta que los chequee.
+
+## Fase 2 — El claim de contraseña
+
+Dos endpoints **públicos** más una vista. El pagador llega desde el email sin sesión, sin
+contraseña y sin nada que presentar salvo el token.
+
+| | |
+|---|---|
+| Verificar el link | `POST /v1/onboarding/verify` |
+| Fijar la contraseña | `POST /v1/onboarding/claim` |
+| Pantalla | `/v2/set-password?token=…` |
+| Autenticación | ninguna — el token de un solo uso es la credencial |
+
+### Por qué no pueden vivir bajo `/accounts`
+
+Todo `/accounts/*` exige el custom authorizer, y el pagador no tiene JWT ni API key. Así que
+`backend.ts` agrega un recurso `onboarding` con `authorizationType: NONE` explícito. Es la
+única pieza de infra de la fase.
+
+`/webhook/*` también es público y habría servido sin tocar infra, pero el nombre habría
+mentido sobre lo que hace la ruta.
+
+### Por qué los dos son POST y no GET
+
+El token es un secreto. En un GET iría en el query string, y el query string queda escrito en
+el access log de API Gateway (`/aws/apigateway/LoudiblyRestApi`). En el body no.
+
+### La traza del claim
+
+1. `loadClaim(token)` hashea y busca `CLAIM#<sha256>`. Tres rechazos, compartidos con
+   verify: no existe (`100034`), ya usado (`100036`), vencido (`100035`). Se reportan
+   separados a propósito — un token de 32 bytes no es enumerable, así que no hay nada que
+   esconder, y "ya se usó" contra "venció" es la diferencia entre un mensaje útil y un
+   callejón sin salida.
+2. **Se quema el token antes de tocar Cognito**, con un update condicional, así dos claims
+   concurrentes no pueden pasar los dos. La condición es
+   `attribute_not_exists(usedAt) OR attribute_type(usedAt, :nullType)`: la fase 1 escribe
+   `usedAt: null`, o sea el atributo **existe** con tipo NULL, y `attribute_not_exists` solo
+   nunca matchearía.
+3. `AdminSetUserPassword` con `Permanent: true`. Eso además saca al usuario de
+   `FORCE_CHANGE_PASSWORD` y lo deja en `CONFIRMED`, que es lo que permite un `signIn`
+   normal inmediatamente después.
+4. Si la contraseña no pasa la policy del pool, **se devuelve el token** (`usedAt` vuelve a
+   NULL) y se responde `100037` con el mensaje de Cognito. Una contraseña débil no puede
+   costarle el link al pagador.
+5. `AdminUpdateUserAttributes(email_verified: true)`, no fatal. Acá se cierra la decisión de
+   la fase 1 de crear el usuario con `false`: el click en el link es la prueba de que el
+   pagador tiene ese email.
+6. Devuelve el email, que el frontend usa para el `signIn` automático.
+
+### La vista
+
+`/v2/set-password` no lleva `requiresAuth`, así que el guard del router la deja pasar.
+
+Al montar saca el token del query string y **lo borra de la barra de direcciones** con
+`history.replaceState`, para que no quede en el historial ni viaje en un header `Referer`.
+Después llama a verify y saluda por nombre, lo que le confirma al pagador que el link es
+suyo antes de pedirle nada.
+
+El email se muestra fijo, no editable: identifica la cuenta y el pagador no puede cambiarlo
+— que era el requisito original del cliente, resuelto sin poner el `externalId` en la URL.
+
+Al enviar: claim → `signIn` → dashboard. Si el claim falla por vencido o ya usado, la
+pantalla pasa a estado muerto en vez de dejar un formulario que no va a funcionar. Si el
+claim sale bien pero el `signIn` falla, redirige a `/auth` con el email precargado en vez de
+dejar al pagador trabado.
+
+### Lo que falta en la fase 2
+
+- **No hay reenvío de link.** Si el token vence a los 7 días, la pantalla dice "pedí un link
+  nuevo" pero no existe el endpoint que lo emita.
+- **Los términos son texto, no links.** No hay páginas de Terms ni Privacy todavía.
+- **Sin rate limit propio.** `/onboarding/*` es público y pega a DynamoDB y a Cognito. El
+  token no es adivinable, así que no hay riesgo de fuerza bruta, pero tampoco hay usage plan
+  ni throttle por encima del default de la cuenta.
 
 ## Lo que encontré y no toqué
 
@@ -223,6 +302,13 @@ se sostiene, la respuesta es fea.
 | `amplify/service/router.ts` | modificado | La ruta, con `allowedRoles: ['admin']`. |
 | `amplify/errors/http.ts` | modificado | Códigos 100003, 100031, 100032, 100033. |
 | `package.json` | modificado | `@aws-sdk/client-cognito-identity-provider`. |
+| `amplify/service/routes/onboarding/verify.ts` | fase 2 | Reporta si el link sirve y para quién. No consume el token. |
+| `amplify/service/routes/onboarding/claim.ts` | fase 2 | Quema el token, fija la contraseña, revierte si la policy la rechaza. |
+| `vue-app/src/views/SetPasswordView.vue` | fase 2 | La pantalla. Verifica, saluda por nombre, fija la contraseña y entra. |
+| `vue-app/src/router/index.ts` | fase 2 | Ruta `/set-password`, sin `requiresAuth`. |
+| `amplify/utils/claimToken.ts` | fase 2 | `loadClaim` — la validación compartida por los dos endpoints. |
+| `amplify/utils/cognito.ts` | fase 2 | `adminSetUserPassword`, `adminSetEmailVerified`. |
+| `amplify/service/routes/e2e/accounts/OnboardingClaimTest.ts` | fase 2 | verify ×2 → claim → claim de nuevo → verify. |
 
 **Antes de probar:** la ruta no puede funcionar sin deploy — `COGNITO_USER_POOL_ID` y los
 permisos de Cognito se agregan en `backend.ts`, así que hace falta un
@@ -231,6 +317,13 @@ verifica el camino nuevo y el replay con el mismo `transaction.id`.
 
 ## Dónde sigue
 
-Fase 1 de 4. La 2 es el claim de contraseña (endpoint público + vista `/v2/set-password`),
-la 3 el email, la 4 el dinero — crédito, conversión a USDT y transferencia al merchant, que
-es la que sigue esperando respuestas del cliente sobre de qué cuenta sale el asiento.
+Fases 1 y 2 de 4. Falta la 3 — el email con el link, que necesita sacar SES del sandbox y
+verificar el dominio noda.money — y la 4, el dinero: crédito, conversión a USDT y
+transferencia al merchant. Esa última sigue esperando respuestas del cliente sobre de qué
+cuenta sale el asiento, porque el provider de Tatum no tiene ninguna operación de acreditar,
+solo `transferFunds` entre dos VAs.
+
+**Supuesto a confirmar en el primer test de la fase 2:** `AdminSetUserPassword` y
+`AdminUpdateUserAttributes` reciben el `sub` como `Username`. No se pudo verificar contra el
+pool real desde el entorno de desarrollo. Si devuelven `UserNotFoundException`, el cambio es
+pasar `claim.record.email` en lugar de `userId` en `claim.ts`.

@@ -1,6 +1,8 @@
 import {
   AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
   ListUsersCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
@@ -54,4 +56,24 @@ export const addUserToGroup = (username: string, groupName: string) =>
     UserPoolId: poolId(),
     Username: username,
     GroupName: groupName,
+  }))
+
+/**
+ * Sets the users's chosen password as permanent. Throws
+ * InvalidPasswordException when the password fails the pool policy.
+ */
+export const adminSetUserPassword = (username: string, password: string) =>
+  client.send(new AdminSetUserPasswordCommand({
+    UserPoolId: poolId(),
+    Username: username,
+    Password: password,
+    Permanent: true,
+  }))
+
+/** Claiming the link is the proof the user owns the address the merchant asserted. */
+export const adminSetEmailVerified = (username: string) =>
+  client.send(new AdminUpdateUserAttributesCommand({
+    UserPoolId: poolId(),
+    Username: username,
+    UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
   }))

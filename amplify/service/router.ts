@@ -11,6 +11,8 @@ import accountsTransactions from './routes/accounts/transactions'
 import transferFunds from './routes/accounts/transfer'
 import accountsCreate from './routes/accounts/create'
 import accountsOnboarding from './routes/accounts/onboarding'
+import onboardingVerify from './routes/onboarding/verify'
+import onboardingClaim from './routes/onboarding/claim'
 import accountDeposit from './routes/accounts/deposit'
 import accountWithdraw from './routes/accounts/withdraw'
 import webhookHandler from './routes/webhook/cb'
@@ -43,6 +45,9 @@ export const routes: RoutesMap = new Map([
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'merchantId', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
+  // Unauthenticated: the payer has no session yet — the one-time token is the credential.
+  ['/onboarding/verify', { handler: onboardingVerify, requiredParams: ['token'], method: 'POST' }],
+  ['/onboarding/claim', { handler: onboardingClaim, requiredParams: ['token', 'password'], method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'destinationAddress'], method: 'POST' }],

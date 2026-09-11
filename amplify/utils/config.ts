@@ -1,9 +1,6 @@
 import { getSsmParametersByPath } from './ssm'
 
-const SSM_PATH = process.env.SSM_PATH ?? ''
-if (!SSM_PATH) {
-  throw new Error("SSM_PATH is not set — add it to this function's environment block")
-}
+const SSM_PATH = '/loudibly/api/'
 
 const TTL_MS = 60 * 1000
 
