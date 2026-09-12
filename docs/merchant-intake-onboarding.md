@@ -3,8 +3,8 @@
 Traza del estado del sistema desde que la plataforma del merchant manda el request hasta
 que el pagador puede entrar a su cuenta.
 
-**Estado:** fase 1 (identidad) y fase 2 (contraseña) implementadas. Falta la 3 (email) y la
-4 (dinero).
+**Estado:** fases 1 (identidad), 2 (contraseña) y 3 (email) implementadas, más la creación
+de la cuenta custodial del pagador. Falta el movimiento de plata de la fase 4.
 
 Dos almacenes se siguen en cada paso: el user pool de Cognito y `v2CustomerTable`. Todo lo
 que está acá es lo que el código hace hoy, no lo que va a hacer.
@@ -17,7 +17,7 @@ que está acá es lo que el código hace hoy, no lo que va a hacer.
 | Autenticación | `Signature` HMAC + header `X-Project` |
 | Rol requerido | `admin` (lo da el camino de firma del authorizer) |
 | Clave de idempotencia | `transaction.id` |
-| Escrituras | 1 transacción, 4 items |
+| Escrituras | 1 transacción: 6 items para un pagador nuevo |
 
 ## El contrato
 
@@ -28,6 +28,7 @@ que está acá es lo que el código hace hoy, no lo que va a hacer.
   "lastName": "Perez",
   "email": "juan@example.com",
   "merchantId": "mrc_test_01",
+  "chain": "TRON",
   "transaction": {
     "id": "txn_abc123",
     "amount": 50.00,
@@ -139,7 +140,7 @@ de un solo uso y con vencimiento.
 
 Sin cambios — el token vive en memoria.
 
-### 8. Cuatro registros, una transacción
+### 8. Seis registros, una transacción
 
 Un solo `TransactWriteItems`, con `attribute_not_exists(id)` en los dos que no pueden
 duplicarse. Si cualquiera falla no se escribe ninguno.
@@ -150,6 +151,8 @@ duplicarse. Si cualquiera falla no se escribe ninguno.
 | `<cognitoSub>` | `USERPROFILE` | firstName, lastName, name, `kyc: null`, `tier: unverified` |
 | `EXT#<platform>#<externalId>` | `MAPPING` | userId — condicional |
 | `CLAIM#<sha256>` | `CLAIM` | userId, expiresAt, `usedAt: null` |
+| `<cognitoSub>` | `ACCOUNT#<accountNo>` | chain, kmsKeyId, depositAddress, vAccountId |
+| `<vAccountId>` | — (`v1AccountBalanceTable`) | balance 0 |
 
 **Si la transacción se cancela:** significa que el `transaction.id` o el mapping ya
 existían, o sea es una reentrega, no un error. El handler relee el registro de idempotencia
@@ -174,16 +177,12 @@ recibe para poder armar el link al final del checkout.
 
 ## Lo que todavía no es cierto
 
-Con las fases 1 y 2 deployadas y el pagador ya dentro de su cuenta, nada de esto existe.
-Es la parte más importante del documento: marca exactamente dónde arrancan las fases 3 y 4.
+Con las fases 1 a 3 deployadas y el pagador ya dentro de su cuenta, nada de esto existe.
+Es la parte más importante del documento: marca exactamente dónde arranca la fase 4.
 
-- **No se mandó ningún email.** El token existe pero solo lo tiene la plataforma del
-  merchant, en la respuesta HTTP. Hasta que exista la fase 3, el link se arma a mano.
-- **No hay cuenta.** Sin virtual account en Tatum, sin key en KMS, sin deposit address, sin
-  suscripción de webhook.
-- **No hay balance.** Ni una fila en `v1AccountBalanceTable`.
 - **No hay transacciones visibles.** `v1TransactionLogsTable` está vacía para este usuario,
-  y `/accounts/transactions` le devolvería `100001`.
+  así que `/accounts/transactions` devuelve una lista vacía — ya no un `100001`, porque la
+  cuenta ahora existe y tiene `vAccountId`.
 - **La plata no se movió.** El monto quedó anotado en el registro de idempotencia con
   `status: 'RECEIVED'` y nada más. Ningún asiento, ninguna conversión, ninguna
   transferencia al merchant.
@@ -265,6 +264,134 @@ dejar al pagador trabado.
   token no es adivinable, así que no hay riesgo de fuerza bruta, pero tampoco hay usage plan
   ni throttle por encima del default de la cuenta.
 
+## Fase 3 — El email de invitación
+
+Después del commit de la transacción, y solo para pagadores nuevos, el intake manda un email
+con el link `{FRONTEND_URL}/v2/set-password?token=…`.
+
+| | |
+|---|---|
+| Quién lo manda | `OnboardingHandler.sendInvite`, dentro del mismo request del intake |
+| Plantilla | `amplify/utils/emailTemplates.ts` → `claimInviteEmail` |
+| Marca | `brandName()` — `BRAND_NAME` en SSM, sin default |
+| Link | `FRONTEND_URL` en SSM + el token en claro |
+| Cuándo | solo si hay claim: pagador nuevo u huérfano adoptado. Nunca en el replay ni para un pagador ya conocido |
+
+### Por qué después del commit
+
+Si se mandara antes, un fallo de la transacción dejaría en el inbox un link cuyo `CLAIM` no
+existe.
+
+### Por qué no es fatal, y qué es `emailSent`
+
+Los registros ya están escritos y el token también vuelve en la respuesta, así que la
+plataforma del merchant puede mostrar el link al final del checkout. Un fallo de SES no
+justifica un 500: haría reintentar a la plataforma, y el reintento caería en el replay, que
+no puede reenviar nada porque solo tenemos el hash del token.
+
+La respuesta del intake suma `emailSent` (campo nuevo en el contrato). Si es `false`, la
+plataforma sabe que el checkout es el único canal por el que el pagador va a ver el link.
+
+### El nombre se escapa
+
+`firstName` viene de la plataforma del merchant. Sin escape, cualquiera con una key B2B podría
+meter un `<a href>` en un email que sale desde nuestro dominio. Todo lo que se interpola en el
+HTML pasa por `escapeHtml`.
+
+### UTF-8 explícito y multipart
+
+`SesEmailProvider` ahora manda `Charset: 'UTF-8'` en el asunto y en los cuerpos, porque los
+nombres llegan con acentos. Y manda multipart: texto plano de fallback más HTML. El parámetro
+`html` es opcional, así que `account.ts` sigue llamando con texto solo sin cambios.
+
+### El link nunca se loguea
+
+Lleva el token en claro. `sendInvite` loguea el email del destinatario, nunca el link.
+
+### Marca neutral en el HTML
+
+El botón usa los mismos estilos neutros del email de confirmación de Cognito. Solo el nombre es
+configurable; poner el teal de NODA acá sería hardcodear la marca otra vez.
+
+### El test usa el simulador de SES
+
+`AccountsOnboardingTest.ts` ahora usa `success+<stamp>@simulator.amazonses.com` en vez de
+`@example.com`. Según la documentación de SES, el simulador acepta envíos aun con la cuenta en
+sandbox y no cuenta para la reputación de envío; mandar a `example.com` fuera del sandbox
+generaría bounces. Para ver el email de verdad: `ONBOARDING_EMAIL=<inbox verificado>`, una vez
+por dirección (la segunda corrida con la misma dirección da `100032`).
+
+### Lo que falta en la fase 3
+
+- **SES fuera del sandbox y dominio noda.money verificado.** En sandbox solo se entrega a
+  direcciones verificadas y al simulador. Es un paso de consola, no de código.
+- **`SES_FROM_EMAIL` tiene que ser una identidad verificada en `us-east-2`**, la región del
+  Lambda. Si no, SES rechaza el envío y `emailSent` sale `false`.
+- **Sin reenvío.** Un email perdido no se recupera: el replay no tiene el token en claro. Es el
+  mismo hueco de la fase 2 y ahora es el siguiente paso natural.
+- **El email al merchant ("llegó la transferencia") no es de esta fase:** no hay transferencia
+  hasta la fase 4.
+- El email está en inglés, como el de confirmación de Cognito y la app.
+
+## La cuenta del pagador (primera parte de la fase 4)
+
+El intake ahora crea además una cuenta custodial para el pagador. El `chain` viene en el
+payload y es **obligatorio**.
+
+| | |
+|---|---|
+| Campo nuevo | `chain` — `TRON`, `SOL`, `USDT_TRON` o `TEST_USDT_TRON` |
+| Provisión | `amplify/utils/custodialAccount.ts` → `provisionCustodialAccount` |
+| Provider | fijo del lado servidor (`ProviderName.Tatum`), no lo elige el merchant |
+| `accountingCurrency` | `transaction.currency` |
+| Respuesta | suma `accountNo` y `depositAddress` |
+
+### Por qué no se reusó `/accounts/account`
+
+Parecía que alcanzaba con llamar al endpoint que ya existía, pero tenía tres problemas:
+
+1. **Sobrescribía el `USERPROFILE`.** Su `transactWriteItems` incluía un put del perfil, y un
+   `Put` de DynamoDB reemplaza el item completo. Para un pagador ya registrado habría borrado
+   `firstName`, `lastName`, `platform`, `externalId`, `merchantId`, `onboarding`, `kyc` y
+   `tier`. El login habría seguido funcionando, así que el daño no se notaba hasta que alguien
+   buscara de qué merchant vino un pagador.
+2. **El `userId` salía del authorizer**, que con la key del merchant es el id de la key, no el
+   `sub` del pagador. La cuenta habría quedado a nombre de la plataforma.
+3. Son cuatro llamadas externas encadenadas y no hay JWT del pagador para autenticarlas.
+
+La solución fue extraer la provisión a un util que recibe el `userId` explícito, **no escribe
+nada** y devuelve los registros. Cada caller los mete en su propia transacción, así los dos
+conservan atomicidad: `/accounts/account` sigue escribiendo perfil + cuenta + balance en un
+solo `TransactWriteItems`, y el intake mete cuenta + balance junto con identidad e idempotencia.
+
+### Por qué `chain` es obligatorio y sin default
+
+Un default del servidor convertiría "el merchant no mandó el campo" en "creamos la cuenta
+equivocada", y eso no se deshace: quedan una key de KMS, una virtual account, una deposit
+address y una suscripción. Un request rechazado no cuesta nada. Es el mismo criterio de
+`BRAND_NAME`.
+
+Son dos rechazos distintos y ninguno crea nada: falta el campo y el router devuelve `100029`;
+el valor no está en `currencies.ts` y el handler devuelve `100009`.
+
+### Reparación de pagadores viejos
+
+Si el pagador ya existe pero no tiene ninguna fila `ACCOUNT#`, el intake le provisiona una en
+su siguiente transacción. Así los pagadores creados antes de este cambio se arreglan solos, sin
+migración.
+
+### Lo que falta acá
+
+- **Una carrera concurrente puede filtrar recursos.** La provisión ocurre antes de la
+  transacción, así que si dos entregas simultáneas del mismo `transaction.id` compiten, la que
+  pierde ya creó una key de KMS y una virtual account que quedan huérfanas. Es raro y no
+  corrompe datos, pero cuesta: cada key de KMS son unos 1 USD por mes.
+- **`USDT_TRON` es solo de depósito.** `withdraw` y el depósito con tarjeta lo rechazan con
+  `100009`, así que hay que decidir si la cuenta del pagador es la de USDT o una nativa.
+- **El `chain` debería venir de una configuración por merchant**, no del payload de cada
+  transacción. Hoy `merchantId` es solo un string y no existe registro de merchants; cuando
+  exista, esa decisión se muda ahí.
+
 ## Lo que encontré y no toqué
 
 **El authorizer nunca verifica que el `bodyHash` corresponda al body**
@@ -309,6 +436,15 @@ se sostiene, la respuesta es fea.
 | `amplify/utils/claimToken.ts` | fase 2 | `loadClaim` — la validación compartida por los dos endpoints. |
 | `amplify/utils/cognito.ts` | fase 2 | `adminSetUserPassword`, `adminSetEmailVerified`. |
 | `amplify/service/routes/e2e/accounts/OnboardingClaimTest.ts` | fase 2 | verify ×2 → claim → claim de nuevo → verify. |
+| `amplify/utils/emailTemplates.ts` | fase 3 | `claimInviteEmail`: asunto, texto y HTML, con escape. |
+| `amplify/providers/email/EmailProvider.ts` | fase 3 | `html` opcional en `sendEmail`. |
+| `amplify/providers/email/ses/SesEmailProvider.ts` | fase 3 | Multipart texto + HTML, UTF-8. |
+| `amplify/service/routes/accounts/onboarding.ts` | fase 3 | `sendInvite` después del commit, `emailSent` en la respuesta. |
+| `amplify/service/routes/e2e/accounts/AccountsOnboardingTest.ts` | fase 3 | Simulador de SES; `ONBOARDING_EMAIL` para un inbox real. |
+| `amplify/utils/custodialAccount.ts` | cuenta | `provisionCustodialAccount`: KMS + Tatum, devuelve registros sin escribir. |
+| `amplify/service/routes/accounts/account.ts` | cuenta | Usa el util; mismo comportamiento, 157 → 83 líneas. |
+| `amplify/service/routes/accounts/onboarding.ts` | cuenta | `chain` obligatorio, provisión y reparación, `accountNo` en la respuesta. |
+| `amplify/service/router.ts` | cuenta | `chain` en `requiredParams`. |
 
 **Antes de probar:** la ruta no puede funcionar sin deploy — `COGNITO_USER_POOL_ID` y los
 permisos de Cognito se agregan en `backend.ts`, así que hace falta un
@@ -317,13 +453,15 @@ verifica el camino nuevo y el replay con el mismo `transaction.id`.
 
 ## Dónde sigue
 
-Fases 1 y 2 de 4. Falta la 3 — el email con el link, que necesita sacar SES del sandbox y
-verificar el dominio noda.money — y la 4, el dinero: crédito, conversión a USDT y
-transferencia al merchant. Esa última sigue esperando respuestas del cliente sobre de qué
-cuenta sale el asiento, porque el provider de Tatum no tiene ninguna operación de acreditar,
-solo `transferFunds` entre dos VAs.
+Queda el movimiento de plata: crédito, conversión a USDT, transferencia al merchant y el
+email al merchant. Sigue esperando respuestas del cliente sobre de qué cuenta sale el asiento,
+porque el provider de Tatum no tiene ninguna operación de acreditar, solo `transferFunds` entre
+dos VAs. La cuenta del pagador ya existe, así que esa transferencia ya tiene destino.
 
-**Supuesto a confirmar en el primer test de la fase 2:** `AdminSetUserPassword` y
-`AdminUpdateUserAttributes` reciben el `sub` como `Username`. No se pudo verificar contra el
-pool real desde el entorno de desarrollo. Si devuelven `UserNotFoundException`, el cambio es
-pasar `claim.record.email` en lugar de `userId` en `claim.ts`.
+Antes de eso, lo que más falta es el reenvío del link: sin él, un email perdido o un link
+vencido deja al pagador sin forma de entrar.
+
+**Confirmado en el primer test de la fase 2 (2026-09-11):** `AdminSetUserPassword` y
+`AdminUpdateUserAttributes` reciben el `sub` como `Username` — en este pool el username de
+Cognito es el sub. El sign-in posterior devolvió `email_verified: true` y
+`cognito:groups: ["user"]`.

@@ -2,25 +2,26 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
-import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-import { createBlockchainKey } from '../../../utils/awsKms'
 import { networkFor } from '../../../utils/currencies'
-import { CreateAccountParams } from '../../../providers/ledger/provider'
+import { provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 import { brandName } from '../../../utils/config'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: AccountHandler execution started.')
-    console.log('DEBUG: Incoming Event:', JSON.stringify(event))
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const userId      = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
-    const chain       = event.body.chain
-    const provider    = event.body.provider as ProviderName
-    const accountNumber = event.body.provider + crypto.randomUUID().replaceAll('-', '')
-    const webhookUrl  = process.env.TATUM_WEBHOOK_URL!
+    const userId   = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
+    const chain    = event.body.chain
+    const provider = event.body.provider as ProviderName
+    const email    = event.body.email
+
+    if (!networkFor(chain)) {
+      console.error(`ERROR: Unsupported ledger currency: ${chain}`)
+      return processError(100009)
+    }
 
     const userProfileRecord: Record<string, any> = {
       id: userId,
@@ -28,130 +29,55 @@ export default class AccountHandler {
       created_at: Date.now(),
       deleted_at: null,
       name: event.body.account_name,
-      email: event.body.email ?? null,
+      email: email ?? null,
       updated_at: Date.now(),
     }
 
-    console.log('DEBUG: Internal Account Record (Initial):', JSON.stringify(userProfileRecord))
-
-    if (!networkFor(chain)) {
-      console.error(`ERROR: Unsupported ledger currency: ${chain}`)
-      return processError(100009)
-    }
-
     try {
-      return await this.createCustodialAccount({
-        userId, chain, provider, accountNumber, webhookUrl,
+      const account = await provisionCustodialAccount({
+        userId,
+        chain,
+        provider,
         accountingCurrency: event.body.accounting_currency,
-        userProfileRecord,
-        email: event.body.email,
+      })
+
+      const result = await transactWriteItems({
+        puts: [
+          { tableName: 'v2CustomerTable', item: userProfileRecord },
+          { tableName: 'v2CustomerTable', item: account.accountRecord },
+          { tableName: 'v1AccountBalanceTable', item: account.balanceRecord },
+        ]
+      })
+
+      if (!result.success || !result.res) {
+        console.log('Failed to perform atomic write for all required records')
+        return processError(100003)
+      }
+
+      if (email) {
+        try {
+          await getEmailProvider().sendEmail(
+            email,
+            `Welcome to ${brandName()} — your account is ready`,
+            `Your account has been created.\nAccount number: ${account.accountNo}\n\nWelcome aboard!`
+          )
+          console.log(`DEBUG: Welcome email sent to ${email}`)
+        } catch (err) {
+          console.error('Email send failed (non-fatal):', err)
+        }
+      }
+
+      return response({
+        statusCode: 200,
+        headers: null,
+        bodyObject: {
+          success: true,
+          res: { data: { id: userId, accountNo: account.accountNo, depositAddress: account.depositAddress } }
+        }
       })
     } catch (err) {
       console.error('FATAL ERROR: Account creation error:', err)
       return processError(100002, 'Failed to create account')
     }
-  }
-
-  private async createCustodialAccount({
-    userId, chain, provider, accountNumber, webhookUrl, accountingCurrency, userProfileRecord, email,
-  }: {
-    userId: string; chain: string; provider: ProviderName; accountNumber: string
-    webhookUrl: string; accountingCurrency: string; userProfileRecord: Record<string, any>
-    email?: string
-  }) {
-    // `chain` is a Tatum ledger currency (TRON, SOL, USDT_TRON); the key and the
-    // subscription need the network it settles on.
-    const network = networkFor(chain)!
-
-    // Create key in AWS KMS and derive deposit address
-    console.log(`DEBUG: Creating AWS KMS key for network: ${network}, accountId: ${accountNumber}`)
-    const { kmsKeyId, address: depositAddress } = await createBlockchainKey(network, accountNumber)
-    console.log(`DEBUG: AWS KMS key created. kmsKeyId: ${kmsKeyId}, depositAddress: ${depositAddress}`)
-
-    const vaProvider = ProviderRegistry.getProvider(provider)
-
-    console.log(`DEBUG: Calling vaProvider.createVaAccount for userId: ${userId}, currency: ${chain}, accountingCurrency: ${accountingCurrency}`)
-    const vaCreationPayload: CreateAccountParams = {
-      userId,
-      currency: chain,
-      accountingCurrency,
-      address: depositAddress,
-    }
-    const { accountId } = await vaProvider.createVaAccount(vaCreationPayload)
-    console.log(`DEBUG: Virtual Account created. accountId: ${accountId}`)
-
-    console.log(`DEBUG: Assigning deposit address ${depositAddress} to accountId: ${accountId}`)
-    const { address: assignedAddress } = await vaProvider.assignDepositAddress({ accountId, address: depositAddress })
-    console.log(`DEBUG: Final Deposit address confirmed: ${assignedAddress}`)
-
-    console.log(`DEBUG: Creating ADDRESS_TRANSACTION subscription. webhookUrl: ${webhookUrl}`)
-    const { subscriptionId } = await vaProvider.createSubscription({ accountId, address: assignedAddress, chain: network, webhookUrl })
-    console.log(`DEBUG: Subscription created. subscriptionId: ${subscriptionId}`)
-
-    const accountRecord: Record<string, any> = {
-      id: userId,
-      sk: `ACCOUNT#${accountNumber}`,
-      currency: accountingCurrency,
-      provider,
-      accountNo: accountNumber,
-      chain,
-      kmsKeyId,
-      depositAddress: assignedAddress,
-      vAccountId: accountId,
-      created_at: Date.now(),
-      fees: 'default',
-      providerId: provider || 'default',
-      status: 'active',
-    }
-
-    const balanceRecord: Record<string, any> = {
-      id: accountId,
-      availableBalance: 0.0,
-      balance: 0.0,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    }
-
-    console.log('DEBUG: Account Balance Record (Initial):', JSON.stringify(balanceRecord))
-    console.log('DEBUG: Attempting to save all records transactionally...')
-
-    const result = await transactWriteItems({
-      puts: [
-        { tableName: 'v2CustomerTable', item: userProfileRecord },
-        { tableName: 'v2CustomerTable', item: accountRecord },
-        { tableName: 'v1AccountBalanceTable', item: balanceRecord },
-      ]
-    })
-
-    if (!result.success || !result.res) {
-      console.log('Failed to perform atomic write for all required records')
-      return processError(100003)
-    }
-
-    console.log('DEBUG: atomic transaction save attempt result:', JSON.stringify(result))
-
-    if (email) {
-      try {
-        const emailProvider = getEmailProvider()
-        await emailProvider.sendEmail(
-          email,
-          `Welcome to ${brandName()} — your account is ready`,
-          `Your account has been created.\nAccount number: ${accountNumber}\n\nWelcome aboard!`
-        )
-        console.log(`DEBUG: Welcome email sent to ${email}`)
-      } catch (err) {
-        console.error('Email send failed (non-fatal):', err)
-      }
-    }
-
-    console.log('DEBUG: Custodial account creation successful. Returning 200 response.')
-    return response({
-      statusCode: 200,
-      headers: null,
-      bodyObject: {
-        success: true,
-        res: { data: { id: userId, accountNo: accountNumber, depositAddress } }
-      }
-    })
   }
 }

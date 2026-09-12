@@ -8,6 +8,9 @@ import { ClaimToken, claimRecordId, createClaimToken } from '../../../utils/clai
 import { brandName } from '../../../utils/config'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 import { claimInviteEmail } from '../../../utils/emailTemplates'
+import { networkFor } from '../../../utils/currencies'
+import { provisionCustodialAccount } from '../../../utils/custodialAccount'
+import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 // Quotes and backslashes are excluded so the address can never break out of the
 // ListUsers filter string.
@@ -21,6 +24,7 @@ type Event = {
     lastName: string
     email: string
     merchantId: string
+    chain: string
     transaction: {
       id: string
       amount: number
@@ -47,12 +51,15 @@ export default class OnboardingHandler {
     const platform = event.requestContext?.authorizer?.userId
     if (!platform) return processError(100031, 'platform')
 
-    const { externalId, firstName, lastName, email, merchantId, transaction } = event.body
+    const { externalId, firstName, lastName, email, merchantId, chain, transaction } = event.body
 
     if (!transaction.id || typeof transaction.amount !== 'number' || !transaction.currency) {
       return processError(100029, 'transaction.id, transaction.amount, transaction.currency')
     }
     if (!EMAIL_RE.test(email)) return processError(100031, 'email')
+    // No server-side default on purpose: a fallback would quietly create the wrong
+    // kind of account, and a KMS key plus a Tatum account cannot be taken back.
+    if (!networkFor(chain)) return processError(100009)
 
     const now = Date.now()
     const mappingId = mappingRecordId(platform, externalId)
@@ -83,6 +90,17 @@ export default class OnboardingHandler {
       isNew = true
     }
 
+    // A payer onboarded before this endpoint created accounts has none; provisioning
+    // on their next transaction heals that without a migration.
+    const account = (isNew || !(await this.hasAccount(userId)))
+      ? await provisionCustodialAccount({
+          userId,
+          chain,
+          provider: ProviderName.Tatum,
+          accountingCurrency: transaction.currency,
+        })
+      : null
+
     const idempotencyRecord = {
       id: idempotencyId,
       sk: 'IDEMPOTENCY',
@@ -102,6 +120,13 @@ export default class OnboardingHandler {
     const puts: { tableName: string, item: Record<string, any>, conditionExpression?: string }[] = [
       { tableName: 'v2CustomerTable', item: idempotencyRecord, conditionExpression: 'attribute_not_exists(id)' },
     ]
+
+    if (account) {
+      puts.push(
+        { tableName: 'v2CustomerTable', item: account.accountRecord },
+        { tableName: 'v1AccountBalanceTable', item: account.balanceRecord },
+      )
+    }
 
     if (isNew && claim) {
       puts.push(
@@ -161,7 +186,7 @@ export default class OnboardingHandler {
 
     const emailSent = claim ? await this.sendInvite(email, firstName, claim) : false
 
-    console.log(`ONBOARDING: done userId=${userId} isNew=${isNew} emailSent=${emailSent}`)
+    console.log(`ONBOARDING: done userId=${userId} isNew=${isNew} emailSent=${emailSent} accountNo=${account?.accountNo ?? 'none'}`)
 
     return response({
       statusCode: isNew ? 201 : 200,
@@ -172,6 +197,7 @@ export default class OnboardingHandler {
           data: {
             userId,
             isNew,
+            ...(account ? { accountNo: account.accountNo, depositAddress: account.depositAddress } : {}),
             ...(claim ? { claimToken: claim.token, claimExpiresAt: claim.expiresAt, emailSent } : {}),
           },
         },
@@ -205,6 +231,16 @@ export default class OnboardingHandler {
     const { sub, username } = await adminCreateUser(email)
     await addUserToGroup(username, 'user')
     return { userId: sub, claim: createClaimToken() }
+  }
+
+  /** True when the payer already has at least one account record. */
+  private async hasAccount(userId: string): Promise<boolean> {
+    const existing = await queryRecord(
+      'v2CustomerTable',
+      'id = :id AND begins_with(sk, :prefix)',
+      { ':id': userId, ':prefix': 'ACCOUNT#' }
+    )
+    return !!existing.res?.length
   }
 
   private async sendInvite(email: string, firstName: string, claim: ClaimToken): Promise<boolean> {

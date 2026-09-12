@@ -44,7 +44,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, requiredParams: ['account_id'], method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, requiredParams: ['account_name'], method: 'POST' }],
-  ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'merchantId', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
+  ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'merchantId', 'chain', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
   ['/onboarding/verify', { handler: onboardingVerify, requiredParams: ['token'], method: 'POST' }],
   ['/onboarding/claim', { handler: onboardingClaim, requiredParams: ['token', 'password'], method: 'POST' }],
