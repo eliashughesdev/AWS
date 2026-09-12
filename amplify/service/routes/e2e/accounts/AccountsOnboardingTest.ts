@@ -9,7 +9,7 @@ const body = JSON.stringify({
   externalId: `ext_${stamp}`,
   firstName: 'Juan',
   lastName: 'Perez',
-  email: `juan.perez.${stamp}@example.com`,
+  email: process.env.ONBOARDING_EMAIL ?? `success+${stamp}@simulator.amazonses.com`,
   merchantId: 'mrc_test_01',
   transaction: {
     id: `txn_${stamp}`,

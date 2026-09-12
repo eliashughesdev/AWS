@@ -5,6 +5,9 @@ import { processError } from '../../../errors/http'
 import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { addUserToGroup, adminCreateUser, findUserByEmail } from '../../../utils/cognito'
 import { ClaimToken, claimRecordId, createClaimToken } from '../../../utils/claimToken'
+import { brandName } from '../../../utils/config'
+import { getEmailProvider } from '../../../utils/EmailProvider'
+import { claimInviteEmail } from '../../../utils/emailTemplates'
 
 // Quotes and backslashes are excluded so the address can never break out of the
 // ListUsers filter string.
@@ -156,7 +159,9 @@ export default class OnboardingHandler {
       return processError(100003)
     }
 
-    console.log(`ONBOARDING: done userId=${userId} isNew=${isNew}`)
+    const emailSent = claim ? await this.sendInvite(email, firstName, claim) : false
+
+    console.log(`ONBOARDING: done userId=${userId} isNew=${isNew} emailSent=${emailSent}`)
 
     return response({
       statusCode: isNew ? 201 : 200,
@@ -167,7 +172,7 @@ export default class OnboardingHandler {
           data: {
             userId,
             isNew,
-            ...(claim ? { claimToken: claim.token, claimExpiresAt: claim.expiresAt } : {}),
+            ...(claim ? { claimToken: claim.token, claimExpiresAt: claim.expiresAt, emailSent } : {}),
           },
         },
       },
@@ -200,6 +205,26 @@ export default class OnboardingHandler {
     const { sub, username } = await adminCreateUser(email)
     await addUserToGroup(username, 'user')
     return { userId: sub, claim: createClaimToken() }
+  }
+
+  private async sendInvite(email: string, firstName: string, claim: ClaimToken): Promise<boolean> {
+    try {
+      const base = process.env.FRONTEND_URL?.replace(/\/+$/, '')
+      if (!base) throw new Error('FRONTEND_URL is not set')
+
+      const message = claimInviteEmail({
+        brand: brandName(),
+        firstName,
+        link: `${base}/v2/set-password?token=${encodeURIComponent(claim.token)}`,
+        expiresAt: claim.expiresAt,
+      })
+      await getEmailProvider().sendEmail(email, message.subject, message.text, message.html)
+      console.log(`ONBOARDING: invite sent to ${email}`)
+      return true
+    } catch (err) {
+      console.error('ONBOARDING: invite email failed', err)
+      return false
+    }
   }
 
   private async replay(idempotencyId: string) {
