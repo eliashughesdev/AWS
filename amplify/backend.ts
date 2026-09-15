@@ -71,6 +71,7 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
       'cognito-idp:AdminAddUserToGroup',
       'cognito-idp:AdminSetUserPassword',
       'cognito-idp:AdminUpdateUserAttributes',
+      'cognito-idp:AdminGetUser',
       'cognito-idp:ListUsers',
     ],
     resources: [backend.auth.resources.userPool.userPoolArn]
@@ -283,9 +284,6 @@ accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, 
 paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
 
-// Public on purpose: the payer arrives from an email link with no session and no
-// password, so the one-time claim token is the only credential they can present.
-// Cannot live under /accounts, which requires the custom authorizer.
 const onboardingPath = loudiblyRestApi.root.addResource('onboarding', {
   defaultMethodOptions: { authorizationType: AuthorizationType.NONE },
 })
