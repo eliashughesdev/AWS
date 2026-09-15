@@ -33,3 +33,17 @@ export function brandName(): string {
   if (!name) throw new Error(`BRAND_NAME is not set under ${SSM_PATH}`)
   return name
 }
+
+const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 86_400
+
+/**
+ * How long a password-claim link stays valid, in seconds. Seconds (not days)
+ * so a short TTL can be set for testing without editing code. Unlike
+ * BRAND_NAME this falls back to a default instead of throwing — an unset or
+ * malformed value isn't a wrong-brand-class mistake, just a shorter/longer
+ * link lifetime.
+ */
+export function claimTokenTtlSeconds(): number {
+  const raw = Number(process.env.CLAIM_TOKEN_TTL_SECONDS)
+  return raw > 0 ? raw : DEFAULT_CLAIM_TOKEN_TTL_SECONDS
+}

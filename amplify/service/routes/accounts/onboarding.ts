@@ -4,10 +4,8 @@ import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { addUserToGroup, adminCreateUser, findUserByEmail } from '../../../utils/cognito'
-import { ClaimToken, claimRecordId, createClaimToken } from '../../../utils/claimToken'
-import { brandName } from '../../../utils/config'
-import { getEmailProvider } from '../../../utils/EmailProvider'
-import { claimInviteEmail } from '../../../utils/emailTemplates'
+import { ClaimToken, claimPointerItem, claimRecordId, createClaimToken } from '../../../utils/claimToken'
+import { sendClaimInvite } from '../../../utils/claimInvite'
 import { networkFor } from '../../../utils/currencies'
 import { provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
@@ -169,6 +167,7 @@ export default class OnboardingHandler {
             created_at: now,
           },
         },
+        { tableName: 'v2CustomerTable', item: claimPointerItem(userId, claim.tokenHash) },
       )
     }
 
@@ -184,7 +183,7 @@ export default class OnboardingHandler {
       return processError(100003)
     }
 
-    const emailSent = claim ? await this.sendInvite(email, firstName, claim) : false
+    const emailSent = claim ? await sendClaimInvite(email, firstName, claim) : false
 
     console.log(`ONBOARDING: done userId=${userId} isNew=${isNew} emailSent=${emailSent} accountNo=${account?.accountNo ?? 'none'}`)
 
@@ -241,26 +240,6 @@ export default class OnboardingHandler {
       { ':id': userId, ':prefix': 'ACCOUNT#' }
     )
     return !!existing.res?.length
-  }
-
-  private async sendInvite(email: string, firstName: string, claim: ClaimToken): Promise<boolean> {
-    try {
-      const base = process.env.FRONTEND_URL?.replace(/\/+$/, '')
-      if (!base) throw new Error('FRONTEND_URL is not set')
-
-      const message = claimInviteEmail({
-        brand: brandName(),
-        firstName,
-        link: `${base}/v2/set-password?token=${encodeURIComponent(claim.token)}`,
-        expiresAt: claim.expiresAt,
-      })
-      await getEmailProvider().sendEmail(email, message.subject, message.text, message.html)
-      console.log(`ONBOARDING: invite sent to ${email}`)
-      return true
-    } catch (err) {
-      console.error('ONBOARDING: invite email failed', err)
-      return false
-    }
   }
 
   private async replay(idempotencyId: string) {

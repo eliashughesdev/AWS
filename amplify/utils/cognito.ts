@@ -1,6 +1,7 @@
 import {
   AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
+  AdminGetUserCommand,
   AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
   CognitoIdentityProviderClient,
@@ -77,3 +78,9 @@ export const adminSetEmailVerified = (username: string) =>
     Username: username,
     UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
   }))
+
+
+export const getUserStatus = async (username: string) => {
+  const res = await client.send(new AdminGetUserCommand({ UserPoolId: poolId(), Username: username }))
+  return res.UserStatus
+}

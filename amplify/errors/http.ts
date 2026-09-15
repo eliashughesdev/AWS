@@ -16,6 +16,8 @@ const httpErrors: any = {
   100035: () => 'this link has expired',
   100036: () => 'this link has already been used',
   100037: (params: any) => params ?? 'the password does not meet the requirements',
+  100038: () => 'no pending invite found for this payer',
+  100039: () => 'this payer has already set a password — use password reset instead',
 }
 
 export const processError = (code: any, params?: any) => {
