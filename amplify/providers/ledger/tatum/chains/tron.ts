@@ -17,6 +17,20 @@ export async function getTronBalance(address: string): Promise<number> {
     return Number(res.data?.balance ?? 0)/ SUN_PER_TRX
 }
 
+export interface TronResources {
+  energyLimit: number
+  energyAvailable: number
+}
+
+// get energy and bandwith resources from a given address
+export async function getTronResources(address: string): Promise<TronResources> {
+    const url = `${resolveBase()}/blockchain/node/TRON/wallet/getaccountresource`
+    const res = await axios.post(url, { address, visible: true }, { headers: { 'x-api-key': process.env.TATUM_API_KEY } })
+    const energyLimit = Number(res.data?.EnergyLimit ?? 0)
+    const energyUsed = Number(res.data?.EnergyUsed ?? 0)
+    return { energyLimit, energyAvailable: energyLimit - energyUsed }
+}
+
 //Maps one TronGrid-native tx to our normilized shape. NiativTRX transfers only
 // (TranferContract) - TRC20/other contract calls are ignored for now
 function mapTronTransfer(tx: any, watched: string): OnChainTransaction | null {
