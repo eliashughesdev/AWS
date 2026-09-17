@@ -22,6 +22,7 @@ export async function getTronBalance(address: string): Promise<number> {
 export interface TronResources {
   energyLimit: number
   energyAvailable: number
+  bandwidthAvailable: number
 }
 
 // get energy and bandwith resources from a given address
@@ -30,7 +31,19 @@ export async function getTronResources(address: string): Promise<TronResources> 
     const res = await axios.post(url, { address, visible: true }, { headers: { 'x-api-key': process.env.TATUM_API_KEY } })
     const energyLimit = Number(res.data?.EnergyLimit ?? 0)
     const energyUsed = Number(res.data?.EnergyUsed ?? 0)
-    return { energyLimit, energyAvailable: energyLimit - energyUsed }
+    // Bandwidth has two independent sources: the free daily allowance every
+    // account gets (freeNetLimit/freeNetUsed) and any staked/delegated
+    // bandwidth on top of it (NetLimit/NetUsed) — both count toward what a
+    // transaction can spend before anything gets burned as TRX.
+    const freeNetLimit = Number(res.data?.freeNetLimit ?? 0)
+    const freeNetUsed = Number(res.data?.freeNetUsed ?? 0)
+    const netLimit = Number(res.data?.NetLimit ?? 0)
+    const netUsed = Number(res.data?.NetUsed ?? 0)
+    return {
+      energyLimit,
+      energyAvailable: energyLimit - energyUsed,
+      bandwidthAvailable: (freeNetLimit - freeNetUsed) + (netLimit - netUsed),
+    }
 }
 
 const TRANSFER_SELECTOR = 'transfer(address,uint256)'
@@ -121,6 +134,22 @@ export async function buildTrc20Transfer(
   const tx = res.data.transaction
   if (!tx?.txID) throw new Error('TRON node did not return a txID for the TRC-20 transaction')
   return tx
+}
+
+// One secp256k1 signature (r + s + v), the size of every KMS-signed TRON tx.
+const TRON_SIGNATURE_BYTES = 65
+
+// Padded, not measured: TRON has no dry-run bandwidth estimate the way
+// triggerconstantcontract gives one for Energy, so this covers the protocol
+// framing around raw_data (unlike Energy, Bandwidth is priced per byte and
+// cheap to rent) — if a real shortfall is ever observed, raise this constant.
+const TRON_BANDWIDTH_OVERHEAD_BYTES = 100
+
+// Approximates the Bandwidth a signed transaction will consume, from the
+// unsigned tx's actual byte size plus the signature that's about to be added.
+export function estimateTronBandwidth(unsignedTx: UnsignedTronTransaction): number {
+  const rawDataBytes = unsignedTx.raw_data_hex.length / 2
+  return Math.ceil(rawDataBytes + TRON_SIGNATURE_BYTES + TRON_BANDWIDTH_OVERHEAD_BYTES)
 }
 
 //Maps one TronGrid-native tx to our normilized shape. NiativTRX transfers only

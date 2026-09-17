@@ -15,12 +15,12 @@ import { CreateAccountParams,
   GetAddressHistoryParams,
   OnChainBalanceParams,
   OnChainTransaction} from '../provider'
-  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer } from './chains/tron'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory } from './chains/solana'
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
-import { ensureEnergy } from '../tronsave/tronsave'
+import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -288,10 +288,6 @@ export class TatumProvider implements AccountProvider {
     }
 
     if (networkFor(chain) === 'TRON' && !isNativeCurrency(chain)) {
-      // TRC-20 transfer (e.g. USDT_TRON) — a contract call, not a native
-      // transfer, so it needs Energy rather than just Bandwidth. Estimate
-      // first (read-only), rent exactly that much to the signing address,
-      // then build the real transaction.
       const contractAddress = trc20ContractFor(chain)
       if (!contractAddress) throw new Error(`No TRC-20 contract configured for currency: ${chain}`)
 
@@ -301,6 +297,10 @@ export class TatumProvider implements AccountProvider {
       await ensureEnergy(senderAddress, estimatedEnergy)
 
       const unsignedTx = await buildTrc20Transfer(contractAddress, senderAddress, recipientAddress, amountInUnits, this.TRC20_FEE_LIMIT_SUN)
+
+      const estimatedBandwidth = estimateTronBandwidth(unsignedTx)
+      await ensureBandwidth(senderAddress, estimatedBandwidth)
+
       const signatureHex = await signTronTransaction(kmsKeyId, unsignedTx.txID, senderAddress)
       return { ...unsignedTx, signature: [signatureHex] }
     }

@@ -22,7 +22,9 @@ function resolveAuthHeader(): string {
 // Safety margin on top of the shortfall we ask TronSave for. State can shift
 // between reading current resources and the order landing on-chain, and
 // running out mid-broadcast burns TRX anyway without moving the tokens.
-const ENERGY_MARGIN = 1.25
+const RESOURCE_MARGIN = 1.25
+
+type ResourceType = 'ENERGY' | 'BANDWIDTH'
 
 // TronSave's documented minimum rental duration.
 const DEFAULT_DURATION_SEC = 900
@@ -30,8 +32,6 @@ const DEFAULT_DURATION_SEC = 900
 // TronSave accepts a named speed tier or an explicit SUN price.
 type UnitPrice = 'FAST' | 'MEDIUM' | 'SLOW' | number
 
-// MEDIUM is cheaper than FAST and is TronSave's own default. Callers can pass
-// FAST if MEDIUM's fill latency turns out to be a problem for that flow.
 const DEFAULT_UNIT_PRICE: UnitPrice = 'MEDIUM'
 
 // Poll interval/timeout while waiting for a filled order to land on-chain.
@@ -51,9 +51,9 @@ async function tronsaveRequest(path: string, method: 'GET' | 'POST', body?: unkn
   return JSON.parse(text)
 }
 
-async function estimateEnergy(receiver: string, amount: number, durationSec: number, unitPrice: UnitPrice) {
+async function estimateResource(resourceType: ResourceType, receiver: string, amount: number, durationSec: number, unitPrice: UnitPrice) {
   const res = await tronsaveRequest('/v2/estimate-buy-resource', 'POST', {
-    resourceType: 'ENERGY',
+    resourceType,
     resourceAmount: amount,
     durationSec,
     receiver,
@@ -62,9 +62,9 @@ async function estimateEnergy(receiver: string, amount: number, durationSec: num
   return res.data
 }
 
-async function buyEnergy(receiver: string, amount: number, durationSec: number, unitPrice: UnitPrice) {
+async function buyResource(resourceType: ResourceType, receiver: string, amount: number, durationSec: number, unitPrice: UnitPrice) {
   const res = await tronsaveRequest('/v2/buy-resource', 'POST', {
-    resourceType: 'ENERGY',
+    resourceType,
     resourceAmount: amount,
     durationSec,
     receiver,
@@ -74,38 +74,69 @@ async function buyEnergy(receiver: string, amount: number, durationSec: number, 
   return res.data
 }
 
+function availableOf(resourceType: ResourceType, resources: Awaited<ReturnType<typeof getTronResources>>): number {
+  return resourceType === 'ENERGY' ? resources.energyAvailable : resources.bandwidthAvailable
+}
+
 /**
- * Makes sure `address` has at least `energyNeeded` energy available, renting
- * the delta from TronSave if needed. does nothing if the address already has
- * enough (e.g. leftover from a still-active prior rental).
+ * Makes sure `address` has at least `amountNeeded` of `resourceType`
+ * available, renting the delta from TronSave if needed. Does nothing if the
+ * address already has enough (e.g. leftover from a still-active prior
+ * rental). Shared by ensureEnergy and ensureBandwidth below.
  */
+async function ensureResource(
+  resourceType: ResourceType,
+  address: string,
+  amountNeeded: number,
+  durationSec: number,
+  unitPrice: UnitPrice
+): Promise<void> {
+  const before = await getTronResources(address)
+  const availableBefore = availableOf(resourceType, before)
+  console.log(`DEBUG (TronSaveProvider): ${address} has ${availableBefore} ${resourceType} available, needs ${amountNeeded}`)
+  if (availableBefore >= amountNeeded) return
+
+  const delta = amountNeeded - availableBefore
+  const toRent = Math.ceil(delta * RESOURCE_MARGIN)
+
+  const quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
+  if (quote.availableResource < toRent) {
+    throw new Error(`TronSave cannot fill ${toRent} ${resourceType} for ${address} right now (only ${quote.availableResource} available)`)
+  }
+
+  const order = await buyResource(resourceType, address, toRent, durationSec, unitPrice)
+  console.log(`DEBUG (TronSaveProvider): ${resourceType} order created for ${address}. orderId=${order.orderId}`)
+
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    await sleep(POLL_INTERVAL_MS)
+    const after = await getTronResources(address)
+    if (availableOf(resourceType, after) >= amountNeeded) return
+  }
+
+  throw new Error(`TronSave order for ${address} did not deliver enough ${resourceType} within ${POLL_TIMEOUT_MS / 1000}s`)
+}
+
 export async function ensureEnergy(
   address: string,
   energyNeeded: number,
   durationSec = DEFAULT_DURATION_SEC,
   unitPrice: UnitPrice = DEFAULT_UNIT_PRICE
 ): Promise<void> {
-  const before = await getTronResources(address)
-  console.log(`DEBUG (TronSaveProvider): ${address} has ${before.energyAvailable} energy available, needs ${energyNeeded}`)
-  if (before.energyAvailable >= energyNeeded) return
+  return ensureResource('ENERGY', address, energyNeeded, durationSec, unitPrice)
+}
 
-  const delta = energyNeeded - before.energyAvailable
-  let toRent = Math.ceil(delta * ENERGY_MARGIN)
-
-  const quote = await estimateEnergy(address, toRent, durationSec, unitPrice)
-  if (quote.availableResource < toRent) {
-    throw new Error(`TronSave cannot fill ${toRent} energy for ${address} right now (only ${quote.availableResource} available)`)
-  }
-
-  const order = await buyEnergy(address, toRent, durationSec, unitPrice)
-  console.log(`DEBUG (TronSaveProvider): order created for ${address}. orderId=${order.orderId}`)
-
-  const deadline = Date.now() + POLL_TIMEOUT_MS
-  while (Date.now() < deadline) {
-    await sleep(POLL_INTERVAL_MS)
-    const after = await getTronResources(address)
-    if (after.energyAvailable >= energyNeeded) return
-  }
-
-  throw new Error(`TronSave order for ${address} did not deliver enough energy within ${POLL_TIMEOUT_MS / 1000}s`)
+/**
+ * Makes sure `address` has enough Bandwidth to cover a signed transaction's
+ * byte size. Unlike Energy, most transfers fit inside the free daily
+ * allowance every TRON account gets, so this is frequently a no-op — it only
+ * rents when that free (plus any staked/delegated) Bandwidth is exhausted.
+ */
+export async function ensureBandwidth(
+  address: string,
+  bandwidthNeeded: number,
+  durationSec = DEFAULT_DURATION_SEC,
+  unitPrice: UnitPrice = DEFAULT_UNIT_PRICE
+): Promise<void> {
+  return ensureResource('BANDWIDTH', address, bandwidthNeeded, durationSec, unitPrice)
 }
