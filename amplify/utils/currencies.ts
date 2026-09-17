@@ -19,3 +19,11 @@ export const networkFor = (currency?: string): Network | undefined =>
 // True when the currency is the network's own coin (TRON, SOL) rather than a token.
 export const isNativeCurrency = (currency?: string): boolean =>
   !!currency && networkFor(currency) === currency.toUpperCase()
+
+const TRC20_CONTRACTS: Record<string, string> = {
+  USDT_TRON: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+  TEST_USDT_TRON: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
+}
+
+export const trc20ContractFor = (currency?: string): string | undefined =>
+  currency ? TRC20_CONTRACTS[currency.toUpperCase()] : undefined

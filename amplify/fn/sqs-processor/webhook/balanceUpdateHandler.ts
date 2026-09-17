@@ -1,4 +1,6 @@
 import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
+import { isNativeCurrency } from '../../../utils/currencies'
+import { sendToQueue } from '../../../utils/sqs'
 
 interface IncomingBlockchainTransactionRequest {
   address: string;             // the watched account this event is about
@@ -163,6 +165,26 @@ const FEE_PAYER_RESOLVERS: Record<string, (body: IncomingBlockchainTransactionRe
   SOL: (body) => body.address,
 }
 
+async function enqueueSweep(params: {
+  vAccountId: string
+  senderAddress: string
+  kmsKeyId?: string
+  amount: number
+  currency: string
+  txId: string
+}): Promise<void> {
+  if (!params.kmsKeyId) {
+    console.error(`SWEEP_ENQUEUE_ERROR: Account ${params.vAccountId} has no kmsKeyId — cannot sweep`)
+    return
+  }
+
+  const queueUrl = process.env.SWEEP_QUEUE_URL || ''
+  const result = await sendToQueue(queueUrl, { queue: 'v1-sweep-queue', ...params })
+  if (!result.success) {
+    console.error(`SWEEP_ENQUEUE_ERROR: Failed to queue sweep for tx ${params.txId}:`, result.e)
+  }
+}
+
 // Debits the real on-chain fee once it's known — withdraw.ts only pre-debits the
 // principal, so this is the sole fee charge, not a top-up. Idempotent via the same
 // (account, txId) claim as applyBalanceChange; safe to no-op if unresolvable.
@@ -248,8 +270,23 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // `address` received funds — credit it.
   if (!primary) return true
 
-  return applyBalanceChange({
+  const credited = await applyBalanceChange({
     account: primary, direction: 'CREDIT', amount, currency, txId,
     from: counterparties[0], to: body.address, blockNumber: body.blockNumber, index: body.index,
   })
+
+  // Token deposits (e.g. USDT_TRON) get swept on-chain to the master account
+  // right after crediting — native-chain deposits are left where they are.
+  if (credited && !isNativeCurrency(currency)) {
+    await enqueueSweep({
+      vAccountId: primary.vAccountId,
+      senderAddress: body.address,
+      kmsKeyId: primary.kmsKeyId,
+      amount,
+      currency,
+      txId,
+    })
+  }
+
+  return credited
 }

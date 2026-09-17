@@ -2,6 +2,7 @@ import { handleBalanceUpdate } from './balanceUpdateHandler'
 import { handlePayment } from './paymentHandler'
 import { handleWithdrawal } from './withdrawalHandler'
 import { handleAccountBackfill } from './accountBackfillHandler'
+import { handleSweep } from './sweepHandler'
 import { loadConfig } from '../../../utils/config'
 
 // const headers = {
@@ -27,7 +28,8 @@ const queueHandlers: Record<string, QueueHandler> = {
   'v1-webhook-queue': handleBalanceUpdate,
   'v1-payment-processing-queue': handlePayment,
   'v1-withdrawal-processing-queue': handleWithdrawal,
-  'v1-account-backfill-queue': handleAccountBackfill
+  'v1-account-backfill-queue': handleAccountBackfill,
+  'v1-sweep-queue': handleSweep
 }
 
 const routeMessage = async (recordBody: string) => {

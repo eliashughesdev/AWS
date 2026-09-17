@@ -72,6 +72,18 @@ export interface WithdrawFundsResponse {
   withdrawalId: string
 }
 
+export interface SendOnChainParams {
+  chain: string
+  senderAddress: string
+  recipientAddress: string
+  amount: string
+  kmsKeyId: string
+}
+
+export interface SendOnChainResponse {
+  txId: string
+}
+
 export interface CreateSubscriptionParams {
   accountId: string
   address: string
@@ -112,6 +124,7 @@ export interface AccountProvider {
   assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
   createSubscription(params: CreateSubscriptionParams): Promise<CreateSubscriptionResponse>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
+  sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
   getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>
 }

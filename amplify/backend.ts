@@ -131,6 +131,12 @@ const v1AccountBackfillQueue = new sqs.Queue(apiStack, 'v1AccountBackfillQueue',
   retentionPeriod: Duration.days(14)
 })
 
+const v1SweepQueue = new sqs.Queue(apiStack, 'v1SweepQueue', {
+  queueName: 'v1-sweep-queue',
+  visibilityTimeout: Duration.seconds(300),
+  retentionPeriod: Duration.days(14),
+})
+
 const webSocketApi = new apigatewayv2.WebSocketApi(apiStack, 'PaymentWebSocketApi', {
   apiName: 'PaymentWebSocketApi',
 })
@@ -141,11 +147,12 @@ const sqsV1WebhookProcessingFn = new lambda.NodejsFunction(apiStack, 'SQSv1Webho
   entry: url.fileURLToPath(new URL('./fn/sqs-processor/webhook/handler.ts', import.meta.url)),
   runtime: Runtime.NODEJS_20_X,
   functionName: 'sqsV1WebhookProcessorFn',
-  timeout: Duration.seconds(60),
+  timeout: Duration.seconds(280),
   environment: {
     V1_WEBHOOK_QUEUE_URL: v1WebhookQueue.queueUrl,
     PAYMENT_PROCESSING_QUEUE_URL: v1PaymentProcessingQueue.queueUrl,
     WITHDRAWAL_QUEUE_URL: v1WithdrawalProcessingQueue.queueUrl,
+    SWEEP_QUEUE_URL: v1SweepQueue.queueUrl,
     TATUM_API_KEY: tatumApiKeySecret.secretValueFromJson('TATUM_API_KEY').unsafeUnwrap(),
     CONNECTIONS_TABLE_NAME: 'v1WebSocketConnectionsTable',
     WEBSOCKET_API_ID: webSocketApi.apiId,
@@ -182,6 +189,14 @@ sqsV1WebhookProcessingFn.addEventSource(
     batchSize: 1,
     maxBatchingWindow: Duration.seconds(0),
     reportBatchItemFailures: true
+  })
+)
+
+sqsV1WebhookProcessingFn.addEventSource(
+  new eventsources.SqsEventSource(v1SweepQueue, {
+    batchSize: 1,
+    maxBatchingWindow: Duration.seconds(0),
+    reportBatchItemFailures: true,
   })
 )
 

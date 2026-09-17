@@ -1,4 +1,6 @@
 import axios from 'axios'
+import bs58 from 'bs58'
+import { createHash } from 'crypto'
 import { OnChainTransaction } from '../../provider'
 
 
@@ -29,6 +31,96 @@ export async function getTronResources(address: string): Promise<TronResources> 
     const energyLimit = Number(res.data?.EnergyLimit ?? 0)
     const energyUsed = Number(res.data?.EnergyUsed ?? 0)
     return { energyLimit, energyAvailable: energyLimit - energyUsed }
+}
+
+const TRANSFER_SELECTOR = 'transfer(address,uint256)'
+
+// Decodes a TRON base58check address (T...) to its raw 20-byte hex form.
+function decodeTronAddressHex(base58Address: string): string {
+  const payload = bs58.decode(base58Address) // 21-byte prefixed address + 4-byte checksum
+  const prefixed = payload.subarray(0, 21)
+  const checksum = payload.subarray(21, 25)
+
+  const firstHash = createHash('sha256').update(prefixed).digest()
+  const expectedChecksum = createHash('sha256').update(firstHash).digest().subarray(0, 4)
+  if (!Buffer.from(checksum).equals(expectedChecksum)) {
+    throw new Error(`Invalid TRON address checksum: ${base58Address}`)
+  }
+
+  return Buffer.from(prefixed.subarray(1)).toString('hex') // drop 0x41, hex-encode the 20 bytes
+}
+
+function encodeTransferParameter(toAddress: string, amountUnits: number): string {
+  const addressHex = decodeTronAddressHex(toAddress).padStart(64, '0')
+  const amountHex = amountUnits.toString(16).padStart(64, '0')
+  return addressHex + amountHex
+}
+
+export interface UnsignedTronTransaction {
+  txID: string
+  raw_data: unknown
+  raw_data_hex: string
+  visible: boolean
+}
+
+// Read-only dry run (wallet/triggerconstantcontract) — simulates the transfer
+// against current chain state with no fee, no signature, no broadcast, and
+// reports back how much Energy it would actually cost.
+export async function estimateTrc20TransferEnergy(
+  contractAddress: string,
+  ownerAddress: string,
+  toAddress: string,
+  amountUnits: number
+): Promise<number> {
+  const url = `${resolveBase()}/blockchain/node/TRON/wallet/triggerconstantcontract`
+  const res = await axios.post(
+    url,
+    {
+      owner_address: ownerAddress,
+      contract_address: contractAddress,
+      function_selector: TRANSFER_SELECTOR,
+      parameter: encodeTransferParameter(toAddress, amountUnits),
+      visible: true,
+    },
+    { headers: { 'x-api-key': process.env.TATUM_API_KEY } }
+  )
+
+  if (!res.data?.result?.result) {
+    throw new Error(`TRC-20 transfer simulation reverted for ${ownerAddress} -> ${toAddress}: ${JSON.stringify(res.data?.result)}`)
+  }
+  return Number(res.data.energy_used ?? 0)
+}
+
+// Builds a real, signable TRC-20 transfer transaction (wallet/
+// triggersmartcontract)
+export async function buildTrc20Transfer(
+  contractAddress: string,
+  ownerAddress: string,
+  toAddress: string,
+  amountUnits: number,
+  feeLimitSun: number
+): Promise<UnsignedTronTransaction> {
+  const url = `${resolveBase()}/blockchain/node/TRON/wallet/triggersmartcontract`
+  const res = await axios.post(
+    url,
+    {
+      owner_address: ownerAddress,
+      contract_address: contractAddress,
+      function_selector: TRANSFER_SELECTOR,
+      parameter: encodeTransferParameter(toAddress, amountUnits),
+      fee_limit: feeLimitSun,
+      call_value: 0,
+      visible: true,
+    },
+    { headers: { 'x-api-key': process.env.TATUM_API_KEY } }
+  )
+
+  if (!res.data?.result?.result) {
+    throw new Error(`TRC-20 transfer build reverted for ${ownerAddress} -> ${toAddress}: ${JSON.stringify(res.data?.result)}`)
+  }
+  const tx = res.data.transaction
+  if (!tx?.txID) throw new Error('TRON node did not return a txID for the TRC-20 transaction')
+  return tx
 }
 
 //Maps one TronGrid-native tx to our normilized shape. NiativTRX transfers only

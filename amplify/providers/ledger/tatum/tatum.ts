@@ -11,13 +11,16 @@ import { CreateAccountParams,
   CreateSubscriptionParams,
   CreateSubscriptionResponse, 
   WithdrawFundsParams, WithdrawFundsResponse,
-  GetAddressHistoryParams, 
+  SendOnChainParams, SendOnChainResponse,
+  GetAddressHistoryParams,
   OnChainBalanceParams,
   OnChainTransaction} from '../provider'
-  import { getTronBalance, getTronHistory } from './chains/tron'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory } from './chains/solana'
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
+import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
+import { ensureEnergy } from '../tronsave/tronsave'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -149,6 +152,14 @@ export class TatumProvider implements AccountProvider {
     // SOL is broadcast directly via the Solana RPC node (see _broadcastTransaction).
   }
 
+  // USDT on TRON (mainnet and the Shasta test stand-in) uses 6 decimals.
+  private readonly TRC20_DECIMALS = 6
+
+  // Ceiling on TRX the network may burn for a TRC-20 call — a safety cap, not a
+  // charge: with ensureEnergy covering the call, nothing should be burned.
+  // Matches energy-rental-test.ts's tested value.
+  private readonly TRC20_FEE_LIMIT_SUN = 40_000_000
+
   /**
    * Withdraws funds from a Tatum virtual account to an on-chain address.
    *
@@ -183,6 +194,25 @@ export class TatumProvider implements AccountProvider {
     console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
 
     return { withdrawalId }
+  }
+
+  /**
+   * Moves already-custodied on-chain funds from one address to another,
+   * signed by the given KMS key — no Tatum ledger interaction. Unlike
+   * withdrawFunds(), there is no virtual account to debit here: used for
+   * internal treasury moves (e.g. sweeping a deposit to the master account)
+   * where the customer's own balance was already credited separately and
+   * must not be touched again.
+   */
+  async sendOnChain({ chain, senderAddress, recipientAddress, amount, kmsKeyId }: SendOnChainParams): Promise<SendOnChainResponse> {
+    const normalizedChain = chain.toUpperCase()
+    console.log(`DEBUG (TatumProvider): sendOnChain started. chain=${normalizedChain}, amount=${amount}, from=${senderAddress}, to=${recipientAddress}`)
+
+    const signedTxData = await this._buildAndSignTransaction({ chain: normalizedChain, senderAddress, recipientAddress, amount, kmsKeyId })
+    const txId = await this._broadcastTransaction(normalizedChain, signedTxData)
+
+    console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
+    return { txId }
   }
 
   /**
@@ -257,6 +287,24 @@ export class TatumProvider implements AccountProvider {
       return Buffer.from(tx.serialize()).toString('base64')
     }
 
+    if (networkFor(chain) === 'TRON' && !isNativeCurrency(chain)) {
+      // TRC-20 transfer (e.g. USDT_TRON) — a contract call, not a native
+      // transfer, so it needs Energy rather than just Bandwidth. Estimate
+      // first (read-only), rent exactly that much to the signing address,
+      // then build the real transaction.
+      const contractAddress = trc20ContractFor(chain)
+      if (!contractAddress) throw new Error(`No TRC-20 contract configured for currency: ${chain}`)
+
+      const amountInUnits = Math.round(parseFloat(amount) * 10 ** this.TRC20_DECIMALS)
+
+      const estimatedEnergy = await estimateTrc20TransferEnergy(contractAddress, senderAddress, recipientAddress, amountInUnits)
+      await ensureEnergy(senderAddress, estimatedEnergy)
+
+      const unsignedTx = await buildTrc20Transfer(contractAddress, senderAddress, recipientAddress, amountInUnits, this.TRC20_FEE_LIMIT_SUN)
+      const signatureHex = await signTronTransaction(kmsKeyId, unsignedTx.txID, senderAddress)
+      return { ...unsignedTx, signature: [signatureHex] }
+    }
+
     throw new Error(`Unsupported chain for withdrawal: ${chain}`)
   }
 
@@ -276,7 +324,10 @@ export class TatumProvider implements AccountProvider {
       return txId
     }
 
-    const broadcastPath = this.BROADCAST_PATHS[chain]
+    // Keyed by network, not the raw currency — TRON's broadcast endpoint
+    // doesn't distinguish a native transfer from a TRC-20 contract call, so
+    // USDT_TRON/TEST_USDT_TRON must resolve to the same path as TRON.
+    const broadcastPath = this.BROADCAST_PATHS[networkFor(chain) ?? chain]
     if (!broadcastPath) throw new Error(`No broadcast path configured for chain: ${chain}`)
 
     const url = `${this.TATUM_BASE_URL}/${broadcastPath}`
