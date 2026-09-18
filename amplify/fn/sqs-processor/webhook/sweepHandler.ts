@@ -1,12 +1,11 @@
 import { putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
+import { masterAddressFor } from '../../../utils/currencies'
 
 /**
- * Consolidates a customer's just-received token deposit to the master
- * account. No ledger movement — the customer's balance was already credited
- * in balanceUpdateHandler.ts and stays as-is; this only moves the on-chain
- * tokens sitting at their deposit address.
+ * Consolidates a customer's just-received token deposit to that currency's
+ * master wallet. 
  *
  * Claimed before the on-chain move (not after), so a redelivered message
  * arriving while a slow rental/broadcast is still in flight doesn't
@@ -23,9 +22,9 @@ export const handleSweep = async (message: any): Promise<boolean> => {
     return false
   }
 
-  const masterAddress = process.env.MASTER_ACCOUNT_ADDRESS
+  const masterAddress = masterAddressFor(currency)
   if (!masterAddress) {
-    console.error('CONFIG_ERROR: MASTER_ACCOUNT_ADDRESS is not set — cannot sweep')
+    console.error(`CONFIG_ERROR: No master address configured for currency ${currency} — cannot sweep`)
     return false
   }
 

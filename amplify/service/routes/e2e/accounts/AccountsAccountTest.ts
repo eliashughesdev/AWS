@@ -6,10 +6,10 @@ console.log('path: ', path)
 
 const body = JSON.stringify({
   account_name: `Account ${Date.now().toString()}`,
-  chain: 'TRON',
+  chain: 'USDT_TRON',
   provider: 'PCF0001',
   accounting_currency: 'USD',
-  email: 'teodoro641@hotmail.com'
+  email: 'anEmail@email.com'
 })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')

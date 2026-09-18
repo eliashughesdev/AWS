@@ -4,7 +4,7 @@ import { fetchUserAttributes, fetchAuthSession, getCurrentUser, signOut } from '
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE } from '../config'
+import { API_BASE, USDT_TRON_CURRENCY } from '../config'
 
 const router = useRouter()
 
@@ -23,7 +23,7 @@ interface Account {
 
 const accounts       = ref<Account[]>([])
 const loading        = ref(true)
-const creatingChain  = ref<'TRON' | 'SOL' | null>(null)
+const creatingChain  = ref<string | null>(null)
 const createError    = ref('')
 const copiedAddress  = ref('')
 
@@ -31,9 +31,10 @@ const qrModalAccount = ref<Account | null>(null)
 const qrDataUrl      = ref('')
 
 const chainMeta: Record<string, { label: string; ticker: string; icon: string; iconBg: string; iconColor: string }> = {
-  TRON:      { label: 'TRON',        ticker: 'TRX',  icon: 'toll',  iconBg: 'bg-red-400/10',     iconColor: 'text-red-400'    },
-  SOL:       { label: 'Solana',      ticker: 'SOL',  icon: 'api',   iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400' },
-  USDT_TRON: { label: 'USDT (TRON)', ticker: 'USDT', icon: 'toll',  iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400' },
+  TRON:           { label: 'TRON',        ticker: 'TRX',  icon: 'toll',  iconBg: 'bg-red-400/10',     iconColor: 'text-red-400'    },
+  SOL:            { label: 'Solana',      ticker: 'SOL',  icon: 'api',   iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400' },
+  USDT_TRON:      { label: 'USDT (TRON)', ticker: 'USDT', icon: 'toll',  iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400' },
+  TEST_USDT_TRON: { label: 'USDT (TRON)', ticker: 'USDT', icon: 'toll',  iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400' },
 }
 
 const FALLBACK_META = { label: 'Unknown', ticker: '', icon: 'token', iconBg: 'bg-white/10', iconColor: 'text-white' }
@@ -43,7 +44,7 @@ function meta(chain: string) {
 
 // Chains the user does not yet have an account on — offered as create buttons.
 const missingChains = computed(() =>
-  (['TRON', 'SOL'] as const).filter(c => !accounts.value.some(a => a.chain === c))
+  ['TRON', 'SOL', USDT_TRON_CURRENCY].filter(c => !accounts.value.some(a => a.chain === c))
 )
 
 async function getAuthHeaders() {
@@ -89,7 +90,7 @@ async function copyAddress(address: string) {
   setTimeout(() => { if (copiedAddress.value === address) copiedAddress.value = '' }, 2000)
 }
 
-async function createAccount(chain: 'TRON' | 'SOL') {
+async function createAccount(chain: string) {
   creatingChain.value = chain
   createError.value   = ''
   try {
@@ -98,7 +99,7 @@ async function createAccount(chain: 'TRON' | 'SOL') {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        account_name:        `${chain} Account`,
+        account_name:        `${meta(chain).label} Account`,
         chain,
         provider:            'PCF0001',
         accounting_currency: 'USD',

@@ -4,7 +4,7 @@ import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
-import { API_BASE } from '../config'
+import { API_BASE, USDT_TRON_CURRENCY } from '../config'
 
 const route  = useRoute()
 const router = useRouter()
@@ -16,7 +16,7 @@ const userEmail        = ref('')
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
-const accountLoading   = ref<'TRON' | 'SOL' | null>(null)
+const accountLoading   = ref<string | null>(null)
 const accounts         = ref<any[]>([])
 const accountsLoading  = ref(true)
 
@@ -134,7 +134,7 @@ async function startKyc() {
   }
 }
 
-async function createAccount(chain: 'TRON' | 'SOL') {
+async function createAccount(chain: string) {
   accountLoading.value = chain
   try {
     const headers = await getAuthHeaders()
@@ -179,11 +179,21 @@ const quickActions = [
 ]
 
 const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: string; barColor: string }> = {
-  BTC:       { icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',   iconColor: 'text-amber-400',  barColor: 'bg-amber-400'  },
-  ETH:       { icon: 'eco',              iconBg: 'bg-blue-400/10',    iconColor: 'text-blue-400',   barColor: 'bg-blue-400'   },
-  SOL:       { icon: 'api',              iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
-  TRON:      { icon: 'toll',             iconBg: 'bg-red-400/10',     iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
-  USDT_TRON: { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
+  BTC:            { icon: 'currency_bitcoin', iconBg: 'bg-amber-400/10',   iconColor: 'text-amber-400',  barColor: 'bg-amber-400'  },
+  ETH:            { icon: 'eco',              iconBg: 'bg-blue-400/10',    iconColor: 'text-blue-400',   barColor: 'bg-blue-400'   },
+  SOL:            { icon: 'api',              iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
+  TRON:           { icon: 'toll',             iconBg: 'bg-red-400/10',     iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
+  USDT_TRON:      { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
+  TEST_USDT_TRON: { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
+}
+
+// USDT_TRON/TEST_USDT_TRON are Tatum ledger-currency identifiers, not display
+// names — every other chain (TRON, SOL) already reads fine shown as-is.
+function displayChain(chain: string) {
+  return chain === 'USDT_TRON' || chain === 'TEST_USDT_TRON' ? 'USDT (TRON)' : chain
+}
+function displayTicker(chain: string) {
+  return chain === 'USDT_TRON' || chain === 'TEST_USDT_TRON' ? 'USDT' : chain
 }
 
 const assets = computed(() => {
@@ -195,12 +205,12 @@ const assets = computed(() => {
     const pct = totalBal > 0 ? Math.round((a.balance ?? 0) / totalBal * 100) : 0
     return {
       accountNo: a.accountNo,
-      ticker: a.chain ?? a.currency,
+      ticker: a.chain ? displayTicker(a.chain) : a.currency,
       icon: cfg.icon,
       iconBg: cfg.iconBg,
       iconColor: cfg.iconColor,
       amount: a.chain ? (a.balance ?? 0).toFixed(4) : `$${(a.balance ?? 0).toFixed(2)}`,
-      label: a.chain ?? 'Cash Balance',
+      label: a.chain ? displayChain(a.chain) : 'Cash Balance',
       barColor: cfg.barColor,
       barWidth: `${pct}%`,
       syncing: a.status === 'importing',
@@ -308,6 +318,12 @@ const validators = [
           :disabled="accountLoading !== null"
           class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-brand text-brand rounded-full hover:bg-brand/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {{ accountLoading === 'SOL' ? 'Creating…' : 'Solana' }}
+        </button>
+        <button
+          @click="createAccount(USDT_TRON_CURRENCY)"
+          :disabled="accountLoading !== null"
+          class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 border border-brand text-brand rounded-full hover:bg-brand/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {{ accountLoading === USDT_TRON_CURRENCY ? 'Creating…' : 'USDT (TRON)' }}
         </button>
       </div>
     </div>
