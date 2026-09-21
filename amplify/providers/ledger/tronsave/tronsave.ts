@@ -97,9 +97,21 @@ async function ensureResource(
   if (availableBefore >= amountNeeded) return
 
   const delta = amountNeeded - availableBefore
-  const toRent = Math.ceil(delta * RESOURCE_MARGIN)
+  let toRent = Math.ceil(delta * RESOURCE_MARGIN)
 
-  const quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
+  let quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
+
+  // TronSave enforces a minimum order size that varies by resource type (and
+  // isn't guaranteed stable over time — energy-rental-test.ts measured ~64,000
+  // for ENERGY, the real BANDWIDTH failure that prompted this measured 1000).
+  // Never hardcode it: the quote itself reports minOrderAmount, so read and
+  // adapt to that instead — same pattern already proven in that test script.
+  if (quote.belowMinOrder || toRent < quote.minOrderAmount) {
+    console.log(`DEBUG (TronSaveProvider): ${resourceType} order of ${toRent} for ${address} is below TronSave's minimum of ${quote.minOrderAmount} — raising the order`)
+    toRent = quote.minOrderAmount
+    quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
+  }
+
   console.log(
     `DEBUG (TronSaveProvider): ${resourceType} quote for ${address} — short by ${delta}, renting ${toRent} (margin applied), ` +
     `unitPriceSun=${quote.unitPrice}, estimatedCostTrx=${(quote.estimateTrx / 1_000_000).toFixed(6)}, ` +
