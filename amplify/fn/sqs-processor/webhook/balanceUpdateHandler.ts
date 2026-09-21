@@ -225,10 +225,12 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
   if (body.type === 'fee') return handleFeeEvent(body)
 
-  // A single on-chain transfer can emit several events. Only the native transfer
-  // moves the principal balance (fee events are handled above).
-  if (body.type && body.type !== 'native') {
-    console.log(`SKIP_NON_NATIVE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
+  // A single on-chain transfer can emit several events. `native` carries the
+  // principal for a native-coin transfer, `trc20` carries it for a TRC-20
+  // transfer (e.g. USDT_TRON)
+  const PRINCIPAL_TYPES = new Set(['native', 'trc20'])
+  if (body.type && !PRINCIPAL_TYPES.has(body.type)) {
+    console.log(`SKIP_UNHANDLED_TYPE: Ignoring '${body.type}' event for tx ${body.txId ?? 'unknown'}`)
     return true
   }
 
@@ -240,7 +242,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // Tatum reports the amount signed from the watched address's perspective:
   // positive = funds received, negative = funds sent. Zero moves no balance.
   const rawAmount = parseFloat(body.amount)
-  const currency = body.currency ?? body.asset ?? 'UNKNOWN'
+  // `asset` is the specific token when one moved (e.g. USDT_TRON); `currency`
+  // is only the underlying network's native currency (e.g. TRON) and is
+  // wrong to use here for a token transfer.
+  const currency = body.asset ?? body.currency ?? 'UNKNOWN'
   const txId = body.txId || 'unknown'
 
   if (!Number.isFinite(rawAmount) || rawAmount === 0) {
@@ -269,6 +274,16 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
 
   // `address` received funds — credit it.
   if (!primary) return true
+
+  // The subscription is address-based, so it fires for ANY asset touching
+  // this address — not just the one this account is configured for (e.g.
+  // TRX sent to activate a USDT_TRON account's deposit address). Crediting
+  // that here would silently mix two different currencies into one flat
+  // balance number, inflating it 1:1 regardless of actual value.
+  if (primary.chain && currency.toUpperCase() !== primary.chain.toUpperCase()) {
+    console.log(`SKIP_CURRENCY_MISMATCH: account ${primary.accountNo} is configured for ${primary.chain}, ignoring ${currency} deposit (tx ${txId})`)
+    return true
+  }
 
   const credited = await applyBalanceChange({
     account: primary, direction: 'CREDIT', amount, currency, txId,
