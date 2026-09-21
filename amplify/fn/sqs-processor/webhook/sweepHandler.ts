@@ -1,7 +1,7 @@
 import { putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-import { masterAddressFor } from '../../../utils/currencies'
+import { getMasterAccount } from '../../../utils/masterAccount'
 
 /**
  * Consolidates a customer's just-received token deposit to that currency's
@@ -22,11 +22,12 @@ export const handleSweep = async (message: any): Promise<boolean> => {
     return false
   }
 
-  const masterAddress = masterAddressFor(currency)
-  if (!masterAddress) {
-    console.error(`CONFIG_ERROR: No master address configured for currency ${currency} — cannot sweep`)
+  const master = await getMasterAccount(currency)
+  if (!master) {
+    console.error(`CONFIG_ERROR: No master account configured for currency ${currency} — cannot sweep`)
     return false
   }
+  const masterAddress = master.depositAddress
 
   console.log(`--- Processing Sweep [${txId}] for Account [${vAccountId}] ---`)
   console.log(`Sweeping ${amount} ${currency} from ${senderAddress} to ${masterAddress}`)

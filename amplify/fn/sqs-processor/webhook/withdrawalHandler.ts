@@ -2,6 +2,8 @@ import { updateItem, putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { notifyPaymentResult } from '../../../utils/websocket'
+import { isNativeCurrency } from '../../../utils/currencies'
+import { getMasterAccount } from '../../../utils/masterAccount'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
@@ -17,14 +19,28 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
   console.log(`Sending ${cryptoAmount} ${chain} to ${destinationAddress}`)
 
   try {
+    // Token withdrawals (e.g. USDT_TRON) are signed and broadcast from the
+    // master account, not the customer's own deposit address — the sweep
+    // already moved those tokens there. The customer's own VA (accountId)
+    // is still what gets debited in Tatum's ledger; only the on-chain
+    // signer/source changes.
+    let signerAddress = senderAddress
+    let signerKmsKeyId = kmsKeyId
+    if (!isNativeCurrency(chain)) {
+      const master = await getMasterAccount(chain)
+      if (!master) throw new Error(`No master account configured for currency ${chain} — cannot process token withdrawal`)
+      signerAddress = master.depositAddress
+      signerKmsKeyId = master.kmsKeyId
+    }
+
     const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
     const { withdrawalId } = await provider.withdrawFunds({
       accountId: vAccountId,
       address: destinationAddress,
       amount: String(cryptoAmount),
       currency: chain,
-      kmsKeyId,
-      senderAddress,
+      kmsKeyId: signerKmsKeyId,
+      senderAddress: signerAddress,
     })
 
     console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${transactionId}`)
@@ -38,7 +54,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       type: 'WITHDRAWAL',
       amount: cryptoAmount,
       currency: chain,
-      from: senderAddress,
+      from: signerAddress,
       to: destinationAddress,
       createdAt,
     })

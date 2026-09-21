@@ -4,6 +4,7 @@ import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
+import { getMasterAccount } from '../../../utils/masterAccount'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -65,10 +66,16 @@ export default class WithdrawHandler {
       return processError(100006)
     }
 
-    // Token withdrawals not implemented yet
+    // Token withdrawals (e.g. USDT_TRON) are signed from the master account,
+    // not this address — only allowed once a master is actually configured
+    // for this currency. Native currencies withdraw from their own address
+    // as before and need no master at all.
     if (!isNativeCurrency(accountChain)) {
-      console.error(`ERROR: Withdrawals are not supported for currency ${accountChain}`)
-      return processError(100009)
+      const master = await getMasterAccount(accountChain)
+      if (!master) {
+        console.error(`ERROR: No master account configured for currency ${accountChain} — withdrawals unsupported`)
+        return processError(100009)
+      }
     }
 
     if (!destinationAddress) {

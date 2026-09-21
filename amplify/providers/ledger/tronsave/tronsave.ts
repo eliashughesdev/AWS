@@ -100,6 +100,11 @@ async function ensureResource(
   const toRent = Math.ceil(delta * RESOURCE_MARGIN)
 
   const quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
+  console.log(
+    `DEBUG (TronSaveProvider): ${resourceType} quote for ${address} — short by ${delta}, renting ${toRent} (margin applied), ` +
+    `unitPriceSun=${quote.unitPrice}, estimatedCostTrx=${(quote.estimateTrx / 1_000_000).toFixed(6)}, ` +
+    `availableResource=${quote.availableResource}, minOrderAmount=${quote.minOrderAmount}`
+  )
   if (quote.availableResource < toRent) {
     throw new Error(`TronSave cannot fill ${toRent} ${resourceType} for ${address} right now (only ${quote.availableResource} available)`)
   }
@@ -111,7 +116,11 @@ async function ensureResource(
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS)
     const after = await getTronResources(address)
-    if (availableOf(resourceType, after) >= amountNeeded) return
+    const availableAfter = availableOf(resourceType, after)
+    if (availableAfter >= amountNeeded) {
+      console.log(`DEBUG (TronSaveProvider): ${resourceType} order ${order.orderId} delivered for ${address}. now has ${availableAfter}`)
+      return
+    }
   }
 
   throw new Error(`TronSave order for ${address} did not deliver enough ${resourceType} within ${POLL_TIMEOUT_MS / 1000}s`)

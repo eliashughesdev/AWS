@@ -27,15 +27,3 @@ const TRC20_CONTRACTS: Record<string, string> = {
 
 export const trc20ContractFor = (currency?: string): string | undefined =>
   currency ? TRC20_CONTRACTS[currency.toUpperCase()] : undefined
-
-// SSM env var holding the master (treasury) address that swept deposits are
-// consolidated to, keyed by currency
-const MASTER_ADDRESS_ENV_VARS: Record<string, string> = {
-  USDT_TRON: 'USDT_TRON_MASTER_ADDRESS',
-  TEST_USDT_TRON: 'USDT_TRON_MASTER_ADDRESS',
-}
-
-export const masterAddressFor = (currency?: string): string | undefined => {
-  const envVar = currency ? MASTER_ADDRESS_ENV_VARS[currency.toUpperCase()] : undefined
-  return envVar ? process.env[envVar] : undefined
-}
