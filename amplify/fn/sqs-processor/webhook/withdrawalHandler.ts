@@ -74,9 +74,10 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     const rollback = await updateItem({
       tableName: BALANCE_TABLE_NAME,
       key: { id: vAccountId },
-      updateExpression: 'SET #balance = #balance + :amount, #lastUpdated = :now',
+      updateExpression: 'SET #balance = #balance + :amount, #availableBalance = #availableBalance + :amount, #lastUpdated = :now',
       attributeNames: {
         '#balance': 'balance',
+        '#availableBalance': 'availableBalance',
         '#lastUpdated': 'lastUpdated',
       },
       attributeValues: {
