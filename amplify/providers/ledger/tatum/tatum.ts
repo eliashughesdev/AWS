@@ -223,7 +223,7 @@ export class TatumProvider implements AccountProvider {
     accountId: string; address: string; amount: string; currency: string
   }): Promise<string> {
     const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
-    const fee = this.WITHDRAWAL_FEES[currency]
+    const fee = this.WITHDRAWAL_FEES[networkFor(currency) ?? currency]
     const payload: Record<string, string> = { senderAccountId: accountId, address, amount, currency }
     if (fee) payload.fee = fee
     console.log(`DEBUG (TatumProvider): POST ${url}`)
