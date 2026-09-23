@@ -21,6 +21,7 @@ const balance     = ref<number | null>(null)
 const sending     = ref(false)
 const errorMsg    = ref('')
 const txId        = ref('')
+const copied      = ref('')
 
 const wallet = computed(() => session.wallets.value.find(w => w.address === fromAddress.value) ?? null)
 
@@ -102,6 +103,12 @@ function handleSignOut() {
   session.clear()
   router.push({ name: 'auth' })
 }
+
+async function copyTxId() {
+  await navigator.clipboard.writeText(txId.value)
+  copied.value = txId.value
+  setTimeout(() => { copied.value = '' }, 2000)
+}
 </script>
 
 <template>
@@ -114,9 +121,17 @@ function handleSignOut() {
         <!-- Success -->
         <div v-if="txId" class="flex items-start gap-4 p-4 bg-brand/10 border border-brand/30 rounded-lg">
           <span class="material-symbols-outlined text-brand shrink-0">check_circle</span>
-          <div class="min-w-0">
+          <div class="min-w-0 flex-1">
             <p class="text-sm text-brand mb-1">Broadcast to the network.</p>
-            <p class="font-['JetBrains_Mono'] text-[11px] text-text-secondary break-all">{{ txId }}</p>
+            <button
+              type="button"
+              @click="copyTxId"
+              class="flex items-center gap-1.5 text-left text-[11px] text-text-secondary hover:text-white transition-colors font-['JetBrains_Mono']">
+              <span class="break-all">{{ txId }}</span>
+              <span class="material-symbols-outlined text-[14px] shrink-0">
+                {{ copied === txId ? 'check' : 'content_copy' }}
+              </span>
+            </button>
           </div>
         </div>
 

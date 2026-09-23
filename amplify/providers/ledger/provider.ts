@@ -70,6 +70,7 @@ export interface WithdrawFundsParams {
 
 export interface WithdrawFundsResponse {
   withdrawalId: string
+  txId: string
 }
 
 export interface SendOnChainParams {

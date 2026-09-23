@@ -12,6 +12,7 @@ const session = useWalletSession()
 const reads    = ref<WalletRead[]>([])
 const loading  = ref(true)
 const errorMsg = ref('')
+const copied   = ref('')
 
 const displayName = computed(() => {
   const address = session.active.value?.address ?? ''
@@ -66,6 +67,12 @@ function txToDisplay(tx: OnChainTx) {
 function handleSignOut() {
   session.clear()
   router.push({ name: 'auth' })
+}
+
+async function copyHash(txId: string) {
+  await navigator.clipboard.writeText(txId)
+  copied.value = txId
+  setTimeout(() => { copied.value = '' }, 2000)
 }
 </script>
 
@@ -135,6 +142,15 @@ function handleSignOut() {
                       </span>
                     </p>
                     <p class="text-[12px] text-text-muted">{{ txToDisplay(row.tx).date }}</p>
+                    <button
+                      type="button"
+                      @click="copyHash(row.tx.txId)"
+                      class="mt-1 flex items-center gap-1 text-[11px] text-text-muted hover:text-white transition-colors font-['JetBrains_Mono']">
+                      <span>{{ row.tx.txId.slice(0, 8) }}…{{ row.tx.txId.slice(-6) }}</span>
+                      <span class="material-symbols-outlined text-[13px] shrink-0">
+                        {{ copied === row.tx.txId ? 'check' : 'content_copy' }}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </td>

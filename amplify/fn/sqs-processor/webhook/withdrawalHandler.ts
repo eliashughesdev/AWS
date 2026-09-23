@@ -34,7 +34,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     }
 
     const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
-    const { withdrawalId } = await provider.withdrawFunds({
+    const { withdrawalId, txId } = await provider.withdrawFunds({
       accountId: vAccountId,
       address: destinationAddress,
       amount: String(cryptoAmount),
@@ -43,13 +43,14 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       senderAddress: signerAddress,
     })
 
-    console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${transactionId}`)
+    console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${txId}, reference=${transactionId}`)
 
     const createdAt = new Date().toISOString()
     await putItem('v1TransactionLogsTable', {
       id: vAccountId,
       sk: `TX#${createdAt}#${transactionId}`,
-      txId: transactionId,
+      txId,
+      reference: transactionId,
       withdrawalId,
       type: 'WITHDRAWAL',
       amount: cryptoAmount,
@@ -63,6 +64,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       success: true,
       status: 'withdrawal_complete',
       paymentTransactionId: withdrawalId,
+      txId,
     })
 
     return true
@@ -96,7 +98,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     await putItem('v1TransactionLogsTable', {
       id: vAccountId,
       sk: `TX#${createdAt}#${transactionId}`,
-      txId: transactionId,
+      reference: transactionId,
       type: 'WITHDRAWAL_FAILED',
       amount: cryptoAmount,
       currency: chain,

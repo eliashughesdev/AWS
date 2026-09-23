@@ -220,6 +220,13 @@ const assets = computed(() => {
 
 const transactions     = ref<any[]>([])
 const transactionsLoading = ref(true)
+const copied = ref('')
+
+async function copyHash(txId: string) {
+  await navigator.clipboard.writeText(txId)
+  copied.value = txId
+  setTimeout(() => { copied.value = '' }, 2000)
+}
 
 function txToDisplay(tx: any) {
   const isDeposit          = tx.type === 'DEPOSIT' || tx.type === 'DEPOSIT_FAILED'
@@ -229,7 +236,7 @@ function txToDisplay(tx: any) {
   const isIncoming         = isDeposit || isTransferReceived
   const isFailed           = tx.type.includes('FAILED')
   return {
-    id:          tx.txId,
+    id:          tx.txId ?? tx.reference,
     icon:        isTransferSent ? 'compare_arrows' : isIncoming ? 'call_received' : 'call_made',
     iconBg:      isFailed ? 'bg-red-400/10' : isTransfer ? 'bg-amber-400/10' : isDeposit ? 'bg-blue-400/10' : 'bg-brand/10',
     iconColor:   isFailed ? 'text-red-400'  : isTransfer ? 'text-amber-400'  : isDeposit ? 'text-blue-400'  : 'text-brand',
@@ -434,6 +441,15 @@ const validators = [
                       <div>
                         <p class="text-[14px]">{{ tx.description }}</p>
                         <p class="text-[12px] text-text-muted">{{ tx.date }}</p>
+                        <button
+                          type="button"
+                          @click="copyHash(tx.id)"
+                          class="mt-1 flex items-center gap-1 text-[11px] text-text-muted hover:text-white transition-colors font-['JetBrains_Mono']">
+                          <span>{{ tx.id.slice(0, 8) }}…{{ tx.id.slice(-6) }}</span>
+                          <span class="material-symbols-outlined text-[13px] shrink-0">
+                            {{ copied === tx.id ? 'check' : 'content_copy' }}
+                          </span>
+                        </button>
                       </div>
                     </div>
                   </td>

@@ -193,7 +193,7 @@ export class TatumProvider implements AccountProvider {
     await this._completeWithdrawal(withdrawalId, txId)
     console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
 
-    return { withdrawalId }
+    return { withdrawalId, txId }
   }
 
   /**

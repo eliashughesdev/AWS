@@ -52,6 +52,14 @@ const usdEquivalent = computed(() => {
 type WithdrawStatus = 'idle' | 'processing' | 'success' | 'failed'
 const withdrawStatus = ref<WithdrawStatus>('idle')
 const withdrawError  = ref('')
+const withdrawTxId   = ref('')
+const copied         = ref('')
+
+async function copyTxId() {
+  await navigator.clipboard.writeText(withdrawTxId.value)
+  copied.value = withdrawTxId.value
+  setTimeout(() => { copied.value = '' }, 2000)
+}
 
 let ws: WebSocket | null = null
 let wsTimeout: ReturnType<typeof setTimeout> | null = null
@@ -123,6 +131,7 @@ function handleWithdrawResult(data: any) {
   closeWs()
   if (data.success && data.status === 'withdrawal_complete') {
     withdrawStatus.value = 'success'
+    withdrawTxId.value   = data.txId ?? ''
   } else {
     withdrawStatus.value = 'failed'
     withdrawError.value  = data.error ?? 'Withdrawal failed. Please try again.'
@@ -217,6 +226,7 @@ async function submitCustodial(parsed: number) {
 function resetForm() {
   withdrawStatus.value     = 'idle'
   withdrawError.value      = ''
+  withdrawTxId.value       = ''
   formError.value          = ''
   amount.value             = ''
   destinationAddress.value = ''
@@ -273,6 +283,16 @@ async function handleSignOut() {
                 <span class="material-symbols-outlined text-6xl text-brand" style="font-variation-settings: 'FILL' 1">check_circle</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Submitted!</p>
                 <p class="text-xs text-text-muted">Your balance will be updated once confirmed on-chain.</p>
+                <button
+                  v-if="withdrawTxId"
+                  type="button"
+                  @click="copyTxId"
+                  class="flex items-center gap-1.5 text-[11px] text-text-secondary hover:text-white transition-colors font-['JetBrains_Mono']">
+                  <span class="break-all">{{ withdrawTxId }}</span>
+                  <span class="material-symbols-outlined text-[14px] shrink-0">
+                    {{ copied === withdrawTxId ? 'check' : 'content_copy' }}
+                  </span>
+                </button>
                 <RouterLink :to="{ name: 'dashboard' }"
                   class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all">
                   Back to Dashboard
