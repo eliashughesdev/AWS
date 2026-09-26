@@ -29,7 +29,7 @@ type RoutesMap = Map<string, {
   handler: any
   requiredParams: string[]
   method: string
-  allowedRoles?: ('admin' | 'user')[]
+  allowedRoles?: ('admin' | 'user' | 'staff')[]
 }>
 
 export const routes: RoutesMap = new Map([

@@ -29,5 +29,10 @@ export async function getMasterAccount(currency?: string): Promise<MasterAccount
   const record = result.success ? result.res?.[0] : undefined
   if (!record?.depositAddress || !record?.kmsKeyId) return null
 
+  if (record.isMasterAccount !== true) {
+    console.error(`CONFIG_ERROR: account ${accountNumber} is configured as the ${currency} master but is not flagged isMasterAccount=true — refusing to use it as a signer`)
+    return null
+  }
+
   return { depositAddress: record.depositAddress, kmsKeyId: record.kmsKeyId }
 }
