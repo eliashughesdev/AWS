@@ -566,7 +566,6 @@ v1WebhookIPWhitelistTable.grantStreamRead(stream)
 v1WebSocketConnectionsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1BinCacheTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1PaymentTransactionLogsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
-v1MerchantTable.grantReadWriteData(backend.mainApiFn.resources.lambda)
 
 v1WebhookQueue.grantSendMessages(apiGatewayRole)
 v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
