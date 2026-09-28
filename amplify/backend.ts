@@ -293,10 +293,12 @@ const proxyAuthOptions = {
 const accountsPath = loudiblyRestApi.root.addResource('accounts')
 const paymentsPath = loudiblyRestApi.root.addResource('payments')
 const webhooksPath = loudiblyRestApi.root.addResource('webhook')
+const merchantsPath = loudiblyRestApi.root.addResource('merchants')
 webhooksPath.addMethod('POST', lambdaIntegration)
 
 accountsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 paymentsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
+merchantsPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration, ...proxyAuthOptions })
 webhooksPath.addProxy({ anyMethod: true, defaultIntegration: lambdaIntegration })
 
 const onboardingPath = loudiblyRestApi.root.addResource('onboarding', {
@@ -468,6 +470,19 @@ const v1TransactionLogsTable = new dynamo.Table(apiStack, 'TransactionLogsTable'
   tableName: 'v1TransactionLogsTable',
 })
 
+const v1MerchantTable = new dynamo.Table(apiStack, 'MerchantTable', {
+  partitionKey: {
+    name: 'id',
+    type: dynamo.AttributeType.STRING,
+  },
+  sortKey: {
+    name: 'sk',
+    type: dynamo.AttributeType.STRING,
+  },
+  billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+  tableName: 'v1MerchantTable',
+})
+
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
 const stream = new lambda.NodejsFunction(apiStack, 'streamTopicHandler', {
@@ -551,6 +566,7 @@ v1WebhookIPWhitelistTable.grantStreamRead(stream)
 v1WebSocketConnectionsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1BinCacheTable.grantReadWriteData(sqsV1WebhookProcessingFn)
 v1PaymentTransactionLogsTable.grantReadWriteData(sqsV1WebhookProcessingFn)
+v1MerchantTable.grantReadWriteData(backend.mainApiFn.resources.lambda)
 
 v1WebhookQueue.grantSendMessages(apiGatewayRole)
 v1WebhookQueue.grantConsumeMessages(sqsV1WebhookProcessingFn)
