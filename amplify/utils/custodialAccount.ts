@@ -22,11 +22,12 @@ export interface ProvisionedAccount {
  * Throws on an unsupported `chain` or any provider failure, leaving nothing in
  * the database.
  */
-export const provisionCustodialAccount = async ({ userId, chain, provider, accountingCurrency }: {
+export const provisionCustodialAccount = async ({ userId, chain, provider, accountingCurrency, merchantId }: {
   userId: string
   chain: string
   provider: ProviderName
   accountingCurrency: string
+  merchantId?: string
 }): Promise<ProvisionedAccount> => {
   // `chain` is a Tatum ledger currency (TRON, SOL, USDT_TRON); the key and the
   // subscription need the network it settles on.
@@ -76,6 +77,7 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
       fees: 'default',
       providerId: provider || 'default',
       status: 'active',
+      merchantId,
     },
     balanceRecord: {
       id: accountId,

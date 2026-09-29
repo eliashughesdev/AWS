@@ -1,6 +1,6 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
-import { transactWriteItems } from '../../../utils/db'
+import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { networkFor } from '../../../utils/currencies'
@@ -23,6 +23,14 @@ export default class AccountHandler {
       return processError(100009)
     }
 
+    const existingProfile = await queryRecord(
+      'v2CustomerTable',
+      'id = :id AND sk = :sk',
+      { ':id': userId, ':sk': 'USERPROFILE' }
+    )
+    if (!existingProfile.success) return processError(100003)
+    const profile = existingProfile.res?.[0]
+
     const userProfileRecord: Record<string, any> = {
       id: userId,
       sk: 'USERPROFILE',
@@ -39,11 +47,13 @@ export default class AccountHandler {
         chain,
         provider,
         accountingCurrency: event.body.accounting_currency,
+        merchantId: profile?.merchantId,
       })
 
       const result = await transactWriteItems({
         puts: [
-          { tableName: 'v2CustomerTable', item: userProfileRecord },
+          // Only a first account creates the profile; an existing one carries merchantId, KYC and tier
+          ...(profile ? [] : [{ tableName: 'v2CustomerTable', item: userProfileRecord }]),
           { tableName: 'v2CustomerTable', item: account.accountRecord },
           { tableName: 'v1AccountBalanceTable', item: account.balanceRecord },
         ]

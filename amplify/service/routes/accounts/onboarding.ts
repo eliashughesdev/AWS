@@ -8,6 +8,7 @@ import { ClaimToken, claimPointerItem, claimRecordId, createClaimToken } from '.
 import { sendClaimInvite } from '../../../utils/claimInvite'
 import { networkFor } from '../../../utils/currencies'
 import { provisionCustodialAccount } from '../../../utils/custodialAccount'
+import { getMerchant } from '../../../utils/merchant'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 // Quotes and backslashes are excluded so the address can never break out of the
@@ -21,7 +22,6 @@ type Event = {
     firstName: string
     lastName: string
     email: string
-    merchantId: string
     chain: string
     transaction: {
       id: string
@@ -42,14 +42,19 @@ const txnRecordId = (platform: string, providerTxId: string) => `TXN#${platform}
  * acknowledges the transaction. No money is moved here.
  *
  * `platform` is the caller's API key id (X-Project), so an externalId only has
- * to be unique within the calling platform, not globally.
- */
+ * to be unique within the calling platform, not globally. 
+ * */
 export default class OnboardingHandler {
   async execute(event: Event, context: Context) {
     const platform = event.requestContext?.authorizer?.userId
     if (!platform) return processError(100031, 'platform')
 
-    const { externalId, firstName, lastName, email, merchantId, chain, transaction } = event.body
+    const merchantId = platform
+    const merchant = await getMerchant(merchantId)
+    if (!merchant.success) return processError(100003)
+    if (merchant.res?.status !== 'active') return processError(100040)
+
+    const { externalId, firstName, lastName, email, chain, transaction } = event.body
 
     if (!transaction.id || typeof transaction.amount !== 'number' || !transaction.currency) {
       return processError(100029, 'transaction.id, transaction.amount, transaction.currency')
@@ -96,6 +101,7 @@ export default class OnboardingHandler {
           chain,
           provider: ProviderName.Tatum,
           accountingCurrency: transaction.currency,
+          merchantId,
         })
       : null
 

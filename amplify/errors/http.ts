@@ -18,6 +18,7 @@ const httpErrors: any = {
   100037: (params: any) => params ?? 'the password does not meet the requirements',
   100038: () => 'no pending invite found for this payer',
   100039: () => 'this payer has already set a password — use password reset instead',
+  100040: () => 'this merchant does not exist or is not active',
 }
 
 export const processError = (code: any, params?: any) => {

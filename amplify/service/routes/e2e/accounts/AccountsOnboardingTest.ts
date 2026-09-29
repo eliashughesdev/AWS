@@ -10,7 +10,6 @@ const body = JSON.stringify({
   firstName: 'Juan',
   lastName: 'Perez',
   email: process.env.ONBOARDING_EMAIL ?? `success+${stamp}@simulator.amazonses.com`,
-  merchantId: 'mrc_test_01',
   // Required: no server-side default, so a missing or unsupported value is rejected
   // (100029 / 100009) rather than silently creating the wrong kind of account.
   chain: 'TRON',

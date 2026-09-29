@@ -48,7 +48,6 @@ const run = async () => {
     firstName: 'Ana',
     lastName: 'Gomez',
     email: process.env.ONBOARDING_EMAIL ?? `success+${stamp}@simulator.amazonses.com`,
-    merchantId: 'mrc_test_01',
     chain: 'TRON',
     transaction: { id: `txn_resend_${stamp}`, amount: 25.0, currency: 'EUR', paidAt: new Date().toISOString() },
   })

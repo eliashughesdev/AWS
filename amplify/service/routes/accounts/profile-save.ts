@@ -1,6 +1,6 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
-import { putItem } from '../../../utils/db'
+import { updateItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 
 export default class ProfileSaveHandler {
@@ -14,13 +14,19 @@ export default class ProfileSaveHandler {
     const name: string | undefined = event.body?.name
     if (!name?.trim()) return processError(100029, 'name is required')
 
-    const result = await putItem('v2CustomerTable', {
-      id: userId,
-      sk: 'USERPROFILE',
-      name: name.trim(),
-      email: event.body?.email ?? null,
-      created_at: Date.now(),
-      updated_at: Date.now(),
+    // Update in place: the profile also carries merchantId, KYC and tier
+    const email: string | undefined = event.body?.email
+    const result = await updateItem({
+      tableName: 'v2CustomerTable',
+      key: { id: userId, sk: 'USERPROFILE' },
+      updateExpression: `SET #name = :name, #updated = :now, #created = if_not_exists(#created, :now)${email ? ', #email = :email' : ''}`,
+      attributeNames: {
+        '#name': 'name',
+        '#updated': 'updated_at',
+        '#created': 'created_at',
+        ...(email ? { '#email': 'email' } : {}),
+      },
+      attributeValues: { ':name': name.trim(), ':now': Date.now(), ':email': email },
     })
 
     if (!result.success) return processError(100003)
