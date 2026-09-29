@@ -10,14 +10,14 @@ import { CreateAccountParams,
   GenerateDepositAddressResponse, 
   CreateSubscriptionParams,
   CreateSubscriptionResponse, 
-  WithdrawFundsParams, WithdrawFundsResponse,
+  WithdrawFundsParams, WithdrawFundsResponse, BroadcastUncertainError,
   SendOnChainParams, SendOnChainResponse,
   GetAddressHistoryParams,
   OnChainBalanceParams,
   OnChainTransaction} from '../provider'
   import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory } from './chains/solana'
-import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
+import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
 import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
 import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
@@ -181,17 +181,35 @@ export class TatumProvider implements AccountProvider {
     const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain })
     console.log(`DEBUG (TatumProvider): Step 1 done — withdrawal record created. withdrawalId=${withdrawalId}`)
 
-    // Steps 2 + 3: Build unsigned tx, sign with AWS KMS
-    const signedTxData = await this._buildAndSignTransaction({ chain, senderAddress, recipientAddress: address, amount: roundedAmount, kmsKeyId })
-    console.log(`DEBUG (TatumProvider): Steps 2+3 done — transaction built and signed.`)
+    // The debit is only reverted when the tx provably never reached the chain
+    let broadcasting = false
+    let txId: string
+    try {
+      // Steps 2 + 3: Build unsigned tx, sign with AWS KMS
+      const signedTxData = await this._buildAndSignTransaction({ chain, senderAddress, recipientAddress: address, amount: roundedAmount, kmsKeyId })
+      console.log(`DEBUG (TatumProvider): Steps 2+3 done — transaction built and signed.`)
 
-    // Step 4: Broadcast the signed transaction via Tatum's broadcast endpoint
-    const txId = await this._broadcastTransaction(chain, signedTxData)
-    console.log(`DEBUG (TatumProvider): Step 4 done — transaction broadcast. txId=${txId}`)
+      // Step 4: Broadcast the signed transaction via Tatum's broadcast endpoint
+      broadcasting = true
+      txId = await this._broadcastTransaction(chain, signedTxData)
+      console.log(`DEBUG (TatumProvider): Step 4 done — transaction broadcast. txId=${txId}`)
+    } catch (err) {
+      if (broadcasting && !this._isBroadcastRejection(err)) {
+        console.error(`CRITICAL (TatumProvider): broadcast outcome unknown, withdrawal ${withdrawalId} left pending — check the chain, then complete or cancel it manually`, err)
+        throw new BroadcastUncertainError(withdrawalId, err)
+      }
+      await this._cancelWithdrawal(withdrawalId)
+      throw err
+    }
 
-    // Step 5: Mark the withdrawal complete in Tatum's ledger
-    await this._completeWithdrawal(withdrawalId, txId)
-    console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
+    // Step 5: Mark the withdrawal complete in Tatum's ledger. The coins already
+    // left, so a failure here must not undo anything.
+    try {
+      await this._completeWithdrawal(withdrawalId, txId)
+      console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
+    } catch (err) {
+      console.error(`CRITICAL (TatumProvider): tx ${txId} was broadcast but withdrawal ${withdrawalId} is not marked complete — complete it manually`, err)
+    }
 
     return { withdrawalId, txId }
   }
@@ -347,6 +365,26 @@ export class TatumProvider implements AccountProvider {
     const url = `${this.TATUM_BASE_URL}/offchain/withdrawal/${withdrawalId}/${txId}`
     console.log(`DEBUG (TatumProvider): PUT ${url} — marking withdrawal complete`)
     await axios.put(url, {}, { headers: { 'x-api-key': this.apiKey } })
+  }
+
+  /**
+   * Cancels a pending offchain withdrawal and credits the amount back to the
+   * VA.
+   */
+  private async _cancelWithdrawal(withdrawalId: string): Promise<void> {
+    const url = `${this.TATUM_BASE_URL}/offchain/withdrawal/${withdrawalId}?revert=true`
+    console.log(`DEBUG (TatumProvider): DELETE ${url} — cancelling withdrawal`)
+    try {
+      await axios.delete(url, { headers: { 'x-api-key': this.apiKey } })
+    } catch (err) {
+      console.error(`CRITICAL (TatumProvider): failed to cancel withdrawal ${withdrawalId} — the VA stays debited, cancel it manually`, err)
+    }
+  }
+
+  // True only when the node answered and refused the tx, i.e. it never reached the chain
+  private _isBroadcastRejection(err: unknown): boolean {
+    if (err instanceof SendTransactionError) return !/already been processed/i.test(err.message)
+    return axios.isAxiosError(err) && !!err.response && err.response.status < 500
   }
 
   async createSubscription({ accountId, address, chain, webhookUrl }: CreateSubscriptionParams): Promise<CreateSubscriptionResponse> {

@@ -73,6 +73,15 @@ export interface WithdrawFundsResponse {
   txId: string
 }
 
+// The broadcast failed without a clear rejection, so the coins may have left:
+// neither the ledger debit nor the app balance may be reverted automatically.
+export class BroadcastUncertainError extends Error {
+  constructor(public readonly withdrawalId: string, cause: unknown) {
+    super(`Broadcast outcome unknown for withdrawal ${withdrawalId}`, { cause })
+    this.name = 'BroadcastUncertainError'
+  }
+}
+
 export interface SendOnChainParams {
   chain: string
   senderAddress: string

@@ -1,6 +1,7 @@
 import { updateItem, putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
+import { BroadcastUncertainError } from '../../../providers/ledger/provider'
 import { notifyPaymentResult } from '../../../utils/websocket'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
@@ -69,6 +70,25 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
 
     return true
   } catch (err) {
+    // The coins may have left — refunding here could pay the customer twice
+    if (err instanceof BroadcastUncertainError) {
+      console.error(`CRITICAL: Withdrawal ${transactionId} broadcast outcome unknown — balance NOT rolled back. Resolve manually (withdrawalId=${err.withdrawalId}).`, err)
+      const createdAt = new Date().toISOString()
+      await putItem('v1TransactionLogsTable', {
+        id: vAccountId,
+        sk: `TX#${createdAt}#${transactionId}`,
+        reference: transactionId,
+        withdrawalId: err.withdrawalId,
+        type: 'WITHDRAWAL_UNCERTAIN',
+        amount: cryptoAmount,
+        currency: chain,
+        from: senderAddress,
+        to: destinationAddress,
+        createdAt,
+      })
+      return false
+    }
+
     // The balance was already deducted in the route handler before queuing.
     // Since the payout failed, we credit it back to restore the account to its original state.
     console.error(`WITHDRAWAL_ERROR: Payout failed for txId=${transactionId}. Rolling back balance.`, err)
