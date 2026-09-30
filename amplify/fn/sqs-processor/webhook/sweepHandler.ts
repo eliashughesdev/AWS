@@ -15,16 +15,16 @@ import { getMasterAccount } from '../../../utils/masterAccount'
  * docs/tatum-integration-model.md's "known gaps").
  */
 export const handleSweep = async (message: any): Promise<boolean> => {
-  const { vAccountId, senderAddress, kmsKeyId, amount, currency, txId } = message
+  const { vAccountId, merchantId, senderAddress, kmsKeyId, amount, currency, txId } = message
 
   if (!vAccountId || !senderAddress || !kmsKeyId || !amount || !currency || !txId) {
     console.error('VALIDATION_ERROR: Missing required fields for sweep processing', message)
     return false
   }
 
-  const master = await getMasterAccount(currency)
+  const master = await getMasterAccount(merchantId, currency)
   if (!master) {
-    console.error(`CONFIG_ERROR: No master account configured for currency ${currency} — cannot sweep`)
+    console.error(`CONFIG_ERROR: No ${currency} master for merchant ${merchantId ?? '(none)'} — cannot sweep`)
     return false
   }
   const masterAddress = master.depositAddress

@@ -71,9 +71,9 @@ export default class WithdrawHandler {
     // for this currency. Native currencies withdraw from their own address
     // as before and need no master at all.
     if (!isNativeCurrency(accountChain)) {
-      const master = await getMasterAccount(accountChain)
+      const master = await getMasterAccount(accountRecord.merchantId, accountChain)
       if (!master) {
-        console.error(`ERROR: No master account configured for currency ${accountChain} — withdrawals unsupported`)
+        console.error(`ERROR: No ${accountChain} master for merchant ${accountRecord.merchantId ?? '(none)'} — withdrawals unsupported`)
         return processError(100009)
       }
     }
@@ -133,6 +133,7 @@ export default class WithdrawHandler {
         transactionId: effectiveTransactionId,
         userId,
         vAccountId,
+        merchantId: accountRecord.merchantId,
         chain: accountChain,
         cryptoAmount,
         destinationAddress,

@@ -1,38 +1,25 @@
-import { queryItemFromIndex } from './db'
-
-// SSM env var holding the master (treasury) account NUMBER that swept token
-// deposits are consolidated to and that signs token withdrawals, keyed by
-// currency
-const MASTER_ACCOUNT_ENV_VARS: Record<string, string> = {
-  USDT_TRON: 'USDT_TRON_MASTER_ACCOUNT_NUMBER',
-  TEST_USDT_TRON: 'USDT_TRON_MASTER_ACCOUNT_NUMBER',
-}
+import { queryRecord } from './db'
+import { SYSTEM_MERCHANT_ID } from './merchant'
 
 export interface MasterAccount {
   depositAddress: string
   kmsKeyId: string
+  vAccountId: string
 }
 
-export async function getMasterAccount(currency?: string): Promise<MasterAccount | null> {
-  const envVar = currency ? MASTER_ACCOUNT_ENV_VARS[currency.toUpperCase()] : undefined
-  const accountNumber = envVar ? process.env[envVar] : undefined
-  if (!accountNumber) return null
-
-  const result = await queryItemFromIndex({
-    tableName: 'v2CustomerTable',
-    indexName: 'v1v2CustomerTableToAccountId',
-    keyConditionExpression: '#sk = :accountNumber',
-    attributeNames: { '#sk': 'sk' },
-    attributeValues: { ':accountNumber': `ACCOUNT#${accountNumber}` },
-  })
-
-  const record = result.success ? result.res?.[0] : undefined
-  if (!record?.depositAddress || !record?.kmsKeyId) return null
-
-  if (record.isMasterAccount !== true) {
-    console.error(`CONFIG_ERROR: account ${accountNumber} is configured as the ${currency} master but is not flagged isMasterAccount=true — refusing to use it as a signer`)
-    return null
-  }
-
-  return { depositAddress: record.depositAddress, kmsKeyId: record.kmsKeyId }
+/**
+ * A merchant's master for one currency: where its customers' token deposits
+ * are swept and the signer of their token withdrawals. Created by
+ * provisionMerchantMaster; only a `ready` one is used. An account with no
+ * merchant belongs to the system merchant.
+ */
+export async function getMasterAccount(merchantId: string | undefined, currency: string): Promise<MasterAccount | null> {
+  const result = await queryRecord(
+    'v1MerchantTable',
+    'id = :id AND sk = :sk',
+    { ':id': merchantId ?? SYSTEM_MERCHANT_ID, ':sk': `MASTER#${currency.toUpperCase()}` }
+  )
+  const row = result.success ? result.res?.[0] : undefined
+  if (row?.status !== 'ready') return null
+  return { depositAddress: row.depositAddress, kmsKeyId: row.kmsKeyId, vAccountId: row.vAccountId }
 }

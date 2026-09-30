@@ -9,7 +9,7 @@ import { getMasterAccount } from '../../../utils/masterAccount'
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 export const handleWithdrawal = async (message: any): Promise<boolean> => {
-  const { transactionId, userId, vAccountId, chain, cryptoAmount, destinationAddress, kmsKeyId, senderAddress } = message
+  const { transactionId, userId, vAccountId, merchantId, chain, cryptoAmount, destinationAddress, kmsKeyId, senderAddress } = message
 
   if (!vAccountId || !chain || !cryptoAmount || !destinationAddress || !kmsKeyId) {
     console.error('VALIDATION_ERROR: Missing required fields for withdrawal processing', message)
@@ -28,8 +28,8 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     let signerAddress = senderAddress
     let signerKmsKeyId = kmsKeyId
     if (!isNativeCurrency(chain)) {
-      const master = await getMasterAccount(chain)
-      if (!master) throw new Error(`No master account configured for currency ${chain} — cannot process token withdrawal`)
+      const master = await getMasterAccount(merchantId, chain)
+      if (!master) throw new Error(`No ${chain} master for merchant ${merchantId ?? '(none)'} — cannot process token withdrawal`)
       signerAddress = master.depositAddress
       signerKmsKeyId = master.kmsKeyId
     }

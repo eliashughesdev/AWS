@@ -167,6 +167,7 @@ const FEE_PAYER_RESOLVERS: Record<string, (body: IncomingBlockchainTransactionRe
 
 async function enqueueSweep(params: {
   vAccountId: string
+  merchantId?: string
   senderAddress: string
   kmsKeyId?: string
   amount: number
@@ -295,6 +296,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   if (credited && !isNativeCurrency(currency)) {
     await enqueueSweep({
       vAccountId: primary.vAccountId,
+      merchantId: primary.merchantId,
       senderAddress: body.address,
       kmsKeyId: primary.kmsKeyId,
       amount,
