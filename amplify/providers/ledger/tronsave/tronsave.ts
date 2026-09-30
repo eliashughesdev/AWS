@@ -1,4 +1,4 @@
-import { getTronResources } from '../tatum/chains/tron'
+import { getTronBalance, getTronBandwidthPriceSun, getTronResources } from '../tatum/chains/tron'
 
 // Read lazily (not as module-level consts) — loadConfig() refreshes these from
 // SSM/Secrets Manager at request time, after this module has already been
@@ -74,8 +74,19 @@ async function buyResource(resourceType: ResourceType, receiver: string, amount:
   return res.data
 }
 
-function availableOf(resourceType: ResourceType, resources: Awaited<ReturnType<typeof getTronResources>>): number {
-  return resourceType === 'ENERGY' ? resources.energyAvailable : resources.bandwidthAvailable
+type Resources = Awaited<ReturnType<typeof getTronResources>>
+
+// What a tx can actually use. Energy shortfalls are topped up by burning TRX,
+// but a Bandwidth pool is only used if it covers the whole tx on its own.
+function availableOf(resourceType: ResourceType, resources: Resources): number {
+  return resourceType === 'ENERGY'
+    ? resources.energyAvailable
+    : Math.max(resources.freeBandwidthAvailable, resources.stakedBandwidthAvailable)
+}
+
+// The pool a rental adds to — rented Bandwidth lands in the staked pool.
+function rentablePoolOf(resourceType: ResourceType, resources: Resources): number {
+  return resourceType === 'ENERGY' ? resources.energyAvailable : resources.stakedBandwidthAvailable
 }
 
 /**
@@ -89,23 +100,22 @@ async function ensureResource(
   address: string,
   amountNeeded: number,
   durationSec: number,
-  unitPrice: UnitPrice
+  unitPrice: UnitPrice,
+  canPayWithoutRenting?: () => Promise<boolean>
 ): Promise<void> {
   const before = await getTronResources(address)
   const availableBefore = availableOf(resourceType, before)
   console.log(`DEBUG (TronSaveProvider): ${address} has ${availableBefore} ${resourceType} available, needs ${amountNeeded}`)
   if (availableBefore >= amountNeeded) return
+  if (await canPayWithoutRenting?.()) return
 
-  const delta = amountNeeded - availableBefore
+  const delta = amountNeeded - rentablePoolOf(resourceType, before)
   let toRent = Math.ceil(delta * RESOURCE_MARGIN)
 
   let quote = await estimateResource(resourceType, address, toRent, durationSec, unitPrice)
 
   // TronSave enforces a minimum order size that varies by resource type (and
-  // isn't guaranteed stable over time — energy-rental-test.ts measured ~64,000
-  // for ENERGY, the real BANDWIDTH failure that prompted this measured 1000).
-  // Never hardcode it: the quote itself reports minOrderAmount, so read and
-  // adapt to that instead — same pattern already proven in that test script.
+  // isn't guaranteed stable over time.
   if (quote.belowMinOrder || toRent < quote.minOrderAmount) {
     console.log(`DEBUG (TronSaveProvider): ${resourceType} order of ${toRent} for ${address} is below TronSave's minimum of ${quote.minOrderAmount} — raising the order`)
     toRent = quote.minOrderAmount
@@ -148,10 +158,10 @@ export async function ensureEnergy(
 }
 
 /**
- * Makes sure `address` has enough Bandwidth to cover a signed transaction's
- * byte size. Unlike Energy, most transfers fit inside the free daily
- * allowance every TRON account gets, so this is frequently a no-op — it only
- * rents when that free (plus any staked/delegated) Bandwidth is exhausted.
+ * Makes sure `address` can pay for a signed transaction's byte size. Most
+ * transfers fit in one of its Bandwidth pools; when neither does, burning TRX
+ * is cheaper than TronSave's minimum rental, so it only rents when the
+ * address can't afford the burn (e.g. a customer address holding only USDT).
  */
 export async function ensureBandwidth(
   address: string,
@@ -159,5 +169,20 @@ export async function ensureBandwidth(
   durationSec = DEFAULT_DURATION_SEC,
   unitPrice: UnitPrice = DEFAULT_UNIT_PRICE
 ): Promise<void> {
-  return ensureResource('BANDWIDTH', address, bandwidthNeeded, durationSec, unitPrice)
+  return ensureResource('BANDWIDTH', address, bandwidthNeeded, durationSec, unitPrice,
+    () => canBurnBandwidth(address, bandwidthNeeded))
+}
+
+async function canBurnBandwidth(address: string, bandwidthNeeded: number): Promise<boolean> {
+  try {
+    const [balanceTrx, priceSun] = await Promise.all([getTronBalance(address), getTronBandwidthPriceSun()])
+    if (!priceSun) return false
+    const burnSun = bandwidthNeeded * priceSun * RESOURCE_MARGIN
+    const canBurn = balanceTrx * 1_000_000 >= burnSun
+    console.log(`DEBUG (TronSaveProvider): ${address} holds ${balanceTrx} TRX, burning ${bandwidthNeeded} Bandwidth costs ~${(burnSun / 1_000_000).toFixed(6)} TRX — ${canBurn ? 'burning instead of renting' : 'must rent'}`)
+    return canBurn
+  } catch (err) {
+    console.log(`DEBUG (TronSaveProvider): could not check whether ${address} can burn for Bandwidth, renting instead`, err)
+    return false
+  }
 }

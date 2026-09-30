@@ -22,7 +22,8 @@ export async function getTronBalance(address: string): Promise<number> {
 export interface TronResources {
   energyLimit: number
   energyAvailable: number
-  bandwidthAvailable: number
+  freeBandwidthAvailable: number
+  stakedBandwidthAvailable: number
 }
 
 // get energy and bandwith resources from a given address
@@ -31,10 +32,10 @@ export async function getTronResources(address: string): Promise<TronResources> 
     const res = await axios.post(url, { address, visible: true }, { headers: { 'x-api-key': process.env.TATUM_API_KEY } })
     const energyLimit = Number(res.data?.EnergyLimit ?? 0)
     const energyUsed = Number(res.data?.EnergyUsed ?? 0)
-    // Bandwidth has two independent sources: the free daily allowance every
-    // account gets (freeNetLimit/freeNetUsed) and any staked/delegated
-    // bandwidth on top of it (NetLimit/NetUsed) — both count toward what a
-    // transaction can spend before anything gets burned as TRX.
+    // Bandwidth has two pools: staked/delegated (NetLimit/NetUsed) and the free
+    // daily allowance (freeNetLimit/freeNetUsed). They never combine: the chain
+    // tries each in turn and a pool is only used if it covers the whole tx on its
+    // own, otherwise TRX is burned (java-tron BandwidthProcessor.consume).
     const freeNetLimit = Number(res.data?.freeNetLimit ?? 0)
     const freeNetUsed = Number(res.data?.freeNetUsed ?? 0)
     const netLimit = Number(res.data?.NetLimit ?? 0)
@@ -42,8 +43,20 @@ export async function getTronResources(address: string): Promise<TronResources> 
     return {
       energyLimit,
       energyAvailable: energyLimit - energyUsed,
-      bandwidthAvailable: (freeNetLimit - freeNetUsed) + (netLimit - netUsed),
+      freeBandwidthAvailable: freeNetLimit - freeNetUsed,
+      stakedBandwidthAvailable: netLimit - netUsed,
     }
+}
+
+let bandwidthPriceSun: number | undefined
+
+export async function getTronBandwidthPriceSun(): Promise<number | undefined> {
+    if (bandwidthPriceSun) return bandwidthPriceSun
+    const url = `${resolveBase()}/blockchain/node/TRON/wallet/getchainparameters`
+    const res = await axios.get(url, { headers: { 'x-api-key': process.env.TATUM_API_KEY } })
+    const param = res.data?.chainParameter?.find((p: any) => p.key === 'getTransactionFee')
+    bandwidthPriceSun = param?.value ? Number(param.value) : undefined
+    return bandwidthPriceSun
 }
 
 const TRANSFER_SELECTOR = 'transfer(address,uint256)'
