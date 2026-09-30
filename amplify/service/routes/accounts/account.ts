@@ -7,6 +7,7 @@ import { networkFor } from '../../../utils/currencies'
 import { provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 import { brandName } from '../../../utils/config'
+import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
@@ -38,6 +39,8 @@ export default class AccountHandler {
       deleted_at: null,
       name: event.body.account_name,
       email: email ?? null,
+      // Not onboarded by a merchant, so a direct customer of the system
+      merchantId: SYSTEM_MERCHANT_ID,
       updated_at: Date.now(),
     }
 
@@ -47,7 +50,7 @@ export default class AccountHandler {
         chain,
         provider,
         accountingCurrency: event.body.accounting_currency,
-        merchantId: profile?.merchantId,
+        merchantId: profile?.merchantId ?? SYSTEM_MERCHANT_ID,
       })
 
       const result = await transactWriteItems({
