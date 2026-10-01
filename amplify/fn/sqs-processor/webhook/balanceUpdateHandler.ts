@@ -1,5 +1,5 @@
 import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
-import { isNativeCurrency } from '../../../utils/currencies'
+import { currencyForAsset, isNativeCurrency } from '../../../utils/currencies'
 import { sendToQueue } from '../../../utils/sqs'
 
 interface IncomingBlockchainTransactionRequest {
@@ -243,10 +243,10 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // Tatum reports the amount signed from the watched address's perspective:
   // positive = funds received, negative = funds sent. Zero moves no balance.
   const rawAmount = parseFloat(body.amount)
-  // `asset` is the specific token when one moved (e.g. USDT_TRON); `currency`
-  // is only the underlying network's native currency (e.g. TRON) and is
-  // wrong to use here for a token transfer.
-  const currency = body.asset ?? body.currency ?? 'UNKNOWN'
+  // `asset` is the specific token when one moved (its contract address);
+  // `currency` is only the underlying network's native currency (e.g. TRON)
+  // and is wrong to use here for a token transfer.
+  const currency = currencyForAsset(body.asset ?? body.currency ?? 'UNKNOWN')
   const txId = body.txId || 'unknown'
 
   if (!Number.isFinite(rawAmount) || rawAmount === 0) {

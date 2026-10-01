@@ -184,16 +184,16 @@ const chainConfig: Record<string, { icon: string; iconBg: string; iconColor: str
   SOL:            { icon: 'api',              iconBg: 'bg-purple-500/10',  iconColor: 'text-purple-400', barColor: 'bg-purple-500' },
   TRON:           { icon: 'toll',             iconBg: 'bg-red-400/10',     iconColor: 'text-red-400',    barColor: 'bg-red-400'    },
   USDT_TRON:      { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
-  TEST_USDT_TRON: { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
+  TUSDT_TRON: { icon: 'toll',             iconBg: 'bg-emerald-400/10', iconColor: 'text-emerald-400', barColor: 'bg-emerald-400' },
 }
 
-// USDT_TRON/TEST_USDT_TRON are Tatum ledger-currency identifiers, not display
+// USDT_TRON/TUSDT_TRON are Tatum ledger-currency identifiers, not display
 // names — every other chain (TRON, SOL) already reads fine shown as-is.
 function displayChain(chain: string) {
-  return chain === 'USDT_TRON' || chain === 'TEST_USDT_TRON' ? 'USDT (TRON)' : chain
+  return chain === 'USDT_TRON' || chain === 'TUSDT_TRON' ? 'USDT (TRON)' : chain
 }
 function displayTicker(chain: string) {
-  return chain === 'USDT_TRON' || chain === 'TEST_USDT_TRON' ? 'USDT' : chain
+  return chain === 'USDT_TRON' || chain === 'TUSDT_TRON' ? 'USDT' : chain
 }
 
 const assets = computed(() => {

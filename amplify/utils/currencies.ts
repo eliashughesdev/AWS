@@ -8,9 +8,9 @@ const LEDGER_CURRENCIES: Record<string, Network> = {
   TRON: 'TRON',
   SOL: 'SOL',
   USDT_TRON: 'TRON',
-  // Shasta stand-in: real USDT_TRON is reserved by Tatum and has no testnet faucet,
-  // so testnet uses a self-registered TRC-20 with the same 6 decimals.
-  TEST_USDT_TRON: 'TRON',
+  // Shasta stand-in: Tatum doesn't support USDT_TRON on testnet, so Shasta's USDT
+  // contract is registered in Tatum's ledger under this name.
+  TUSDT_TRON: 'TRON',
 }
 
 export const networkFor = (currency?: string): Network | undefined =>
@@ -22,8 +22,12 @@ export const isNativeCurrency = (currency?: string): boolean =>
 
 const TRC20_CONTRACTS: Record<string, string> = {
   USDT_TRON: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
-  TEST_USDT_TRON: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
+  TUSDT_TRON: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
 }
 
 export const trc20ContractFor = (currency?: string): string | undefined =>
   currency ? TRC20_CONTRACTS[currency.toUpperCase()] : undefined
+
+// Tatum's webhooks name a token by its contract address, not by our ledger currency
+export const currencyForAsset = (asset: string): string =>
+  Object.entries(TRC20_CONTRACTS).find(([, contract]) => contract === asset)?.[0] ?? asset

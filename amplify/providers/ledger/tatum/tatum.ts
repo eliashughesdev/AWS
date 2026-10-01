@@ -358,7 +358,7 @@ export class TatumProvider implements AccountProvider {
 
     // Keyed by network, not the raw currency — TRON's broadcast endpoint
     // doesn't distinguish a native transfer from a TRC-20 contract call, so
-    // USDT_TRON/TEST_USDT_TRON must resolve to the same path as TRON.
+    // USDT_TRON/TUSDT_TRON must resolve to the same path as TRON.
     const broadcastPath = this.BROADCAST_PATHS[networkFor(chain) ?? chain]
     if (!broadcastPath) throw new Error(`No broadcast path configured for chain: ${chain}`)
 
