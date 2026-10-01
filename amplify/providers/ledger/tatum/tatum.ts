@@ -170,18 +170,32 @@ export class TatumProvider implements AccountProvider {
    *   4. Broadcast the signed transaction via Tatum's broadcast endpoint
    *   5. Mark the withdrawal complete in Tatum's ledger
    */
-  async withdrawFunds({ accountId, address, amount, currency, kmsKeyId, senderAddress }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+  async withdrawFunds({ accountId, address, amount, currency, kmsKeyId, senderAddress, masterAccountId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
     const decimals = this.DECIMAL_PLACES[chain] ?? 6
     const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
 
     console.log(`DEBUG (TatumProvider): withdrawFunds started. chain=${chain}, amount=${roundedAmount}, from=${senderAddress}, to=${address}`)
 
-    // Step 1: Create withdrawal record — debits the VA
-    const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain })
+    // Step 1: Create withdrawal record — debits the VA. A token transfer's gas is
+    // paid in rented TRX, so no token leaves as a fee and none is recorded.
+    const fee = isNativeCurrency(chain) ? this.WITHDRAWAL_FEES[networkFor(chain) ?? chain] : '0'
+    const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain, fee })
     console.log(`DEBUG (TatumProvider): Step 1 done — withdrawal record created. withdrawalId=${withdrawalId}`)
 
-    // The debit is only reverted when the tx provably never reached the chain
+    let masterWithdrawalId: string | undefined
+    if (masterAccountId) {
+      try {
+        masterWithdrawalId = await this._createOffchainWithdrawal({ accountId: masterAccountId, address, amount: roundedAmount, currency: chain, fee: '0' })
+        console.log(`DEBUG (TatumProvider): Step 1b done — master VA debited. masterWithdrawalId=${masterWithdrawalId}`)
+      } catch (err) {
+        await this._cancelWithdrawal(withdrawalId)
+        throw err
+      }
+    }
+    const debits = masterWithdrawalId ? [withdrawalId, masterWithdrawalId] : [withdrawalId]
+
+    // The debits are only reverted when the tx provably never reached the chain
     let broadcasting = false
     let txId: string
     try {
@@ -195,23 +209,24 @@ export class TatumProvider implements AccountProvider {
       console.log(`DEBUG (TatumProvider): Step 4 done — transaction broadcast. txId=${txId}`)
     } catch (err) {
       if (broadcasting && !this._isBroadcastRejection(err)) {
-        console.error(`CRITICAL (TatumProvider): broadcast outcome unknown, withdrawal ${withdrawalId} left pending — check the chain, then complete or cancel it manually`, err)
-        throw new BroadcastUncertainError(withdrawalId, err)
+        console.error(`CRITICAL (TatumProvider): broadcast outcome unknown, withdrawals ${debits.join(', ')} left pending — check the chain, then complete or cancel them manually`, err)
+        throw new BroadcastUncertainError(withdrawalId, err, masterWithdrawalId)
       }
-      await this._cancelWithdrawal(withdrawalId)
+      for (const id of debits) await this._cancelWithdrawal(id)
       throw err
     }
 
-    // Step 5: Mark the withdrawal complete in Tatum's ledger. The coins already
-    // left, so a failure here must not undo anything.
-    try {
-      await this._completeWithdrawal(withdrawalId, txId)
-      console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${withdrawalId}, txId=${txId}`)
-    } catch (err) {
-      console.error(`CRITICAL (TatumProvider): tx ${txId} was broadcast but withdrawal ${withdrawalId} is not marked complete — complete it manually`, err)
+    // Step 5: Mark the withdrawals complete in Tatum's ledger.
+    for (const id of debits) {
+      try {
+        await this._completeWithdrawal(id, txId)
+        console.log(`DEBUG (TatumProvider): Step 5 done — withdrawal marked complete. withdrawalId=${id}, txId=${txId}`)
+      } catch (err) {
+        console.error(`CRITICAL (TatumProvider): tx ${txId} was broadcast but withdrawal ${id} is not marked complete — complete it manually`, err)
+      }
     }
 
-    return { withdrawalId, txId }
+    return { withdrawalId, masterWithdrawalId, txId }
   }
 
   /**
@@ -237,11 +252,10 @@ export class TatumProvider implements AccountProvider {
    * Step 1: Creates a pending withdrawal record in Tatum's offchain ledger.
    * Debits the virtual account balance atomically.
    */
-  private async _createOffchainWithdrawal({ accountId, address, amount, currency }: {
-    accountId: string; address: string; amount: string; currency: string
+  private async _createOffchainWithdrawal({ accountId, address, amount, currency, fee }: {
+    accountId: string; address: string; amount: string; currency: string; fee?: string
   }): Promise<string> {
     const url = `${this.TATUM_BASE_URL}/offchain/withdrawal`
-    const fee = this.WITHDRAWAL_FEES[networkFor(currency) ?? currency]
     const payload: Record<string, string> = { senderAccountId: accountId, address, amount, currency }
     if (fee) payload.fee = fee
     console.log(`DEBUG (TatumProvider): POST ${url}`)

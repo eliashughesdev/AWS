@@ -27,24 +27,27 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     // signer/source changes.
     let signerAddress = senderAddress
     let signerKmsKeyId = kmsKeyId
+    let masterAccountId: string | undefined
     if (!isNativeCurrency(chain)) {
       const master = await getMasterAccount(merchantId, chain)
       if (!master) throw new Error(`No ${chain} master for merchant ${merchantId ?? '(none)'} — cannot process token withdrawal`)
       signerAddress = master.depositAddress
       signerKmsKeyId = master.kmsKeyId
+      masterAccountId = master.vAccountId
     }
 
     const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
-    const { withdrawalId, txId } = await provider.withdrawFunds({
+    const { withdrawalId, masterWithdrawalId, txId } = await provider.withdrawFunds({
       accountId: vAccountId,
       address: destinationAddress,
       amount: String(cryptoAmount),
       currency: chain,
       kmsKeyId: signerKmsKeyId,
       senderAddress: signerAddress,
+      masterAccountId,
     })
 
-    console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, txId=${txId}, reference=${transactionId}`)
+    console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, masterWithdrawalId=${masterWithdrawalId ?? 'n/a'}, txId=${txId}, reference=${transactionId}`)
 
     const createdAt = new Date().toISOString()
     await putItem('v1TransactionLogsTable', {
@@ -53,6 +56,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       txId,
       reference: transactionId,
       withdrawalId,
+      masterWithdrawalId,
       type: 'WITHDRAWAL',
       amount: cryptoAmount,
       currency: chain,
@@ -72,13 +76,14 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
   } catch (err) {
     // The coins may have left — refunding here could pay the customer twice
     if (err instanceof BroadcastUncertainError) {
-      console.error(`CRITICAL: Withdrawal ${transactionId} broadcast outcome unknown — balance NOT rolled back. Resolve manually (withdrawalId=${err.withdrawalId}).`, err)
+      console.error(`CRITICAL: Withdrawal ${transactionId} broadcast outcome unknown — balance NOT rolled back. Resolve manually (withdrawalId=${err.withdrawalId}, masterWithdrawalId=${err.masterWithdrawalId ?? 'n/a'}).`, err)
       const createdAt = new Date().toISOString()
       await putItem('v1TransactionLogsTable', {
         id: vAccountId,
         sk: `TX#${createdAt}#${transactionId}`,
         reference: transactionId,
         withdrawalId: err.withdrawalId,
+        masterWithdrawalId: err.masterWithdrawalId,
         type: 'WITHDRAWAL_UNCERTAIN',
         amount: cryptoAmount,
         currency: chain,
