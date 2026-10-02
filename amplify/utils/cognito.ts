@@ -1,6 +1,7 @@
 import {
   AdminAddUserToGroupCommand,
   AdminCreateUserCommand,
+  AdminDisableUserCommand,
   AdminGetUserCommand,
   AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
@@ -18,6 +19,10 @@ const poolId = () => {
 
 const subOf = (attributes?: { Name?: string, Value?: string }[]) =>
   attributes?.find(a => a.Name === 'sub')?.Value
+
+// Quotes and backslashes are excluded so the address can never break out of the
+// ListUsers filter string in findUserByEmail.
+export const EMAIL_RE = /^[^\s@"'\\]+@[^\s@"'\\]+\.[^\s@"'\\]+$/
 
 export const findUserByEmail = async (email: string) => {
   const res = await client.send(new ListUsersCommand({
@@ -57,6 +62,13 @@ export const addUserToGroup = (username: string, groupName: string) =>
     UserPoolId: poolId(),
     Username: username,
     GroupName: groupName,
+  }))
+
+// Blocks new sign-ins and token refreshes; tokens already issued stay valid until they expire
+export const disableUser = (username: string) =>
+  client.send(new AdminDisableUserCommand({
+    UserPoolId: poolId(),
+    Username: username,
   }))
 
 /**

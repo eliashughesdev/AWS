@@ -69,6 +69,7 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
     actions: [
       'cognito-idp:AdminCreateUser',
       'cognito-idp:AdminAddUserToGroup',
+      'cognito-idp:AdminDisableUser',
       'cognito-idp:AdminSetUserPassword',
       'cognito-idp:AdminUpdateUserAttributes',
       'cognito-idp:AdminGetUser',

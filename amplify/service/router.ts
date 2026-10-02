@@ -24,6 +24,10 @@ import processPayment from './routes/payments/process'
 import processGuestPayment from './routes/payments/processGuest'
 import merchantRegister from './routes/merchants/register'
 import provisionMerchantMaster from './routes/merchants/provision-master'
+import inviteMerchantMember from './routes/merchants/members-invite'
+import removeMerchantMember from './routes/merchants/members-remove'
+import setTreasuryPolicy from './routes/merchants/policy'
+import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
 
@@ -31,7 +35,7 @@ type RoutesMap = Map<string, {
   handler: any
   requiredParams: string[]
   method: string
-  allowedRoles?: ('admin' | 'user' | 'staff')[]
+  allowedRoles?: ('admin' | 'user' | 'staff' | 'merchant')[]
 }>
 
 export const routes: RoutesMap = new Map([
@@ -61,6 +65,10 @@ export const routes: RoutesMap = new Map([
   ['/payments/process/guest', { handler: processGuestPayment, requiredParams: ['cardData', 'userId', 'amount', 'currency'], method: 'POST' }],
   ['/merchants/register', { handler: merchantRegister, requiredParams: ['name'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/masters/provision', { handler: provisionMerchantMaster, requiredParams: ['merchantId', 'currency'], method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/members/invite', { handler: inviteMerchantMember, requiredParams: ['merchantId', 'email', 'name', 'roles'], method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/members/remove', { handler: removeMerchantMember, requiredParams: ['merchantId', 'userId'], method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/policy', { handler: setTreasuryPolicy, requiredParams: ['merchantId', 'thresholds'], method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string }, context: any) => {

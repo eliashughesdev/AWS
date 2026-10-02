@@ -76,6 +76,17 @@ function decodeTronAddressHex(base58Address: string): string {
   return Buffer.from(prefixed.subarray(1)).toString('hex') // drop 0x41, hex-encode the 20 bytes
 }
 
+// A well-formed TRON address: base58check, 25 bytes, 0x41 prefix, valid checksum
+export function isValidTronAddress(address: unknown): boolean {
+  if (typeof address !== 'string') return false
+  try {
+    const payload = bs58.decode(address)
+    return payload.length === 25 && payload[0] === 0x41 && decodeTronAddressHex(address).length === 40
+  } catch {
+    return false
+  }
+}
+
 function encodeTransferParameter(toAddress: string, amountUnits: number): string {
   const addressHex = decodeTronAddressHex(toAddress).padStart(64, '0')
   const amountHex = amountUnits.toString(16).padStart(64, '0')

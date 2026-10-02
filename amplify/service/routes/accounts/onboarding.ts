@@ -3,17 +3,13 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { queryRecord, transactWriteItems } from '../../../utils/db'
-import { addUserToGroup, adminCreateUser, findUserByEmail } from '../../../utils/cognito'
+import { addUserToGroup, adminCreateUser, EMAIL_RE, findUserByEmail } from '../../../utils/cognito'
 import { ClaimToken, claimPointerItem, claimRecordId, createClaimToken } from '../../../utils/claimToken'
 import { sendClaimInvite } from '../../../utils/claimInvite'
 import { networkFor } from '../../../utils/currencies'
 import { provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getMerchant } from '../../../utils/merchant'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-
-// Quotes and backslashes are excluded so the address can never break out of the
-// ListUsers filter string.
-const EMAIL_RE = /^[^\s@"'\\]+@[^\s@"'\\]+\.[^\s@"'\\]+$/
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string } }

@@ -17,14 +17,16 @@ const escapeHtml = (value: string) =>
  * merchant and is escaped — left raw, a caller could plant a link in an email sent
  * from our own domain.
  */
-export const claimInviteEmail = ({ brand, firstName, link, expiresAt }: {
+export const claimInviteEmail = ({ brand, firstName, link, expiresAt, intro }: {
   brand: string
   firstName?: string | null
   link: string
   expiresAt: number
+  intro?: string
 }): Email => {
   const days = Math.max(1, Math.round((expiresAt - Date.now()) / 86_400_000))
   const greeting = firstName ? `Hi ${firstName},` : 'Hi,'
+  const why = intro ?? `A ${brand} account was created for you after your recent payment.`
   const b = escapeHtml(brand)
   const href = escapeHtml(link)
 
@@ -33,7 +35,7 @@ export const claimInviteEmail = ({ brand, firstName, link, expiresAt }: {
     text: [
       greeting,
       '',
-      `A ${brand} account was created for you after your recent payment. Choose a password to sign in:`,
+      `${why} Choose a password to sign in:`,
       '',
       link,
       '',
@@ -45,7 +47,7 @@ export const claimInviteEmail = ({ brand, firstName, link, expiresAt }: {
       '<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">',
       `<h2 style="margin: 0 0 16px;">Welcome to ${b}</h2>`,
       `<p>${escapeHtml(greeting)}</p>`,
-      `<p>A ${b} account was created for you after your recent payment. Choose a password to sign in.</p>`,
+      `<p>${escapeHtml(why)} Choose a password to sign in.</p>`,
       `<p style="margin: 16px 0 24px;"><a href="${href}" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; border: 2px solid #3d3d3d;">Set your password</a></p>`,
       `<p style="color: #666; font-size: 13px;">This link works once and expires in ${days} days. If the button does not work, paste this address into your browser:<br><span style="word-break: break-all;">${href}</span></p>`,
       '<p style="color: #666; font-size: 12px;">If you did not expect this email, you can ignore it — nothing happens until a password is set.</p>',

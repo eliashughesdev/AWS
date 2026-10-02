@@ -5,7 +5,7 @@ export const auth = defineAuth({
   loginWith: {
     email: true,
   },
-  groups: ['admin', 'user', 'staff'],
+  groups: ['admin', 'user', 'staff', 'merchant'],
   triggers: {
     customMessage: customMessageFn,
   },

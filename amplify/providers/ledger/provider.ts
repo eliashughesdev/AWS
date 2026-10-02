@@ -138,5 +138,6 @@ export interface AccountProvider {
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
+  getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }>;
   getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>
 }

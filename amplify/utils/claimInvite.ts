@@ -8,7 +8,7 @@ import { claimInviteEmail } from './emailTemplates'
  * already persisted and (for onboarding) also returned to the caller, so a
  * failed send doesn't stukc the user.
  *  */
-export const sendClaimInvite = async (email: string, firstName: string | null | undefined, claim: ClaimToken): Promise<boolean> => {
+export const sendClaimInvite = async (email: string, firstName: string | null | undefined, claim: ClaimToken, intro?: string): Promise<boolean> => {
   try {
     const base = process.env.FRONTEND_URL?.replace(/\/+$/, '')
     if (!base) throw new Error('FRONTEND_URL is not set')
@@ -18,6 +18,7 @@ export const sendClaimInvite = async (email: string, firstName: string | null | 
       firstName,
       link: `${base}/v2/set-password?token=${encodeURIComponent(claim.token)}`,
       expiresAt: claim.expiresAt,
+      intro,
     })
     await getEmailProvider().sendEmail(email, message.subject, message.text, message.html)
     console.log(`CLAIM_INVITE: sent to ${email}`)

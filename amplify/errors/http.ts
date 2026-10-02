@@ -20,6 +20,14 @@ const httpErrors: any = {
   100039: () => 'this payer has already set a password — use password reset instead',
   100040: () => 'this merchant does not exist or is not active',
   100041: () => 'provisioning this currency did not complete — retry the request',
+  100042: () => 'you are not a member of any merchant',
+  100043: () => 'your merchant role does not allow this action',
+  100044: () => 'there is no treasury policy for this currency',
+  100045: () => 'treasury sends are not available for this currency',
+  100046: () => 'the fee balance does not cover this treasury send',
+  100047: () => 'there are not enough approvers for this request',
+  100048: () => 'invalid destination address',
+  100049: () => 'this user is not an active member of this merchant',
 }
 
 export const processError = (code: any, params?: any) => {

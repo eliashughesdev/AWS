@@ -48,7 +48,7 @@ const handler = async (event) => {
       console.log('DEBUG: JWT Result:', res.isValid, res.message ?? '')
       if (!res.isValid) return generatePolicy(sourceIp, 'Deny', resource)
       const groups = res.claim['cognito:groups'] ?? []
-      const role = groups.includes('staff') ? 'staff' : groups.includes('admin') ? 'admin' : 'user'
+      const role = groups.includes('staff') ? 'staff' : groups.includes('admin') ? 'admin' : groups.includes('merchant') ? 'merchant' : 'user'
       console.log('DEBUG: JWT Role resolved:', role)
       return generatePolicy(res.claim.sub, 'Allow', resource, role)
     } else if (auth?.includes('Signature')) {

@@ -449,6 +449,12 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
+  // A virtual account's ledger balance — what Tatum lets a debit take from it
+  async getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }> {
+    const res = await axios.get(`${this.TATUM_BASE_URL}/ledger/account/${accountId}/balance`, { headers: { 'x-api-key': this.apiKey } })
+    return { accountBalance: Number(res.data.accountBalance), availableBalance: Number(res.data.availableBalance) }
+  }
+
   async getOnChainBalance({ chain, address }: OnChainBalanceParams): Promise<number> {
     switch (chain.toUpperCase()) {
       case 'TRON': return getTronBalance(address)
