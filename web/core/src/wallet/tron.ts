@@ -1,3 +1,4 @@
+/// <reference path="./tronweb.d.ts" />
 import { TatumSDK, Network, type Tron } from '@tatumio/tatum'
 import { TronWalletProvider } from '@tatumio/tron-wallet-provider'
 import TronWeb from 'tronweb'

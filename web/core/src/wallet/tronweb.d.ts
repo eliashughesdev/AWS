@@ -1,5 +1,5 @@
 // Minimal ambient types for tronweb v5 (the package ships no .d.ts).
-// Covers only the surface used in src/wallet/tron.ts.
+// Covers only the surface used in tron.ts, which references this file.
 declare module 'tronweb' {
   interface TronWebOptions {
     fullHost: string

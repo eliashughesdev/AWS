@@ -2,9 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { useWalletSession } from '../wallet/session'
-import { readWallet, type WalletRead } from '../wallet/reads'
-import { chainLabels, type OnChainTx } from '../wallet/types'
+import { useWalletSession } from '@loudibly/core/wallet/session'
+import { readWallet, type WalletRead } from '@loudibly/core/wallet/reads'
+import { chainLabels, type OnChainTx } from '@loudibly/core/wallet/types'
 
 const router  = useRouter()
 const session = useWalletSession()

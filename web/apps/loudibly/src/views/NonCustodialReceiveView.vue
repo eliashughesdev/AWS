@@ -3,8 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-import { useWalletSession } from '../wallet/session'
-import { chainLabels } from '../wallet/types'
+import { useWalletSession } from '@loudibly/core/wallet/session'
+import { chainLabels } from '@loudibly/core/wallet/types'
 
 const router  = useRouter()
 const session = useWalletSession()

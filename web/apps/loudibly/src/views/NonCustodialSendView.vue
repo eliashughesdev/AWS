@@ -2,11 +2,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { useWalletSession } from '../wallet/session'
-import { readWallet, bust } from '../wallet/reads'
-import { sendTronTransaction } from '../wallet/tron'
-import { sendSolanaTransaction } from '../wallet/solana'
-import { chainLabels } from '../wallet/types'
+import { useWalletSession } from '@loudibly/core/wallet/session'
+import { readWallet, bust } from '@loudibly/core/wallet/reads'
+import { sendTronTransaction } from '@loudibly/core/wallet/tron'
+import { sendSolanaTransaction } from '@loudibly/core/wallet/solana'
+import { chainLabels } from '@loudibly/core/wallet/types'
 
 // Solana cannot spend its entire balance — a little must remain for fees.
 const SOL_FEE_BUFFER = 0.000005
