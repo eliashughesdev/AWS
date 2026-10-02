@@ -28,6 +28,8 @@ const TRC20_CONTRACTS: Record<string, string> = {
 export const trc20ContractFor = (currency?: string): string | undefined =>
   currency ? TRC20_CONTRACTS[currency.toUpperCase()] : undefined
 
-// Tatum's webhooks name a token by its contract address, not by our ledger currency
+// Tatum's webhooks name a token by its own symbol when it knows it (mainnet
+// USDT_TRON) and by its contract address otherwise; map the latter back to our
+// ledger currency
 export const currencyForAsset = (asset: string): string =>
   Object.entries(TRC20_CONTRACTS).find(([, contract]) => contract === asset)?.[0] ?? asset

@@ -1,6 +1,7 @@
 import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
 import { currencyForAsset, isNativeCurrency } from '../../../utils/currencies'
 import { sendToQueue } from '../../../utils/sqs'
+import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
 
 interface IncomingBlockchainTransactionRequest {
   address: string;             // the watched account this event is about
@@ -186,9 +187,25 @@ async function enqueueSweep(params: {
   }
 }
 
-// Debits the real on-chain fee once it's known — withdraw.ts only pre-debits the
-// principal, so this is the sole fee charge, not a top-up. Idempotent via the same
-// (account, txId) claim as applyBalanceChange; safe to no-op if unresolvable.
+// Records TRX actually burned by a sweep
+async function recordPlatformGas(account: any, amount: number, currency: string, payer: string, txId: string): Promise<void> {
+  const merchantId = account.merchantId ?? SYSTEM_MERCHANT_ID
+  const saved = await putItem('v1TransactionLogsTable', {
+    id: `GAS#${merchantId}`,
+    sk: `TX#${txId}`,
+    txId,
+    type: 'SWEEP_FEE',
+    amount,
+    currency,
+    payer,
+    accountNo: account.accountNo,
+    createdAt: new Date().toISOString(),
+  }, 'attribute_not_exists(sk)')
+  if (!saved.success && saved.error?.name !== 'ConditionalCheckFailedException') {
+    console.error(`GAS_LOG_ERROR: failed to record ${amount} ${currency} sweep fee for ${merchantId}, tx ${txId}`, saved.error)
+  }
+}
+
 async function handleFeeEvent(body: IncomingBlockchainTransactionRequest): Promise<boolean> {
   const txId = body.txId || 'unknown'
   const asset = body.asset ?? body.currency ?? ''
@@ -213,6 +230,14 @@ async function handleFeeEvent(body: IncomingBlockchainTransactionRequest): Promi
   const account = await findAccountByAddress(payerAddress)
   if (!account) {
     console.log(`SKIP_FEE: No account for payer ${payerAddress}, tx ${txId}`)
+    return true
+  }
+
+  // Fees are paid in the native coin; debiting one from a token account (e.g. a
+  // sweep out of a USDT deposit address) would mix units.
+  if (account.chain && account.chain.toUpperCase() !== asset.toUpperCase()) {
+    console.log(`SKIP_FEE_CURRENCY_MISMATCH: ${body.amount} ${asset} fee on ${account.chain} account ${account.accountNo}, tx ${txId}`)
+    if (amount > 0) await recordPlatformGas(account, amount, asset, payerAddress, txId)
     return true
   }
 
@@ -243,9 +268,8 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // Tatum reports the amount signed from the watched address's perspective:
   // positive = funds received, negative = funds sent. Zero moves no balance.
   const rawAmount = parseFloat(body.amount)
-  // `asset` is the specific token when one moved (its contract address);
-  // `currency` is only the underlying network's native currency (e.g. TRON)
-  // and is wrong to use here for a token transfer.
+  // `asset` is the specific token when one moved (Tatum's symbol or its
+  // contract address); `currency` is only the network's native coin (e.g. TRON)
   const currency = currencyForAsset(body.asset ?? body.currency ?? 'UNKNOWN')
   const txId = body.txId || 'unknown'
 
