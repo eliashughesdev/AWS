@@ -4,7 +4,7 @@ import { fetchUserAttributes, fetchAuthSession, getCurrentUser, signOut } from '
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, USDT_TRON_CURRENCY } from '../config'
+import { API_BASE, USDT_TRON_CURRENCY } from '@loudibly/core/config'
 
 const router = useRouter()
 

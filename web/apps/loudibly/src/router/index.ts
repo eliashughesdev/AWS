@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth'
-import tracker from '../tracker'
+import tracker from '@loudibly/core/tracker'
 import { isWalletUnlocked } from '@loudibly/core/wallet/session'
 import AuthView from '../views/AuthView.vue'
 import DashboardView from '../views/DashboardView.vue'

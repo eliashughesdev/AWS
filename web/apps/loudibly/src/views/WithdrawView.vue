@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, WS_BASE } from '../config'
+import { API_BASE, WS_BASE } from '@loudibly/core/config'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 

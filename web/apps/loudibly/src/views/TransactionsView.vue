@@ -3,7 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE } from '../config'
+import { API_BASE } from '@loudibly/core/config'
 
 const router = useRouter()
 

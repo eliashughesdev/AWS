@@ -5,7 +5,7 @@ import { signIn } from 'aws-amplify/auth'
 import { CForm, CButton } from '@coreui/vue'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { API_BASE } from '../config'
+import { API_BASE } from '@loudibly/core/config'
 
 const route  = useRoute()
 const router = useRouter()

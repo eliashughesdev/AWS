@@ -4,7 +4,7 @@ import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
-import { API_BASE, USDT_TRON_CURRENCY } from '../config'
+import { API_BASE, USDT_TRON_CURRENCY } from '@loudibly/core/config'
 
 const route  = useRoute()
 const router = useRouter()

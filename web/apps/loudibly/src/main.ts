@@ -1,16 +1,14 @@
 import { createApp } from 'vue'
-import { Amplify } from 'aws-amplify'
-// @ts-ignore — file is empty locally; populated by `ampx generate outputs` or on Amplify deploy
-import outputs from '../../../../amplify_outputs.json'
+import { configureAmplify } from '@loudibly/core/amplify'
+import tracker from '@loudibly/core/tracker'
 import router from './router'
 import './assets/main.css'
 import App from './App.vue'
-import tracker from './tracker'
 import { applyBrand } from './brands'
 
 applyBrand()
 
-Amplify.configure(outputs)
+configureAmplify()
 tracker.start()
 
 createApp(App).use(router).mount('#app')

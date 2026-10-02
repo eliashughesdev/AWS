@@ -9,7 +9,7 @@ import { useWalletSession } from '@loudibly/core/wallet/session'
 import { CHAINS, chainLabels, type Chain } from '@loudibly/core/wallet/types'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { API_BASE } from '../config'
+import { API_BASE } from '@loudibly/core/config'
 
 const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
 
