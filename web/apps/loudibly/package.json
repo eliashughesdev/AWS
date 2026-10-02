@@ -1,5 +1,5 @@
 {
-  "name": "vue-app",
+  "name": "loudibly",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,7 @@
     "@coreui/icons": "^3.1.0",
     "@coreui/icons-vue": "^2.2.0",
     "@coreui/vue": "^5.8.0",
+    "@loudibly/core": "*",
     "@openreplay/tracker": "^18.0.15",
     "@solana/web3.js": "^1.98.4",
     "@tailwindcss/forms": "^0.5.11",

@@ -4,7 +4,7 @@
 // dynamic key access in production builds.
 function required(name: string, value: string | undefined): string {
   if (!value) {
-    throw new Error(`${name} is not set — add it in the Amplify console, or in vue-app/.env for local dev`)
+    throw new Error(`${name} is not set — add it in the Amplify console, or in web/apps/loudibly/.env for local dev`)
   }
   return value.replace(/\/+$/, '')
 }

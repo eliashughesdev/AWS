@@ -1,0 +1,8 @@
+{
+  "name": "loudibly-web",
+  "private": true,
+  "workspaces": [
+    "core",
+    "apps/*"
+  ]
+}

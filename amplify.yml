@@ -49,12 +49,12 @@ frontend:
     preBuild:
       commands:
         - yarn install --frozen-lockfile
-        - cd vue-app && yarn install --frozen-lockfile && cd ..
+        - cd web && yarn install --frozen-lockfile && cd ..
     build:
       commands:
         - yarn run build
-        - cd vue-app && yarn run build && cd ..
-        - cp -r vue-app/dist dist/v2
+        - cd web && yarn workspace loudibly build && cd ..
+        - cp -r web/apps/loudibly/dist dist/v2
   artifacts:
     baseDirectory: dist
     files:
@@ -62,4 +62,4 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
-      - vue-app/node_modules/**/*
+      - web/node_modules/**/*

@@ -20,10 +20,12 @@ This repo contains three deployable pieces:
   and a WebSocket API. Infrastructure is defined as CDK in `amplify/backend.ts`.
 - **`src/`** — a React app with the customer-facing checkout flows: KYC upload, add-card,
   process-payment, and an embeddable payment widget. Builds to `dist/` and deploys at `/`.
-- **`vue-app/`** — a Vue app for the account dashboard: custodial views (balance, cards,
-  deposit, withdraw, transfer) and non-custodial wallet views (dashboard, send, receive,
-  ledger) that read straight from the chain with an in-session key. Builds independently and
-  is copied into `dist/v2` at deploy time, serving at `/v2/`.
+- **`web/`** — a yarn workspace for the Vue frontends. `web/core/` (`@loudibly/core`) holds
+  the logic shared by every client app; `web/apps/<client>/` holds one app per client design.
+  `web/apps/loudibly/` is the account dashboard: custodial views (balance, cards, deposit,
+  withdraw, transfer) and non-custodial wallet views (dashboard, send, receive, ledger) that
+  read straight from the chain with an in-session key. It is copied into `dist/v2` at deploy
+  time, serving at `/v2/`.
 
 ## Tech stack
 
@@ -32,7 +34,7 @@ This repo contains three deployable pieces:
 - **Payments**: Stripe, Clover, Evervault (client-side card-data encryption).
 - **Crypto / ledger**: Tatum, Solana (`@solana/web3.js`), Tron (`tronweb`), `@noble/secp256k1`.
 - **KYC**: Didit.
-- **Frontend**: React 19 + Vite (`src/`), Vue 3 + Vite + Tailwind (`vue-app/`).
+- **Frontend**: React 19 + Vite (`src/`), Vue 3 + Vite + Tailwind (`web/`).
 
 ## Configuration
 
@@ -89,25 +91,25 @@ Amplify/Lambda runtime itself:
 
 ## Getting started
 
-Install and run the React app + backend tooling from the repo root, and the Vue dashboard
-from `vue-app/` separately — they have independent `package.json` files and lockfiles.
+Install and run the React app + backend tooling from the repo root, and the Vue frontends
+from `web/` separately — they have independent `package.json` files and lockfiles.
 
 ```bash
 # React app (src/)
 yarn install
 yarn dev              # vite dev server
 
-# Vue dashboard (vue-app/)
-cd vue-app
+# Vue frontends (web/) — one install for every app
+cd web
 yarn install
-yarn dev
+yarn workspace loudibly dev
 ```
 
 ### Build
 
 ```bash
 yarn build             # root: tsc && vite build -> dist/
-cd vue-app && yarn build   # vue-tsc -b && vite build -> vue-app/dist/
+cd web && yarn workspace loudibly build   # vue-tsc -b && vite build -> web/apps/loudibly/dist/
 ```
 
 ### Lint
