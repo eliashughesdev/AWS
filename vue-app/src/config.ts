@@ -15,5 +15,5 @@ export const RELAY_BASE = required('VITE_EVERVAULT_RELAY_BASE', import.meta.env.
 
 // Ledger currency to request when creating a USDT-TRON custodial account. Real
 // USDT_TRON is a Tatum mainnet-only built-in; on testnet, Shasta's USDT contract is
-// registered in Tatum as TUSDT_TRON. Mirrors VITE_TRON_NETWORK.
+// registered in Tatum as TUSDT_TRON.
 export const USDT_TRON_CURRENCY = import.meta.env.VITE_TRON_NETWORK === 'mainnet' ? 'USDT_TRON' : 'TUSDT_TRON'
