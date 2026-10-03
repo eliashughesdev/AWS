@@ -30,6 +30,7 @@ import setTreasuryPolicy from './routes/merchants/policy'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
+import { response } from '../utils/http'
 
 type RoutesMap = Map<string, {
   handler: any
@@ -76,15 +77,14 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   console.log('DEBUG: Router initiated. Incoming Event:', JSON.stringify(event))
 
   // Look up the route based on the path received from API Gateway
-  const route = routes.get(event.path)
+  // Custom-domain requests arrive as /v1/<route>; direct execute-api calls as /<route>.
+  const routePath = event.path.replace(/^\/v1(?=\/)/, '')
+  const route = routes.get(routePath)
 
   if (!route) {
     // DEBUG: Route not found
     console.log(`DEBUG: Route NOT FOUND for path: ${event.path}. Available routes:`, Array.from(routes.keys()))
-    return {
-      statusCode: 404,
-      body: JSON.stringify({ message: 'Not Found' })
-    }
+    return response({ statusCode: 404, headers: null, bodyObject: { message: 'Not Found' } })
   }
 
   // DEBUG: Route found
@@ -93,10 +93,7 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   // We can also check if the method matches, though this should be handled by API Gateway configuration
   if (event.httpMethod !== route.method) {
     console.error(`ERROR: Method Mismatch. Expected: ${route.method}, Received: ${event.httpMethod}`)
-    return {
-      statusCode: 405, // Method Not Allowed
-      body: JSON.stringify({ message: 'Method Not Allowed' })
-    }
+    return response({ statusCode: 405, headers: null, bodyObject: { message: 'Method Not Allowed' } })
   }
 
   try {
@@ -119,7 +116,7 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
       console.log('DEBUG: RBAC check — route allowedRoles:', route.allowedRoles, 'caller role:', role)
       if (!route.allowedRoles.includes(role)) {
         console.log('DEBUG: RBAC denied for role:', role)
-        return { statusCode: 403, body: JSON.stringify({ message: 'Forbidden' }) }
+        return response({ statusCode: 403, headers: null, bodyObject: { message: 'Forbidden' } })
       }
     }
 
@@ -133,15 +130,12 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
     console.log('DEBUG: Instantiating and executing handler...')
     const handlerInstance = new route.handler()
 
-    const response = await handlerInstance.execute(event, context)
+    const result = await handlerInstance.execute(event, context)
     console.log('DEBUG: Handler execution completed successfully.')
-    return response
+    return result
   } catch (e) {
     // Detailed error logging
     console.error('FATAL CATCH BLOCK ERROR:', e)
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Internal Server Error' }),
-    }
+    return response({ statusCode: 500, headers: null, bodyObject: { message: 'Internal Server Error' } })
   }
 }
