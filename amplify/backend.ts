@@ -10,6 +10,7 @@ import {
   LambdaIntegration, LogGroupLogDestination,
   MethodLoggingLevel,
   RequestAuthorizer,
+  ResponseType,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
@@ -251,6 +252,21 @@ const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
     allowMethods: Cors.ALL_METHODS,
     allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project'],
   },
+})
+
+// Gateway-generated errors (e.g. authorizer 401/403) bypass the Lambda, so they
+// need CORS headers here or browsers report them as CORS failures.
+const corsGatewayHeaders = {
+  'Access-Control-Allow-Origin': "'*'",
+  'Access-Control-Allow-Headers': "'*'",
+}
+loudiblyRestApi.addGatewayResponse('Default4xxCors', {
+  type: ResponseType.DEFAULT_4XX,
+  responseHeaders: corsGatewayHeaders,
+})
+loudiblyRestApi.addGatewayResponse('Default5xxCors', {
+  type: ResponseType.DEFAULT_5XX,
+  responseHeaders: corsGatewayHeaders,
 })
 
 const apiGatewayRole = new iam.Role(apiStack, 'ApiGatewayRole', {
