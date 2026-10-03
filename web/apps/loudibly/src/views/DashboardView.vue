@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes } from '@loudibly/core/auth/cognito'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
@@ -15,7 +16,7 @@ const router = useRouter()
 const verifiedBanner = ref(route.query.verified === '1')
 
 const displayName      = ref('...')
-const userEmail        = ref('')
+const { userEmail, load: loadUser } = useCurrentUser()
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
@@ -42,10 +43,7 @@ async function pollWhileImporting() {
 }
 
 onMounted(async () => {
-  try {
-    const attrs = await fetchUserAttributes()
-    userEmail.value = attrs.email ?? ''
-  } catch {
+  if (!(await loadUser())) {
     router.push('/auth')
     return
   }

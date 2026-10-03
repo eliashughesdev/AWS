@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { listPaymentMethods, savePaymentMethod } from '@loudibly/core/api/payments'
 
 const router = useRouter()
 
-const displayName = ref('...')
-const userEmail   = ref('')
-const userId      = ref('')
+const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 
 interface SavedCard {
   id: string
@@ -43,12 +42,7 @@ async function loadCards() {
 }
 
 onMounted(async () => {
-  try {
-    const [attrs, user] = await Promise.all([fetchUserAttributes(), getCurrentUser()])
-    userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.email?.split('@')[0] ?? 'User'
-    userId.value      = user.userId
-  } catch {
+  if (!(await loadUser())) {
     router.push('/auth')
     return
   }

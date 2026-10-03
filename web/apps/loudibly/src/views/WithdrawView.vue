@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { listAccounts, withdraw } from '@loudibly/core/api/accounts'
@@ -10,9 +11,7 @@ const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 
 const router = useRouter()
 
-const displayName = ref('...')
-const userEmail   = ref('')
-const userId      = ref('')
+const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 
 interface Account {
   accountNo: string
@@ -87,12 +86,7 @@ watch(selectedAccount, (accountNo) => {
 })
 
 onMounted(async () => {
-  try {
-    const [attrs, user] = await Promise.all([fetchUserAttributes(), getCurrentUser()])
-    userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.email?.split('@')[0] ?? 'User'
-    userId.value      = user.userId
-  } catch {
+  if (!(await loadUser())) {
     router.push('/auth')
     return
   }

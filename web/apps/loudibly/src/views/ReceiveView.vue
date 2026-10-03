@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { fetchUserAttributes, getCurrentUser, signOut } from '@loudibly/core/auth/cognito'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
@@ -9,9 +10,7 @@ import { listAccounts, createAccount as postAccount } from '@loudibly/core/api/a
 
 const router = useRouter()
 
-const displayName = ref('...')
-const userEmail   = ref('')
-const userId      = ref('')
+const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 
 interface Account {
   accountNo: string
@@ -105,12 +104,7 @@ async function createAccount(chain: string) {
 }
 
 onMounted(async () => {
-  try {
-    const [attrs, user] = await Promise.all([fetchUserAttributes(), getCurrentUser()])
-    userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.email?.split('@')[0] ?? 'User'
-    userId.value      = user.userId
-  } catch {
+  if (!(await loadUser())) {
     router.push('/auth')
     return
   }

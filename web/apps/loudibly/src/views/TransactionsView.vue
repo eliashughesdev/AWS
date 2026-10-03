@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { signOut, fetchUserAttributes } from '@loudibly/core/auth/cognito'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { listAccounts, listTransactions } from '@loudibly/core/api/accounts'
 
 const router = useRouter()
 
-const displayName       = ref('...')
-const userEmail         = ref('')
+const { userEmail, displayName, load: loadUser } = useCurrentUser()
 const accounts          = ref<any[]>([])
 const selectedAccount   = ref<string | null>(null)
 const transactions      = ref<any[]>([])
@@ -42,11 +42,7 @@ async function fetchTransactions() {
 }
 
 onMounted(async () => {
-  try {
-    const attrs = await fetchUserAttributes()
-    userEmail.value   = attrs.email ?? ''
-    displayName.value = attrs.email?.split('@')[0] ?? 'User'
-  } catch {
+  if (!(await loadUser())) {
     router.push('/auth')
     return
   }
