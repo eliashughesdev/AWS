@@ -3,8 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { WS_BASE } from '@loudibly/core/config'
 import { listAccounts, withdraw } from '@loudibly/core/api/accounts'
+import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 
@@ -62,8 +62,7 @@ async function copyTxId() {
   setTimeout(() => { copied.value = '' }, 2000)
 }
 
-let ws: WebSocket | null = null
-let wsTimeout: ReturnType<typeof setTimeout> | null = null
+let resultWatch: PaymentResultWatch | null = null
 
 async function fetchExchangeRate(chain: string) {
   rateLoading.value  = true
@@ -117,8 +116,8 @@ onMounted(async () => {
 onUnmounted(() => closeWs())
 
 function closeWs() {
-  if (wsTimeout) { clearTimeout(wsTimeout); wsTimeout = null }
-  if (ws) { ws.close(); ws = null }
+  resultWatch?.close()
+  resultWatch = null
 }
 
 function handleWithdrawResult(data: any) {
@@ -167,25 +166,19 @@ async function submitCustodial(parsed: number) {
     }
   }
 
-  ws = new WebSocket(`${WS_BASE}?userId=${userId.value}&paymentId=${transactionId}`)
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data)
-      if (msg.type === 'PAYMENT_RESULT') handleWithdrawResult(msg.data)
-    } catch { }
-  }
-  ws.onerror = () => console.warn('WebSocket error; will rely on timeout fallback')
+  resultWatch = watchPaymentResult(userId.value, transactionId, {
+    onResult: handleWithdrawResult,
+    onTimeout: () => {
+      if (withdrawStatus.value === 'processing') {
+        closeWs()
+        withdrawStatus.value = 'failed'
+        withdrawError.value  = 'No confirmation received. Your withdrawal may still be processing — check your balance later.'
+      }
+    },
+  })
 
   withdrawStatus.value = 'processing'
   submitting.value     = true
-
-  wsTimeout = setTimeout(() => {
-    if (withdrawStatus.value === 'processing') {
-      closeWs()
-      withdrawStatus.value = 'failed'
-      withdrawError.value  = 'No confirmation received. Your withdrawal may still be processing — check your balance later.'
-    }
-  }, 60_000)
 
   try {
     const { ok, data } = await withdraw({

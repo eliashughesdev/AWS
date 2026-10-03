@@ -3,8 +3,8 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { WS_BASE } from '@loudibly/core/config'
 import { listAccounts, deposit } from '@loudibly/core/api/accounts'
+import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
 import { listPaymentMethods } from '@loudibly/core/api/payments'
 
 const router = useRouter()
@@ -42,8 +42,7 @@ type DepositStatus = 'idle' | 'processing' | 'success' | 'failed'
 const depositStatus = ref<DepositStatus>('idle')
 const depositError  = ref('')
 
-let ws: WebSocket | null = null
-let wsTimeout: ReturnType<typeof setTimeout> | null = null
+let resultWatch: PaymentResultWatch | null = null
 
 onMounted(async () => {
   try {
@@ -78,8 +77,8 @@ onUnmounted(() => {
 })
 
 function closeWs() {
-  if (wsTimeout) { clearTimeout(wsTimeout); wsTimeout = null }
-  if (ws) { ws.close(); ws = null }
+  resultWatch?.close()
+  resultWatch = null
 }
 
 function handlePaymentResult(data: any) {
@@ -109,31 +108,22 @@ async function submit() {
   const transactionId = crypto.randomUUID()
 
   // Open WebSocket before the HTTP call so we don't miss a fast response
-  ws = new WebSocket(`${WS_BASE}?userId=${userId.value}&paymentId=${transactionId}`)
-  ws.onmessage = (event) => {
-    try {
-      const msg = JSON.parse(event.data)
-      if (msg.type === 'PAYMENT_RESULT') handlePaymentResult(msg.data)
-    } catch { /* ignore parse errors */ }
-  }
-  ws.onerror = () => {
-    // WS error doesn't stop the deposit — result may still arrive
-    console.warn('WebSocket error; will rely on timeout fallback')
-  }
+  resultWatch = watchPaymentResult(userId.value, transactionId, {
+    onResult: handlePaymentResult,
+    // No message in 60 seconds — surface a neutral message
+    onTimeout: () => {
+      if (depositStatus.value === 'processing') {
+        closeWs()
+        depositStatus.value = 'failed'
+        depositError.value  = 'No confirmation received. Your deposit may still be processing — check your balance later.'
+      }
+    },
+  })
 
   console.log('[Deposit] userEmail:', userEmail.value, '| userId:', userId.value)
 
   depositStatus.value = 'processing'
   submitting.value    = true
-
-  // 60-second timeout — if no WS message arrives, surface a neutral message
-  wsTimeout = setTimeout(() => {
-    if (depositStatus.value === 'processing') {
-      closeWs()
-      depositStatus.value = 'failed'
-      depositError.value  = 'No confirmation received. Your deposit may still be processing — check your balance later.'
-    }
-  }, 60_000)
 
   try {
     const { ok, data } = await deposit({
