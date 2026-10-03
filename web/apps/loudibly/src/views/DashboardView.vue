@@ -7,7 +7,6 @@ import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
 import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
 import { listAccounts, listTransactions, createAccount as postAccount } from '@loudibly/core/api/accounts'
-import { getProfile } from '@loudibly/core/api/profile'
 import { getKycStatus, startDiditSession } from '@loudibly/core/api/kyc'
 
 const route  = useRoute()
@@ -15,8 +14,7 @@ const router = useRouter()
 
 const verifiedBanner = ref(route.query.verified === '1')
 
-const displayName      = ref('...')
-const { userEmail, load: loadUser } = useCurrentUser()
+const { userEmail, displayName, load: loadUser } = useCurrentUser()
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
@@ -49,13 +47,6 @@ onMounted(async () => {
   }
 
   try {
-    const profile = await getProfile()
-    if (profile.ok) {
-      displayName.value = profile.data.name ?? userEmail.value.split('@')[0]
-    } else {
-      displayName.value = userEmail.value.split('@')[0]
-    }
-
     createBanner.value = true
     const { data: accountsData } = await listAccounts()
     accounts.value = accountsData.accounts ?? []
