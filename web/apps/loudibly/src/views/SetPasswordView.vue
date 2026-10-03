@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { signIn } from 'aws-amplify/auth'
+import { signIn } from '@loudibly/core/auth/cognito'
 import { CForm, CButton } from '@coreui/vue'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'

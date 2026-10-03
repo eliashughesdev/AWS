@@ -1,7 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getCurrentUser, fetchUserAttributes } from 'aws-amplify/auth'
-import tracker from '@loudibly/core/tracker'
-import { isWalletUnlocked } from '@loudibly/core/wallet/session'
+import { checkAccess, type Access, type AccessRules } from '@loudibly/core/auth/guards'
 import AuthView from '../views/AuthView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import NonCustodialDashboardView from '../views/NonCustodialDashboardView.vue'
@@ -16,6 +14,10 @@ import TransferView from '../views/TransferView.vue'
 import ReceiveView from '../views/ReceiveView.vue'
 import ConfirmView from '../views/ConfirmView.vue'
 import SetPasswordView from '../views/SetPasswordView.vue'
+
+declare module 'vue-router' {
+  interface RouteMeta extends AccessRules {}
+}
 
 const router = createRouter({
   history: createWebHistory('/v2/'),
@@ -112,33 +114,16 @@ const router = createRouter({
   ],
 })
 
-// Two ways to be signed in: a Cognito session (custodial) or an unlocked in-memory
-// wallet (non-custodial — no server identity at all). Non-custodial users are kept
-// out of the custodial-only screens, which all depend on a Cognito token.
+// Where this app sends a user who can't see the page (the rules live in core).
+const redirectFor: Record<Exclude<Access, 'allowed'>, string> = {
+  'signed-out':    'auth',
+  'needs-cognito': 'wallet',
+  'needs-wallet':  'dashboard',
+}
+
 router.beforeEach(async (to) => {
-  if (!to.meta.requiresAuth) return true
-
-  const hasWallet = isWalletUnlocked()
-
-  // An unlocked wallet is a complete session on its own — a non-custodial user has
-  // no Cognito identity, so don't pay for a lookup that is guaranteed to throw.
-  if (hasWallet && to.meta.walletOnly) return true
-
-  let hasCognito = false
-  try {
-    await getCurrentUser()
-    const attrs = await fetchUserAttributes()
-    if (attrs.email) tracker.setUserID(attrs.email)
-    hasCognito = true
-  } catch {
-    hasCognito = false
-  }
-
-  if (!hasCognito && !hasWallet) return { name: 'auth' }
-  if (!hasCognito && to.meta.custodialOnly) return { name: 'wallet' }
-  if (to.meta.walletOnly && !hasWallet) return { name: 'dashboard' }
-
-  return true
+  const access = await checkAccess(to.meta)
+  return access === 'allowed' ? true : { name: redirectFor[access] }
 })
 
 export default router

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { fetchUserAttributes, getCurrentUser, signOut } from 'aws-amplify/auth'
+import { fetchUserAttributes, getCurrentUser, signOut } from '@loudibly/core/auth/cognito'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'

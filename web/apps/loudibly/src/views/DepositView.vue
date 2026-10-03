@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { WS_BASE } from '@loudibly/core/config'

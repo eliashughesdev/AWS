@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { confirmSignUp, getCurrentUser } from 'aws-amplify/auth'
+import { confirmSignUp, getCurrentUser } from '@loudibly/core/auth/cognito'
 
 const route = useRoute()
 const router = useRouter()

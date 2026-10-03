@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, fetchAuthSession } from 'aws-amplify/auth'
+import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, getAccessToken } from '@loudibly/core/auth/cognito'
 import { useRoute, useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
 import { deriveTronAddress, generateTronWallet } from '@loudibly/core/wallet/tron'
@@ -40,8 +40,7 @@ async function flushPendingProfile() {
   if (!raw) return
   try {
     const { name, email } = JSON.parse(raw)
-    const session = await fetchAuthSession()
-    if (!session.tokens?.accessToken || !name) return
+    if (!(await getAccessToken()) || !name) return
     await saveProfile({ name, email })
     localStorage.removeItem(PENDING_PROFILE_KEY)
   } catch (e) {

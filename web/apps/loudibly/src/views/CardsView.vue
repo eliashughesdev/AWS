@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signOut, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, getCurrentUser } from '@loudibly/core/auth/cognito'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { listPaymentMethods, savePaymentMethod } from '@loudibly/core/api/payments'

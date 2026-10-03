@@ -1,4 +1,4 @@
-import { fetchAuthSession } from 'aws-amplify/auth'
+import { getAccessToken } from '../auth/cognito'
 import { API_BASE } from '../config'
 
 // Error bodies come from amplify/errors/http.ts.
@@ -23,8 +23,7 @@ interface RequestOptions {
 }
 
 async function authHeader(): Promise<Record<string, string>> {
-  const session = await fetchAuthSession()
-  return { Authorization: `Bearer ${session.tokens?.accessToken?.toString()}` }
+  return { Authorization: `Bearer ${await getAccessToken()}` }
 }
 
 export async function request<T>(
