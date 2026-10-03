@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, WS_BASE } from '@loudibly/core/config'
+import { WS_BASE } from '@loudibly/core/config'
+import { listAccounts, deposit } from '@loudibly/core/api/accounts'
+import { listPaymentMethods } from '@loudibly/core/api/payments'
 
 const router = useRouter()
 
@@ -43,12 +45,6 @@ const depositError  = ref('')
 let ws: WebSocket | null = null
 let wsTimeout: ReturnType<typeof setTimeout> | null = null
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 onMounted(async () => {
   try {
     const [attrs, user] = await Promise.all([fetchUserAttributes(), getCurrentUser()])
@@ -61,13 +57,12 @@ onMounted(async () => {
   }
 
   try {
-    const headers = await getAuthHeaders()
     const [accRes, cardsRes] = await Promise.all([
-      fetch(`${API_BASE}/accounts/list`, { headers }),
-      fetch(`${API_BASE}/payments/list?userId=${userId.value}`, { headers }),
+      listAccounts(),
+      listPaymentMethods(userId.value),
     ])
-    accounts.value = (await accRes.json()).accounts ?? []
-    cards.value    = (await cardsRes.json()).res ?? []
+    accounts.value = accRes.data.accounts ?? []
+    cards.value    = cardsRes.data.res ?? []
 
     if (accounts.value.length > 0) selectedAccount.value = accounts.value[0].accountNo
     if (cards.value.length > 0)    selectedCard.value    = cards.value[0].id
@@ -141,23 +136,17 @@ async function submit() {
   }, 60_000)
 
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_BASE}/accounts/deposit`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accountNumber: selectedAccount.value,
-        currency:      'USD',
-        amount:        parsed,
-        paymentId:     selectedCard.value,
-        userId:        userId.value,
-        email:         'test@email.com',
-        transactionId,
-      }),
+    const { ok, data } = await deposit({
+      accountNumber: selectedAccount.value,
+      currency:      'USD',
+      amount:        parsed,
+      paymentId:     selectedCard.value,
+      userId:        userId.value,
+      email:         'test@email.com',
+      transactionId,
     })
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
+    if (!ok) {
       closeWs()
       depositStatus.value = 'failed'
       depositError.value  = data.message ?? 'Deposit request failed. Please try again.'

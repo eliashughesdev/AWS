@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE } from '@loudibly/core/config'
+import { listAccounts, transfer } from '@loudibly/core/api/accounts'
 
 const router = useRouter()
 
@@ -34,12 +34,6 @@ const transferError  = ref('')
 
 const fromAccount = computed(() => accounts.value.find(a => a.accountNo === selectedFrom.value))
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 onMounted(async () => {
   try {
     const attrs = await fetchUserAttributes()
@@ -51,9 +45,7 @@ onMounted(async () => {
   }
 
   try {
-    const headers = await getAuthHeaders()
-    const res  = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const data = await res.json()
+    const { data } = await listAccounts()
     accounts.value = (data.accounts ?? []).filter((a: Account) => !!a.chain)
 
     if (accounts.value.length >= 1) {
@@ -93,21 +85,14 @@ async function submit() {
   submitting.value     = true
 
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_BASE}/accounts/transfer`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider:                'PCF0001',
-        senderAccountNumber:    selectedFrom.value,
-        recipientAccountNumber: selectedTo.value,
-        amount:                 parsed.toString(),
-      }),
+    const { ok, data } = await transfer({
+      provider:               'PCF0001',
+      senderAccountNumber:    selectedFrom.value,
+      recipientAccountNumber: selectedTo.value,
+      amount:                 parsed.toString(),
     })
 
-    const data = await res.json().catch(() => ({}))
-
-    if (res.ok && data.success) {
+    if (ok && data.success) {
       transferStatus.value = 'success'
     } else {
       transferStatus.value = 'failed'

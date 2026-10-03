@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE } from '@loudibly/core/config'
+import { listAccounts, listTransactions } from '@loudibly/core/api/accounts'
 
 const router = useRouter()
 
@@ -21,27 +21,16 @@ async function copyHash(txId: string) {
   setTimeout(() => { copied.value = '' }, 2000)
 }
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 async function fetchTransactions() {
   transactionsLoading.value = true
   try {
-    const headers = await getAuthHeaders()
     const targets = selectedAccount.value === null
       ? accounts.value
       : accounts.value.filter(a => a.accountNumber === selectedAccount.value)
 
     const results = await Promise.all(
       targets.map((a: any) =>
-        fetch(`${API_BASE}/accounts/transactions`, {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accountNumber: a.accountNo }),
-        }).then(r => r.json()).catch(() => ({ transactions: [] }))
+        listTransactions(a.accountNo).then(r => r.data).catch(() => ({ transactions: [] }))
       )
     )
     transactions.value = results
@@ -63,9 +52,7 @@ onMounted(async () => {
   }
 
   try {
-    const headers = await getAuthHeaders()
-    const res  = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const data = await res.json()
+    const { data } = await listAccounts()
     accounts.value = data.accounts ?? []
     await fetchTransactions()
   } catch {

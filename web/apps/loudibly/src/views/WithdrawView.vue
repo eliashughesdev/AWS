@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, WS_BASE } from '@loudibly/core/config'
+import { WS_BASE } from '@loudibly/core/config'
+import { listAccounts, withdraw } from '@loudibly/core/api/accounts'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 
@@ -64,12 +65,6 @@ async function copyTxId() {
 let ws: WebSocket | null = null
 let wsTimeout: ReturnType<typeof setTimeout> | null = null
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 async function fetchExchangeRate(chain: string) {
   rateLoading.value  = true
   exchangeRate.value = null
@@ -104,9 +99,8 @@ onMounted(async () => {
   }
 
   try {
-    const headers  = await getAuthHeaders()
-    const accRes   = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const allAccounts: Account[] = (await accRes.json()).accounts ?? []
+    const { data } = await listAccounts()
+    const allAccounts: Account[] = data.accounts ?? []
     accounts.value = allAccounts.filter(a => !!a.chain)
 
     if (accounts.value.length > 0) {
@@ -194,22 +188,16 @@ async function submitCustodial(parsed: number) {
   }, 60_000)
 
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_BASE}/accounts/withdraw`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accountNumber:      selectedAccount.value,
-        currency:           isCryptoMode ? (selectedAccountData.value?.chain ?? 'TRON') : 'USD',
-        ...(isCryptoMode ? { cryptoAmount: parsed } : { amount: parsed }),
-        userId:             userId.value,
-        destinationAddress: destinationAddress.value.trim(),
-        transactionId,
-      }),
+    const { ok, data } = await withdraw({
+      accountNumber:      selectedAccount.value,
+      currency:           isCryptoMode ? (selectedAccountData.value?.chain ?? 'TRON') : 'USD',
+      ...(isCryptoMode ? { cryptoAmount: parsed } : { amount: parsed }),
+      userId:             userId.value,
+      destinationAddress: destinationAddress.value.trim(),
+      transactionId,
     })
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
+    if (!ok) {
       closeWs()
       withdrawStatus.value = 'failed'
       withdrawError.value  = data.message ?? 'Withdrawal request failed. Please try again.'

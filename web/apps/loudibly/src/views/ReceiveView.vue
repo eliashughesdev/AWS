@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { fetchUserAttributes, fetchAuthSession, getCurrentUser, signOut } from 'aws-amplify/auth'
+import { fetchUserAttributes, getCurrentUser, signOut } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, USDT_TRON_CURRENCY } from '@loudibly/core/config'
+import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
+import { listAccounts, createAccount as postAccount } from '@loudibly/core/api/accounts'
 
 const router = useRouter()
 
@@ -47,16 +48,8 @@ const missingChains = computed(() =>
   ['TRON', 'SOL', USDT_TRON_CURRENCY].filter(c => !accounts.value.some(a => a.chain === c))
 )
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 async function loadAccounts() {
-  const headers  = await getAuthHeaders()
-  const res      = await fetch(`${API_BASE}/accounts/list`, { headers })
-  const data     = await res.json()
+  const { data } = await listAccounts()
   accounts.value = (data.accounts ?? []).filter((a: Account) => !!a.chain)
 }
 
@@ -94,20 +87,15 @@ async function createAccount(chain: string) {
   creatingChain.value = chain
   createError.value   = ''
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_BASE}/accounts/account`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        account_name:        `${meta(chain).label} Account`,
-        chain,
-        provider:            'PCF0001',
-        accounting_currency: 'USD',
-        userId:              userId.value,
-        email:               userEmail.value,
-      }),
+    const { ok } = await postAccount({
+      account_name:        `${meta(chain).label} Account`,
+      chain,
+      provider:            'PCF0001',
+      accounting_currency: 'USD',
+      userId:              userId.value,
+      email:               userEmail.value,
     })
-    if (!res.ok) throw new Error('Failed to create account')
+    if (!ok) throw new Error('Failed to create account')
     await loadAccounts()
   } catch (e: any) {
     createError.value = e.message ?? 'Something went wrong. Please try again.'

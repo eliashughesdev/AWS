@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession, getCurrentUser } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { API_BASE, RELAY_BASE } from '@loudibly/core/config'
+import { listPaymentMethods, savePaymentMethod } from '@loudibly/core/api/payments'
 
 const router = useRouter()
 
@@ -30,18 +30,10 @@ const cvc        = ref('')
 const saveError  = ref('')
 const saving     = ref(false)
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 async function loadCards() {
   cardsLoading.value = true
   try {
-    const headers = await getAuthHeaders()
-    const res  = await fetch(`${API_BASE}/payments/list?userId=${userId.value}`, { headers })
-    const data = await res.json()
+    const { data } = await listPaymentMethods(userId.value)
     cards.value = data.res ?? []
   } catch (e) {
     console.error('Failed to load cards', e)
@@ -121,22 +113,17 @@ async function saveCard() {
 
   saving.value = true
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${RELAY_BASE}/payments/save`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        paymentMethod: {
-          lastFour,
-          bin,
-          cardType,
-          cardData: JSON.stringify({ number: clean, cvc: cvc.value, expiry: { month, year } }),
-        },
-        userId: userId.value,
-      }),
+    const { ok } = await savePaymentMethod({
+      paymentMethod: {
+        lastFour,
+        bin,
+        cardType,
+        cardData: JSON.stringify({ number: clean, cvc: cvc.value, expiry: { month, year } }),
+      },
+      userId: userId.value,
     })
 
-    if (!res.ok) {
+    if (!ok) {
       saveError.value = 'Failed to save card. Please try again.'
       return
     }

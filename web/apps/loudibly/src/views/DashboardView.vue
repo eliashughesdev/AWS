@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { signOut, fetchUserAttributes, fetchAuthSession } from 'aws-amplify/auth'
+import { signOut, fetchUserAttributes } from 'aws-amplify/auth'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
-import { API_BASE, USDT_TRON_CURRENCY } from '@loudibly/core/config'
+import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
+import { listAccounts, listTransactions, createAccount as postAccount } from '@loudibly/core/api/accounts'
+import { getProfile } from '@loudibly/core/api/profile'
+import { getKycStatus, startDiditSession } from '@loudibly/core/api/kyc'
 
 const route  = useRoute()
 const router = useRouter()
@@ -20,28 +23,21 @@ const accountLoading   = ref<string | null>(null)
 const accounts         = ref<any[]>([])
 const accountsLoading  = ref(true)
 
-async function getAuthHeaders() {
-  const session = await fetchAuthSession()
-  const token = session.tokens?.accessToken?.toString()
-  return { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
-}
-
 // Imported accounts backfill asynchronously (SQS) — refresh in the background
 // until every account has left 'importing' so the "Syncing…" badge clears
 // without the user having to reload the page.
 let importPollTimer: ReturnType<typeof setTimeout> | null = null
 
-async function pollWhileImporting(headers: Record<string, string>) {
+async function pollWhileImporting() {
   if (!accounts.value.some(a => a.status === 'importing')) return
   importPollTimer = setTimeout(async () => {
     try {
-      const res  = await fetch(`${API_BASE}/accounts/list`, { headers })
-      const data = await res.json()
+      const { data } = await listAccounts()
       accounts.value = data.accounts ?? accounts.value
     } catch (e) {
       console.error('Failed to refresh accounts', e)
     }
-    pollWhileImporting(headers)
+    pollWhileImporting()
   }, 5000)
 }
 
@@ -55,31 +51,23 @@ onMounted(async () => {
   }
 
   try {
-    const headers = await getAuthHeaders()
-
-    const profileRes = await fetch(`${API_BASE}/accounts/profile`, { headers })
-    if (profileRes.ok) {
-      const profileData = await profileRes.json()
-      displayName.value = profileData.name ?? userEmail.value.split('@')[0]
+    const profile = await getProfile()
+    if (profile.ok) {
+      displayName.value = profile.data.name ?? userEmail.value.split('@')[0]
     } else {
       displayName.value = userEmail.value.split('@')[0]
     }
 
     createBanner.value = true
-    const accountsRes  = await fetch(`${API_BASE}/accounts/list`, { headers })
-    const accountsData = await accountsRes.json()
+    const { data: accountsData } = await listAccounts()
     accounts.value = accountsData.accounts ?? []
     accountsLoading.value = false
-    pollWhileImporting(headers)
+    pollWhileImporting()
 
     if (accounts.value.length > 0) {
       const results = await Promise.all(
         accounts.value.map((a: any) =>
-          fetch(`${API_BASE}/accounts/transactions`, {
-            method: 'POST',
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accountNumber: a.accountNo }),
-          }).then(r => r.json()).catch(() => ({ transactions: [] }))
+          listTransactions(a.accountNo).then(r => r.data).catch(() => ({ transactions: [] }))
         )
       )
       transactions.value = results
@@ -91,8 +79,7 @@ onMounted(async () => {
     }
     transactionsLoading.value = false
 
-    const kycRes  = await fetch(`${API_BASE}/accounts/kyc/status`, { headers })
-    const kycData = await kycRes.json()
+    const { data: kycData } = await getKycStatus()
     const kycStatus: string | undefined = kycData.kyc?.status
 
     if (kycStatus === 'Approved') {
@@ -117,13 +104,7 @@ onUnmounted(() => {
 async function startKyc() {
   kycLoading.value = true
   try {
-    const headers = await getAuthHeaders()
-    const res  = await fetch(`${API_BASE}/accounts/kyc/didit/session`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    const data = await res.json()
+    const { data } = await startDiditSession()
     if (data.verification_url) {
       window.location.href = data.verification_url
     }
@@ -137,19 +118,13 @@ async function startKyc() {
 async function createAccount(chain: string) {
   accountLoading.value = chain
   try {
-    const headers = await getAuthHeaders()
-    const res = await fetch(`${API_BASE}/accounts/account`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        account_name: displayName.value,
-        email: userEmail.value,
-        chain,
-        provider: 'PCF0001',
-        accounting_currency: 'USD',
-      }),
+    const { data } = await postAccount({
+      account_name: displayName.value,
+      email: userEmail.value,
+      chain,
+      provider: 'PCF0001',
+      accounting_currency: 'USD',
     })
-    const data = await res.json()
     if (data.success) {
       createBanner.value = false
     }

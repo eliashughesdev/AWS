@@ -9,7 +9,7 @@ import { useWalletSession } from '@loudibly/core/wallet/session'
 import { CHAINS, chainLabels, type Chain } from '@loudibly/core/wallet/types'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { API_BASE } from '@loudibly/core/config'
+import { saveProfile } from '@loudibly/core/api/profile'
 
 const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
 
@@ -41,13 +41,8 @@ async function flushPendingProfile() {
   try {
     const { name, email } = JSON.parse(raw)
     const session = await fetchAuthSession()
-    const token = session.tokens?.accessToken?.toString()
-    if (!token || !name) return
-    await fetch(`${API_BASE}/accounts/profile/save`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'X-Project': 'web', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email }),
-    })
+    if (!session.tokens?.accessToken || !name) return
+    await saveProfile({ name, email })
     localStorage.removeItem(PENDING_PROFILE_KEY)
   } catch (e) {
     console.error('Failed to save pending profile', e)

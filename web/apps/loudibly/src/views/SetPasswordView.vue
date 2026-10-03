@@ -5,7 +5,7 @@ import { signIn } from 'aws-amplify/auth'
 import { CForm, CButton } from '@coreui/vue'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { API_BASE } from '@loudibly/core/config'
+import { verifyClaimToken, claimAccount } from '@loudibly/core/api/onboarding'
 
 const route  = useRoute()
 const router = useRouter()
@@ -47,16 +47,6 @@ const canSubmit = computed((): boolean =>
   !submitting.value && accepted.value && password.value.length > 0 && password.value === confirmPass.value
 )
 
-async function post(path: string, body: Record<string, unknown>) {
-  const res  = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Project': 'web' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json().catch(() => ({}))
-  return { ok: res.ok, data }
-}
-
 onMounted(async () => {
   token = String(route.query.token ?? '')
 
@@ -70,7 +60,7 @@ onMounted(async () => {
     return
   }
 
-  const { ok, data } = await post('/onboarding/verify', { token })
+  const { ok, data } = await verifyClaimToken(token)
 
   if (!ok) {
     step.value = 'dead'
@@ -95,7 +85,7 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    const { ok, data } = await post('/onboarding/claim', { token, password: password.value })
+    const { ok, data } = await claimAccount(token, password.value)
 
     if (!ok) {
       error.value = data?.message ? String(data.message) : 'Could not set your password.'
