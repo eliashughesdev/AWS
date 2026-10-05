@@ -57,6 +57,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B17 | P2 | WebSocket subscribe is unauthenticated, so others can read payment results (incl. 3DS `clientSecret`) | ⬜ | | | | |
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
+| B30 | P2 | Account provisioning leaves orphaned KMS keys when Tatum fails, and creates a new KMS key for every account instead of reusing one per user | ⬜ | | | | Related to B19; 4 orphans in `nodapay_ui` as of 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -462,6 +463,55 @@ subscription.
   `CHAIN#<chain>` marker).
 - [ ] **Verified:** a second account for the same chain gets a 400. A merchant key gets a
   403.
+
+### B30. Orphaned and redundant KMS keys
+
+**Where:** `utils/custodialAccount.ts:42` (`provisionCustodialAccount`) calls
+`createBlockchainKey()` (`utils/awsKms.ts:28`) before any Tatum call. Callers:
+`routes/accounts/account.ts:48` and `routes/accounts/onboarding.ts:95`. Nothing in the code
+calls `ScheduleKeyDeletion`, and the API Lambda's role (`backend.ts:53`) isn't allowed to.
+
+**What goes wrong:**
+- **Orphans.** If `createVaAccount`, `assignDepositAddress` or `createSubscription` throws,
+  the key already exists, nothing records it, and it costs about $1 a month forever. A
+  failure after `createVaAccount` also leaves an orphaned Tatum virtual account. In the
+  `nodapay_ui` stack, the last 30 days of logs show 7 keys created and 3 accounts completed,
+  so 4 keys are orphaned (2 of them from the Tatum testnet 403s on 2026-10-05).
+- **Redundant keys.** Every account gets a new key and a new address, even when the user
+  already has a key that can sign for that chain. A user with TRON and USDT (TRON) accounts
+  has two keys and two TRON addresses. That doubles the cost, and the TRX that pays USDT fees
+  sits in a different address from the USDT (see B12).
+
+**Target: at most one key per user per signature curve.** A KMS key has a single key spec,
+so one key can't sign for every chain: TRON (and any future EVM or Bitcoin chain) needs
+`ECC_SECG_P256K1`, and Solana needs `ECC_NIST_EDWARDS25519`. In practice this means **one
+key per user** for the secp256k1 family and a second only if the user opens a Solana account.
+A literal single key per user (or per platform) is only possible by moving away from
+KMS-native signing to a seed encrypted with KMS and decrypted in the Lambda. That puts key
+material in Lambda memory, so it's a security and PCI decision (add it to §6 if wanted), not
+part of this fix.
+
+- [ ] **1.** Store the user's keys on the profile: a `KEY#<curve>` row in `v2CustomerTable`
+  with `kmsKeyId` and `address`. Provisioning reuses the row when it exists. When it doesn't,
+  create the key and write the row with `attribute_not_exists(id)`. If the write loses a
+  race, schedule deletion of the new key and use the winner's.
+- [ ] **2.** Tag new keys with `userId` and `curve` instead of `accountId`, since one key now
+  serves several accounts.
+- [ ] **3.** Check with Tatum that one address can be assigned to virtual accounts of
+  different currencies on the same chain (TRON and USDT_TRON). If not, keep the shared key
+  for signing and fees, and document the exception.
+- [ ] **4.** On a provisioning failure, call `ScheduleKeyDeletion` (7-day window) for a key
+  created *in this request*, never for a reused one. Grant `kms:ScheduleKeyDeletion` to the API
+  Lambda, scoped to keys tagged `service=loudibly`. Also clean up a Tatum VA created before
+  the failure, or record it for manual removal.
+- [ ] **5.** One-off cleanup per environment: list keys tagged `service=loudibly`, find the
+  ones whose `kmsKeyId` isn't on any `ACCOUNT#` record, confirm that their addresses hold no
+  funds on chain, then schedule deletion.
+- [ ] **6.** Withdrawal and sweep code keeps reading `kmsKeyId` from the account record, so
+  existing accounts keep working. Don't migrate existing keys; only new accounts reuse keys.
+- [ ] **Verified:** a user who creates TRON, then USDT (TRON), then SOL accounts ends up with
+  2 keys. A forced Tatum failure leaves the new key in `PendingDeletion`. The cleanup report
+  shows no unreferenced active keys.
 
 ### B20. Tatum withdrawal fee is not mirrored locally
 
