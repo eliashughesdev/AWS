@@ -2,6 +2,7 @@ import { response } from '../utils/http'
 
 const httpErrors: any = {
   100001: () => 'this account id does not exist or not active',
+  100002: (params: any) => params ?? 'internal error while processing the request',
   100003: () => 'failed to persist the required records',
   100005: () => 'this account does not belong to the provided user',
   100006: () => 'currency does not match account currency',
