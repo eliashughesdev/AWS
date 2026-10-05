@@ -116,6 +116,10 @@ async function createAccount(chain: string) {
     })
     if (data.success) {
       createBanner.value = false
+      const { data: accountsData } = await listAccounts()
+      accounts.value = accountsData.accounts ?? accounts.value
+      if (importPollTimer) clearTimeout(importPollTimer)
+      pollWhileImporting()
     }
   } catch (e) {
     console.error('Failed to create account', e)
