@@ -64,7 +64,7 @@ as part of this skill. Code fixes go in the repo, and the user decides when to d
 5. **Map to source.** The Lambdas are bundled and minified (`file:///var/task/index.mjs:332:…`),
    so stack frames don't point to files. Search the repo for the literal log strings instead
    (e.g. `Grep "Failed to create VA Account"`, `"FATAL CATCH BLOCK ERROR"`). Class names in
-   messages like `(TatumProvider)` point to `amplify/service/providers/...`.
+   messages like `(TatumProvider)` point to `amplify/providers/...`.
 6. Classify each root cause:
    - **Code bug**, e.g. a `TypeError`, a missing function, or an `error_code` absent from
      `amplify/errors/http.ts` (calling `processError` with an unknown code throws instead of

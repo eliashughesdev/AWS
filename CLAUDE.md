@@ -18,10 +18,19 @@ There are three deployable pieces in this one repo:
   as CDK inside `amplify/backend.ts`.
 - **`src/`** (React, root `package.json`) — customer-facing checkout flows: KYC upload,
   add-card, process-payment, an embeddable payment widget. Builds to `dist/`.
-- **`vue-app/`** — the account dashboard (custodial: balance, cards, deposit, withdraw,
-  transfer; non-custodial: wallet dashboard, send, receive, ledger, all read straight from
-  the chain with an in-session key). Has its own `package.json`, builds to `vue-app/dist/`,
-  and gets copied into `dist/v2` in production (see `amplify.yml`).
+- **`web/`** — a yarn-workspaces monorepo (own `package.json` and `yarn.lock`) for the Vue
+  account dashboard:
+  - `web/apps/loudibly/` (workspace `loudibly`) — the dashboard app: views, layouts, router,
+    brand config (custodial: balance, cards, deposit, withdraw, transfer; non-custodial:
+    wallet dashboard, send, receive, ledger, all read straight from the chain with an
+    in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
+    production (see `amplify.yml`).
+  - `web/core/` (`@loudibly/core`) — shared, UI-free code imported by apps: backend API
+    client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
+    non-custodial chain code (`wallet/`: Solana, TRON, session keys).
+
+  The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and
+  `node_modules/` may still exist and should be ignored.
 
 Read `docs/merchant-intake-onboarding.md` for a step-by-step trace of the one flow that is
 actually live today (merchant onboarding intake) — it also documents known gaps/bugs the
@@ -40,11 +49,12 @@ yarn lint                             # eslint . --ext ts,tsx --max-warnings 0
 yarn ampx pipeline-deploy --branch <branch> --app-id <app-id>   # deploy backend (what CI runs)
 ```
 
-Vue dashboard (run from `vue-app/`):
+Vue dashboard (run from `web/`):
 ```
-cd vue-app
-yarn dev
-yarn build                            # vue-tsc -b && vite build
+cd web
+yarn install                          # installs all workspaces
+yarn workspace loudibly dev
+yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
 ```
 
 There is no unit/integration test runner (no jest/vitest config, no `test` script). Backend
@@ -58,6 +68,10 @@ These only work against a deployed stack (the target URL, e.g.
 `https://<api-id>.execute-api.us-east-2.amazonaws.com`, is baked into each test file) — a
 route added in code isn't reachable until `ampx pipeline-deploy` runs. Signing credentials for
 these live in `amplify/service/routes/e2e/credentials.ts`.
+
+Deployed logs: the `aws-logs` project skill (`.claude/skills/aws-logs/`) checks CloudWatch for
+the AWS account linked to the current branch. The branch → account/region/profile map is in
+`.claude/skills/aws-logs/environments.tsv`; add a row there when a branch gets its own stack.
 
 ## Backend architecture (`amplify/`)
 
@@ -120,12 +134,14 @@ add new codes there rather than inlining error responses in handlers.
 - `src/App.tsx` does manual path-based routing (`window.location.pathname`), no router
   library — it's wrapped in Amplify's `<Authenticator>` and an `EvervaultProvider` (Evervault
   handles card-data encryption client-side before it reaches the backend/Stripe).
-- `vue-app` uses `vue-router` with route `meta.custodialOnly` / `meta.walletOnly` guards
-  (see `vue-app/src/router/index.ts`) to separate the Cognito-backed custodial dashboard from
+- The Vue app uses `vue-router` with route `meta.custodialOnly` / `meta.walletOnly` guards
+  (see `web/apps/loudibly/src/router/index.ts`) to separate the Cognito-backed custodial dashboard from
   the non-custodial, client-key wallet screens — check which mode a view belongs to before
   wiring in Cognito-only or chain-only calls.
 - Root app deploys to `/`, the Vue app deploys to `/v2/` (`createWebHistory('/v2/')`); the
-  Amplify build copies `vue-app/dist` into `dist/v2` (`amplify.yml`).
+  Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`).
+- Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
+  than calling `fetch` from a view.
 
 ## Conventions
 
