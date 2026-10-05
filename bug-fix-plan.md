@@ -36,7 +36,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 
 | ID | P | Bug | Status | Owner | PR | Done on | Notes |
 |---|---|---|---|---|---|---|--|
-| B1 | P0 | `/payments/process` lets the caller inject any queue message: forged withdrawals signed with any account's key, minted balances | ⬜ | | | | |
+| B1 | P0 | `/payments/process` lets the caller inject any queue message: forged withdrawals signed with any account's key, minted balances | ⬜ | | | | Steps 1–3 pulled forward for B31 (2026-10-05) |
 | B2 | P0 | `/accounts/details` returns any account's KMS key id, ledger id and balance (no ownership check) | ⬜ | | | | Enables B1 theft |
 | B3 | P0 | Clover is sent dollars as cents (100× undercharge) and always `usd` | ⬜ | | | | |
 | B4 | P0 | Balance updates from deposits overwrite concurrent withdrawals (double spend); a failed update loses the credit forever | ⬜ | | | | |
@@ -57,8 +57,8 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B17 | P2 | WebSocket subscribe is unauthenticated, so others can read payment results (incl. 3DS `clientSecret`) | ⬜ | | | | |
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
-| B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | ⬜ | | | | 4 orphans in `nodapay_ui` as of 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to one derived (HD) master wallet per curve with an isolated signer | ⬜ | | | | Decided in D4; open D5. Supersedes B30's key reuse |
+| B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🟡 | | | | Steps 1–4 in code 2026-10-05, not deployed. 4 orphans in `nodapay_ui` as of 2026-10-05. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | ⬜ | | | | Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -478,73 +478,145 @@ failure after `createVaAccount` also leaves an orphaned Tatum virtual account. I
 `nodapay_ui` stack, the last 30 days of logs show 7 keys created and 3 accounts completed,
 so 4 keys are orphaned (2 of them from the Tatum testnet 403s on 2026-10-05).
 
-B31 removes per-account keys for new accounts, which ends new key orphans. The Tatum-side
-cleanup and the one-off cleanup below are still needed. Until B31 ships, step 1 stops the
-leak.
+The same happens when provisioning succeeds and the caller's own write then fails
+(`account.ts:65`, `onboarding.ts:178`): the key, the VA and the webhook subscription are all
+live and nothing references them. Two concurrent onboarding calls for one transaction both
+provision, and one loses the conditional write.
 
-- [ ] **1.** Until B31 ships: on a provisioning failure, call `ScheduleKeyDeletion` (7-day
-  window) for the key created in that request. Grant `kms:ScheduleKeyDeletion` to the API
-  Lambda, scoped to keys tagged `service=loudibly`.
-- [ ] **2.** On a failure after `createVaAccount`, deactivate the Tatum VA, or record it for
-  manual removal.
-- [ ] **3.** One-off cleanup per environment: list keys tagged `service=loudibly`, find the
-  ones whose `kmsKeyId` isn't on any `ACCOUNT#` record, confirm that their addresses hold no
-  funds on chain, then schedule deletion.
-- [ ] **Verified:** a forced Tatum failure leaves no new active key (before B31: the key is in
-  `PendingDeletion`). The cleanup report shows no unreferenced active keys.
+B31 ends key orphans for new accounts. The Tatum-side undo and the one-off cleanup are still
+needed after it.
 
-### B31. Move custodial accounts to derived (HD) master wallets
+- [x] **1.** Reorder `provisionCustodialAccount`: create the Tatum VA first, then the key.
+  Creating the VA doesn't use the address, so when Tatum rejects the request or is down,
+  nothing is left behind.
+- [x] **2.** Ledger provider: add `cancelSubscription`, `removeDepositAddress` and
+  `deactivateVaAccount` (Tatum `DELETE /subscription/{id}`,
+  `DELETE /offchain/account/{id}/address/{address}`, `PUT /ledger/account/{id}/deactivate`).
+  Tatum scans an assigned address at 20 credits a day until it is removed.
+- [x] **3.** Undo beside `provisionCustodialAccount`: cancel the subscription, remove the
+  address, deactivate the VA, schedule the key's deletion (7-day window). Each part is best
+  effort and logs what it could not undo. `provisionCustodialAccount` runs it on its own
+  failure with whatever was created so far. Both callers run it through
+  `discardProvisionedAccount()` when DynamoDB rejected their write; after a timeout or a 5xx
+  the write may have applied, so the resources are only reported.
+- [x] **4.** Grant `kms:ScheduleKeyDeletion` to the API Lambda, only on signing keys
+  (`kms:KeyUsage` = `SIGN_VERIFY`). Not by tag: a tag takes up to five minutes to count for
+  authorization, and the undo runs seconds after `CreateKey`. This lets the public Lambda
+  schedule the deletion of live custody keys, so it is temporary: B31 step 5 removes it, and
+  B31 ships before production.
+- [ ] **5.** One-off cleanup per environment: list keys tagged `service=loudibly`, drop the
+  ones referenced by any `ACCOUNT#` row in `v2CustomerTable` or any `MASTER#` row in
+  `v1MerchantTable`, confirm that the rest hold no funds on chain, then schedule deletion.
+  `scripts/cleanup/kms-key-cleanup.ts` can't be used as it is: it keeps a fixed list of user
+  ids, finds the master through the retired SSM parameter, and doesn't check the chain.
+- [ ] **Verified:** `e2e/accounts/AccountsProvisionOrphanTest.ts` (Tatum rejects the VA)
+  creates no key. A forced failure after the key exists, and a forced write failure in each
+  caller, leave no active key, VA or subscription. The cleanup report shows no unreferenced
+  active keys and lists every merchant master as referenced.
 
-**Decision:** D4 (2026-10-05). Today every account gets its own KMS asymmetric key
+### B31. Move custodial accounts to derived (HD) wallets
+
+**Decision:** D4–D7 (2026-10-05). Today every account gets its own KMS asymmetric key
 (`utils/awsKms.ts:28`), about $1 a month per key, so cost grows with users times networks.
 KMS can't derive child keys, so any per-address scheme on KMS-native signing has this cost.
 
+**What changes in how keys are held:** today a private key never leaves KMS, and KMS signs.
+With derived wallets KMS only unlocks: the signer asks KMS to decrypt a seed, derives the
+account's key, signs in its own code and wipes the memory. The seed and the key exist in the
+signer's memory while it signs.
+
 **Target design:**
-- **One master seed per signature curve per environment:** secp256k1 for TRON (and any future
-  EVM or Bitcoin chain), Ed25519 for Solana. Each account gets a derived address at its own
-  index: TRON `m/44'/195'/0'/0/<i>` (BIP32), Solana `m/44'/501'/<i>'/0'` (SLIP-0010, which
-  only allows hardened paths).
-- **Seeds are stored only encrypted** under one dedicated KMS symmetric key (with an
-  encryption context such as `purpose=hd-master, curve=<curve>`). Total KMS cost is a few
-  dollars a month, independent of user count.
-- **One isolated signer** is the only principal allowed `kms:Decrypt` on that key. The API
-  Lambda and the queue processors send it signing requests and never see key material.
-  Where the signer runs is decision D5.
-- **Each user still gets a distinct deposit address**, which is how deposits are attributed.
-  Only how its key is produced changes.
+- **One seed per merchant per network** (TRON, Solana), as the client asked on 2026-10-05.
+  A merchant's TRX and USDT accounts share its TRON seed. Customers with no merchant belong
+  to the system merchant `loudibly`, which has seeds like any other (D6).
+- **Each account is an index under its merchant's seed:** TRON `m/44'/195'/0'/0/<i>` (BIP32),
+  Solana `m/44'/501'/<i>'/0'` (SLIP-0010, which only allows hardened paths). Each user still
+  gets a distinct deposit address, which is how deposits are attributed.
+- **A seed is data, locked by its own KMS key** (D7). The signer creates one KMS symmetric
+  key per seed and stores the seed as an SSM SecureString encrypted under that key (D10),
+  on its own path, outside the `/loudibly/api/` path the config loader reads. The API role
+  has `ssm:*` on `*` (`backend.ts:46`), so it gets an explicit deny on the seed path. Cost:
+  about $1 a month per seed, whatever the number of users.
+- **One signer Lambda** (D5) is the only principal that can use those keys or write to the
+  seed path. It has no public trigger. The API Lambda and the queue processor invoke it and
+  never see key material. Operations:
+  - `createSeed(merchantId, network)` creates the seed's KMS key, then generates and stores
+    the seed. It returns nothing secret and is safe to repeat.
+  - `allocateAddress(merchantId, network)` takes the next index and returns it with its
+    address.
+  - `sign(owner, payload)`, where the owner is an `accountNo` or a merchant master
+    (`merchantId`, `currency`). The signer reads the merchant, network and index from the
+    stored row. It never takes them from the caller (same rule as B1).
+- **Existing accounts and masters move to seeds too** (step 8). Until they have, a record
+  with no `keyModel` is a KMS one.
 
-**Risks to handle:** a compromised signer or seed exposes every derived wallet at once, where
-today it's one key at a time. Losing the seed loses every wallet's funds. Both are handled in
-the steps below, and both need sign-off from whoever owns PCI (see `pci-remediation-plan.md`).
+**Risks to handle:** a compromised signer exposes every seed at once, where today it's one
+key at a time. In a Lambda the seeds are protected by permissions, not hardware: whoever can
+deploy to the signer or change the key policy can obtain them. The client is studying an
+enclave (D5). Losing a seed's KMS key or its parameter loses that merchant's funds on that
+network, and an SSM delete is immediate and final (step 7, D10). All of this needs sign-off
+from whoever owns PCI (see `pci-remediation-plan.md`).
 
-- [ ] **1. Seed ceremony.** Generate each seed once, offline or in a one-time locked-down
-  job. Encrypt it with the master KMS key and store only the ciphertext (Secrets Manager or
-  an SSM SecureString, never `v2CustomerTable` or any streamed table). Keep an offline backup
-  split between several people (e.g. Shamir shares). Never log, print or return it.
-- [ ] **2. Signer.** A dedicated Lambda with reserved concurrency, no public trigger, and an
-  IAM role that is the only one in the key policy for `kms:Decrypt`. Input: `accountNo` and the
-  unsigned transaction. It reads `derivationIndex` and `curve` from the stored account
-  record itself; it never takes an index or key reference from the caller (same rule as
-  B1). It checks the transaction's sender matches the account's address, signs, wipes the
-  key buffers, and logs only ids and outcome. Libraries: `@scure/bip32`, `@scure/bip39` and
-  `@noble/curves`/`@noble/ed25519` (same author as the `@noble/secp256k1` already in use).
-- [ ] **3. Address allocation.** Allocate indexes from an atomic counter row per curve
-  (`UpdateItem ADD`), never reusing one. Store `keyModel: 'hd'`, `curve` and
-  `derivationIndex` on the `ACCOUNT#` record instead of `kmsKeyId`. TRON addresses can be
-  derived in the API from the account-level xpub without the seed. Solana addresses need the
-  signer (hardened paths), so add a `deriveAddress` call to it.
-- [ ] **4. Provisioning.** Replace `createBlockchainKey()` in `provisionCustodialAccount`
-  with index allocation and derivation. Once no caller uses it, remove `kms:CreateKey` from
-  the API role (`backend.ts:53`).
-- [ ] **5. Withdrawals and sweeps.** `withdrawalHandler.ts` and `sweepHandler.ts` choose by
-  `keyModel`: `'hd'` calls the signer, anything else keeps the current KMS path. Remove
-  `kms:Sign` from the processor role once no `kms`-model accounts remain.
-- [ ] **6. Existing accounts.** Leave them on their KMS keys. Optionally sweep their balances
-  to new HD addresses later, re-point the Tatum deposit address, then schedule key deletion.
-- [ ] **Verified:** a new TRON, USDT (TRON) and SOL account creates no KMS key and gets the
-  address expected at its index. A testnet withdrawal and a sweep from an HD account succeed.
-  The IAM policy simulator shows only the signer role can decrypt the master key. Restoring
-  from the offline backup reproduces the same addresses.
+- [ ] **1. Derivation module** (`utils/hdWallet.ts`, no AWS calls). From a seed and an index
+  to the TRON and Solana key and address; sign a TRON transaction (r + s + v, low-S) and a
+  Solana message. Libraries: `@scure/bip32`, `@scure/bip39`, `@noble/curves`, `@noble/hashes`
+  (same author as the `@noble/secp256k1` already in use). Check it locally with `tsx` against
+  the published BIP32 and SLIP-0010 test vectors, and against TronLink and Phantom with a
+  throwaway recovery phrase.
+- [ ] **2. Infrastructure** (`backend.ts`). The signer Lambda in `loudibly-stack`: reserved
+  concurrency, no event source, no URL. Its role: `kms:CreateKey`, encrypt and decrypt only
+  on keys tagged `purpose=hd-seed`, SSM on the seed path only (put and get, no delete), read
+  on `v2CustomerTable`, read and update on `v1MerchantTable`. `mainApiFn` gets an explicit
+  deny on the seed path. `mainApiFn` and the queue processor get `lambda:InvokeFunction` on
+  the signer through `addToRolePolicy` with an ARN built from the function name (a
+  `grantInvoke` on `mainApiFn` would create the same circular stack dependency as
+  `table.grant*`).
+- [ ] **3. Signer** (`fn/hd-signer/handler.ts`), the three operations above.
+  - A seed is 32 random bytes kept as a BIP39 recovery phrase, so a restore works in any
+    standard wallet.
+  - `createSeed` creates the seed's key tagged `purpose=hd-seed`, with a key policy that
+    denies `kms:Decrypt` to everyone except the signer's role.
+  - Each seed has a row in `v1MerchantTable` (`id` = merchant, `sk` = `SEED#<network>`) with
+    the key id, the parameter's name, `nextIndex` and `status`, and no secret material.
+    `createSeed` is resumable the way `provisionMerchantMaster` is: it saves each finished
+    step, so a retry never creates a second key.
+  - `allocateAddress` advances `nextIndex` atomically (`UpdateItem ADD`) and never reuses an
+    index. It fails when the merchant has no ready seed.
+  - `sign` takes a TRON transaction's `raw_data_hex` and hashes it itself, or a Solana
+    serialized message. It refuses a record whose `keyModel` isn't `hd`.
+  - It wipes key buffers and logs only ids and outcome.
+- [ ] **4. Seeds for merchants.** `/merchants/register` creates the seeds for every supported
+  network. A script in `scripts/setup/` does the same for the merchants that already exist,
+  including `loudibly`.
+- [ ] **5. Provisioning.** Behind one SSM setting per environment (`kms` until its seeds
+  exist, then `hd`): `provisionCustodialAccount` and `provisionMerchantMaster` call
+  `allocateAddress` in place of `createBlockchainKey()` and store `keyModel: 'hd'` and
+  `derivationIndex` in place of `kmsKeyId`. `merchantId` becomes required in
+  `provisionCustodialAccount`. Once every environment is on `hd`, remove the setting and the
+  KMS statements from the API role (`backend.ts:53` and the B30 step 4 grant).
+- [ ] **6. Signing.** Needs B1 steps 1–3 first. `withdrawFunds` and `sendOnChain`
+  (`tatum.ts:173`, `:240`) take a key reference in place of `kmsKeyId`: `{ keyModel: 'kms',
+  kmsKeyId }` or `{ keyModel: 'hd', owner }`. One module chooses between `awsKms.ts` and the
+  signer. `withdrawalHandler.ts` and `sweepHandler.ts` build the reference from the record
+  they loaded. `withdraw.ts:64` and `balanceUpdateHandler.ts:178` stop requiring `kmsKeyId`.
+- [ ] **7. Backup and restore.** Required before any mainnet seed is created; testnet can run
+  without it. The signer also encrypts each new seed to an offline backup public key and
+  stores that copy in a separate, versioned bucket with object lock. The private half is
+  generated offline once and split between several people (D8). Each seed key's policy
+  denies `kms:ScheduleKeyDeletion`. Drill: rebuild one merchant's seed from the backup and
+  reproduce its addresses.
+- [ ] **8. Retire the per-account keys** (decided 2026-10-05: existing accounts don't stay on
+  KMS). Per environment, delete every existing account and master and re-create it under
+  its merchant's seed, `loudibly` for direct customers (D9). Schedule a key's deletion only
+  after confirming its address holds no funds, or only testnet coins nobody needs. A master
+  may hold swept tokens. Then remove the KMS signing path (`awsKms.ts`, `kms:Sign` on the
+  processor role) and the `keyModel` switch.
+- [ ] **Verified:** on the dev account, a new TRON, USDT (TRON) and SOL account under two
+  different merchants creates no KMS key, and the two merchants' addresses come from
+  different seeds. A new merchant's master is derived too. A testnet deposit, sweep and
+  withdrawal succeed for an HD account and, until step 8, for an older KMS account. The IAM
+  policy simulator shows only the signer's role can decrypt with any seed key, and that the
+  API role can't delete or overwrite a seed. The restore drill reproduces the same addresses.
 
 ### B20. Tatum withdrawal fee is not mirrored locally
 
@@ -604,8 +676,13 @@ local side `withdraw.ts:103` (principal only) plus the later real-fee debit
 | D1 | Where card-deposit liquidity comes from (B8): ledger transfer from a treasury VA, or an actual on-chain purchase | Ledger transfer from the merchant's master VA now; on-chain settlement as a batched treasury job | | |
 | D2 | What to do about undercharged Clover deposits (B3) | Finance review of the reconciliation list before deciding | | |
 | D3 | Which balance is the source of truth, local or Tatum (B4, B8, B20) | Tatum ledger for funds, local table as a fast cache that is reconciled daily | | |
-| D4 | Custodial key model (B30, B31): one KMS asymmetric key per account, or one derived (HD) master wallet per curve with an isolated signer | Derived master wallet per curve | **Derived (HD) master wallet per curve, seeds encrypted under one KMS key, isolated signer** | 2026-10-05 |
-| D5 | Where the B31 signer runs: a dedicated Lambda, or an enclave (Evervault Enclave or AWS Nitro Enclaves) | Dedicated Lambda first; move to an enclave before real-money volume | | |
+| D4 | Custodial key model (B30, B31): one KMS asymmetric key per account, or one derived (HD) master wallet per curve with an isolated signer | Derived master wallet per curve | **Derived (HD) wallets with an isolated signer. One seed per merchant per network (client, 2026-10-05), not per curve. Seeds encrypted under one KMS key** | 2026-10-05 |
+| D5 | Where the B31 signer runs: a dedicated Lambda, or an enclave (Evervault Enclave or AWS Nitro Enclaves) | Dedicated Lambda first; move to an enclave before real-money volume | **Dedicated Lambda now; the client is studying the enclave option** | 2026-10-05 |
+| D6 | What the client's "platform wallet" for customers with no merchant is (B31) | The system merchant `loudibly`, with seeds like any other merchant | **The system merchant `loudibly`, with seeds like any other merchant** | 2026-10-05 |
+| D7 | One KMS key for all seeds, or one per seed (B31). The client's cost example assumes $1 a month per merchant wallet | One key now. Moving to one per seed later is a KMS re-encrypt and changes no address | **One KMS key per seed** | 2026-10-05 |
+| D8 | Who holds the shares of the offline seed backup key (B31 step 7) | At least three people across the client and Loudibly, any two of whom can restore | | |
+| D9 | Existing accounts when their KMS keys are retired (B31 step 8): keep each account and re-point it to a derived address, or delete and re-create it | Delete and re-create while every environment is on testnet. A re-pointed account keeps a balance whose coins stayed at the old address | **Delete and re-create under the new scheme** | 2026-10-05 |
+| D10 | Where the encrypted seed is stored (B31): an SSM SecureString, or Secrets Manager | Secrets Manager: a deleted secret can be recovered for 7 to 30 days and the API role can't reach it. About $0.40 a month per seed | **SSM for now; the client is deciding on Secrets Manager** | 2026-10-05 |
 
 ---
 
@@ -794,9 +871,13 @@ These are independent of each other, so take them in any order or in parallel.
 - [ ] **B18 + B24**: Didit webhook resolves the user by session, checks timestamp
   freshness, compares lengths safely, and doesn't create phantom profiles.
 - [ ] **B19**: account creation limits and role checks.
-- [ ] **B30** steps 1–2 right away (they're small), then the step 3 cleanup.
-- [ ] **B31**: derived master wallets. Decide D5 first, and do it after B1 so the signer
-  never trusts key references from a queue message.
+- [ ] **B30 and B31** were raised by the client on 2026-10-05, so they run now, ahead of the
+  stages above. Order:
+  1. B30 steps 1–4 (stop the leak), then step 5 in each environment.
+  2. B1 steps 1–3, so the signer never trusts key references from a queue message.
+  3. B31 steps 1–5 on the dev account. They don't depend on B1 and can overlap with it.
+  4. B31 step 6 (signing), then step 8 in each environment.
+  5. B31 step 7 (backup) before any mainnet seed is created.
 - [ ] PCI **F7** (rest): move all remaining logging to the redacting logger.
 - [ ] PCI **F11**: log retention policy.
 

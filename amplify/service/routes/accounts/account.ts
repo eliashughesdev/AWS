@@ -4,7 +4,7 @@ import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { networkFor } from '../../../utils/currencies'
-import { provisionCustodialAccount } from '../../../utils/custodialAccount'
+import { discardProvisionedAccount, provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getEmailProvider } from '../../../utils/EmailProvider'
 import { brandName } from '../../../utils/config'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
@@ -64,6 +64,7 @@ export default class AccountHandler {
 
       if (!result.success || !result.res) {
         console.log('Failed to perform atomic write for all required records')
+        await discardProvisionedAccount(provider, account, result.error)
         return processError(100003)
       }
 

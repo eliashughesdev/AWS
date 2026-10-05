@@ -18,16 +18,28 @@ There are three deployable pieces in this one repo:
   as CDK inside `amplify/backend.ts`.
 - **`src/`** (React, root `package.json`) — customer-facing checkout flows: KYC upload,
   add-card, process-payment, an embeddable payment widget. Builds to `dist/`.
-- **`web/`** — a yarn-workspaces monorepo (own `package.json` and `yarn.lock`) for the Vue
-  account dashboard:
-  - `web/apps/loudibly/` (workspace `loudibly`) — the dashboard app: views, layouts, router,
+- **`web/`** — a yarn-workspaces monorepo (own `package.json`; one lockfile, `web/yarn.lock`,
+  for every frontend) for the Vue frontends: one app per client design plus shared logic
+  (plan: `docs/frontend-layout-plan.md`).
+  - `web/apps/loudibly/` (workspace `loudibly`) — the account dashboard: views, layouts, router,
     brand config (custodial: balance, cards, deposit, withdraw, transfer; non-custodial:
     wallet dashboard, send, receive, ledger, all read straight from the chain with an
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
     production (see `amplify.yml`).
-  - `web/core/` (`@loudibly/core`) — shared, UI-free code imported by apps: backend API
+  - `web/core/` (`@loudibly/core`) — the headless shared package imported by apps: backend API
     client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
-    non-custodial chain code (`wallet/`: Solana, TRON, session keys).
+    non-custodial chain code (`wallet/`: Solana, TRON, session keys). Consumed as source (no
+    build step; `vue` is a peer dependency so apps and core share one Vue runtime).
+
+  Core rules: import it as `@loudibly/core/<dir>/<file>` (no extension — `exports` maps `./*` to
+  `./src/*.ts`); declare every package core imports in `web/core/package.json`, not the app's
+  (e.g. core needs `bs58` v6 while the hoisted copy is v4); keep Tailwind class names out of
+  core — Tailwind only scans the app, so a class written in core is never generated. API calls
+  go through `@loudibly/core/api/*`; `request()` returns `{ ok, status, data }` and never throws
+  on an HTTP error status (views branch on `ok`), only on network failure. Apps never import
+  `aws-amplify`: Cognito goes through `@loudibly/core/auth/cognito`, and route access through
+  `checkAccess()` in `@loudibly/core/auth/guards`, which returns a reason that each app's router
+  maps to its own routes.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and
   `node_modules/` may still exist and should be ignored.
@@ -49,10 +61,10 @@ yarn lint                             # eslint . --ext ts,tsx --max-warnings 0
 yarn ampx pipeline-deploy --branch <branch> --app-id <app-id>   # deploy backend (what CI runs)
 ```
 
-Vue dashboard (run from `web/`):
+Vue frontends (run from `web/`):
 ```
 cd web
-yarn install                          # installs all workspaces
+yarn install                          # one install for core + every app
 yarn workspace loudibly dev
 yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
 ```
@@ -88,10 +100,16 @@ into `process.env` on cold start / at most once a minute; env access after that 
 
 **Two auth paths, one authorizer.** `amplify/fn/authorizer/handler.ts` is a CDK-defined
 `RequestAuthorizer` (not part of the Amplify-managed backend, added directly to `apiStack`)
-sitting in front of `/accounts/*` and `/payments/*` (`resultsCacheTtl: 0`, so it runs on every
-call — no caching). It accepts either a Cognito JWT (end users, role `user`) or an HMAC
+sitting in front of `/accounts/*`, `/payments/*` and `/merchants/*` (`resultsCacheTtl: 0`, so it
+runs on every call — no caching). It accepts either a Cognito JWT (end users, role `user`; Cognito
+group `staff` → role `staff`, Loudibly employees; group `merchant` → role `merchant`, a merchant's
+own team who approve its treasury operations — precedence staff > admin > merchant > user) or an HMAC
 `Signature <timestamp>:<bodyHash>:<sig>` over `X-Project` (B2B platform keys stored in
-`v1UserKeysTable`, role `admin`). `/webhook/*` has **no authorizer at all** — routes that need
+`v1UserKeysTable`, role `admin`). One key per merchant: `X-Project` is the merchant id —
+onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
+`100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
+merchant: the system's own direct customers belong to `loudibly` (`SYSTEM_MERCHANT_ID` in
+`utils/merchant.ts`, no API key), which `/accounts/account` uses as the default. `/webhook/*` has **no authorizer at all** — routes that need
 to be publicly callable but also need auth must live under `/accounts/` or `/payments/`
 instead, not `/webhook/`.
 
@@ -101,15 +119,39 @@ SES) are each defined as a TS interface plus one or more concrete implementation
 runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 `PaymentProcessorConstructor` in `providers/payment/PaymentProcessor.ts` for the shape). When
 adding a new payment or ledger provider, implement the existing interface rather than
-special-casing the new provider in route handlers.
+special-casing the new provider in route handlers. When a master signs (token withdrawals),
+`withdrawFunds` debits both the customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and
+completes both with the same txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits
+record no fee (gas is rented TRX). `withdrawFunds` reverts its Tatum debits only
+when the tx provably never reached the chain (failed before broadcast, or the node refused it);
+an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger or app balance —
+may be refunded automatically, since the coins may already have left.
+
+**Account provisioning undoes itself.** `provisionCustodialAccount` (`utils/custodialAccount.ts`)
+creates the Tatum VA before the KMS key and, on any failure, cancels the subscription, removes the
+address, deactivates the VA and schedules the key's deletion. It writes nothing, so a caller whose
+own write then fails must call `discardProvisionedAccount(provider, account, writeError)`.
 
 **DynamoDB is single-table-ish per concern**, all defined in `amplify/backend.ts` (not in
 `amplify/data/resource.ts` — that file only has an unrelated placeholder `User` model on the
 Amplify Data/AppSync side, not the real schema). Key tables: `v2CustomerTable` (composite
 `id`/`sk`, one row per fact — `USERPROFILE`, `MAPPING`, `CLAIM`, `IDEMPOTENCY` — see the
-onboarding doc for the exact key shapes), `v1UserKeysTable` (B2B API keys),
+onboarding doc for the exact key shapes; `USERPROFILE` carries `merchantId`, KYC and tier, so
+update it in place — never `putItem` over it), `v1UserKeysTable` (B2B API keys),
 `v1AccountBalanceTable`, `v1PaymentTransactionLogsTable` / `v1TransactionLogsTable`,
-`v1WebSocketConnectionsTable`, `v1WebhookIPWhitelistTable`, `v2BinCacheTable`. Writes that must
+`v1WebSocketConnectionsTable`, `v1WebhookIPWhitelistTable`, `v2BinCacheTable`, `v1MerchantTable`
+(`id` = merchant id, `sk` = `PROFILE`; registered by staff via `/merchants/register`; plus
+`MASTER#<currency>` and `FEEVA#<currency>` per currency, created by the resumable
+`provisionMerchantMaster` in `utils/merchantMaster.ts` — masters have a Tatum VA with their
+address assigned but deliberately **no** webhook subscription; sweeps and token withdrawals find
+them with `getMasterAccount(account.merchantId, currency)`, `ready` rows only — the old SSM
+`USDT_TRON_MASTER_ACCOUNT_NUMBER` is no longer read; team members are `MEMBER#<sub>` (roles,
+status — the only place roles live) plus `USER#<sub>`/`MEMBERSHIP` (their one merchant, looked
+up from the caller, never the body); `POLICY#TREASURY_SEND` holds per-currency thresholds;
+treasury requests are `REQ#req_<epoch ms>_<rand>`, so they sort by time). Never call
+`table.grant*(backend.mainApiFn…)`: `mainApiFn` is in the `data` nested stack while the tables are in
+`loudibly-stack`, so a table-ARN grant creates a circular stack dependency and the deploy fails —
+`mainApiFn` already has `dynamodb:*` on `*`. Writes that must
 be atomic (e.g. idempotent transaction creation) go through `transactWriteItems` in
 `utils/db.ts`, which supports a per-item `conditionExpression` (e.g.
 `attribute_not_exists(id)`) — use this instead of a plain multi-item write whenever two records
@@ -134,12 +176,12 @@ add new codes there rather than inlining error responses in handlers.
 - `src/App.tsx` does manual path-based routing (`window.location.pathname`), no router
   library — it's wrapped in Amplify's `<Authenticator>` and an `EvervaultProvider` (Evervault
   handles card-data encryption client-side before it reaches the backend/Stripe).
-- The Vue app uses `vue-router` with route `meta.custodialOnly` / `meta.walletOnly` guards
+- `web/apps/loudibly` uses `vue-router` with route `meta.custodialOnly` / `meta.walletOnly` guards
   (see `web/apps/loudibly/src/router/index.ts`) to separate the Cognito-backed custodial dashboard from
   the non-custodial, client-key wallet screens — check which mode a view belongs to before
   wiring in Cognito-only or chain-only calls.
-- Root app deploys to `/`, the Vue app deploys to `/v2/` (`createWebHistory('/v2/')`); the
-  Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`).
+- Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
+  the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`).
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 
@@ -150,3 +192,6 @@ add new codes there rather than inlining error responses in handlers.
   style — don't "fix" those in unrelated diffs.
 - `evFunctions/` holds Evervault-hosted functions, deployed independently via the Evervault
   CLI only when files under that path changed (see the conditional block in `amplify.yml`).
+- Standalone scripts live under `scripts/`, not the repo root: `setup/`, `migrations/`,
+  `cleanup/`, `incidents/` are CloudShell runbooks against live AWS/Tatum (dry run by default,
+  `--commit` to write); `tron-lab/` holds local testnet experiments run with `npx tsx`.

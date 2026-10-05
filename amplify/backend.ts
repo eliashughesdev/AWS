@@ -55,6 +55,17 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
   })
 )
 
+// Temporary (B30): provisioning deletes the key of an account it could not finish.
+// Scoped by key usage, not by tag: a tag takes up to five minutes to count for
+// authorization, and this runs seconds after CreateKey. Goes away with B31.
+backend.mainApiFn.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['kms:ScheduleKeyDeletion'],
+    resources: ['*'],
+    conditions: { StringEquals: { 'kms:KeyUsage': 'SIGN_VERIFY' } }
+  })
+)
+
 backend.mainApiFn.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
     actions: ['ses:SendEmail', 'ses:SendRawEmail'],

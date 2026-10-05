@@ -63,9 +63,11 @@ must exist in SSM Parameter Store for those functions to work:
 | `SES_FROM_EMAIL` | "From" address used when sending email through Amazon SES |
 | `FRONTEND_URL` | Base URL of the frontend; used to build password-claim/verification links and Stripe 3-D-Secure return URLs |
 | `BRAND_NAME` | Product name used in every user-facing email (e.g. `NODA`). No default: the email senders throw if it is missing. Must match the frontend's `VITE_BRAND`, which is set separately in the Amplify console — otherwise payers get an email for one brand and land on a site skinned as another |
+| `CLAIM_TOKEN_TTL_SECONDS` | How many seconds a password-claim link (onboarding + resend) stays valid before `100035`. Optional — falls back to `604800` (7 days) if unset or not a positive number |
 | `TATUM_BASE_URL` | Base URL for the Tatum API; defaults to `https://api.tatum.io/v3` if unset |
 | `TATUM_WEBHOOK_URL` | Callback URL registered with Tatum for deposit/transaction webhooks |
 | `TATUM_API_KEY` | Tatum ledger API key used by `mainApiFn` (the SQS webhook processor instead gets this from an AWS Secrets Manager secret of the same name — see the environment variable table below) |
+| `TRON_MASTER_ADDRESS` | TRON address token deposits (e.g. USDT_TRON) are swept to after crediting the customer's balance. A single address for the whole chain — one TRON address natively holds TRX and any number of TRC-20 tokens |
 
 ### Environment variables
 

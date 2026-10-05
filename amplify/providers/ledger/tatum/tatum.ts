@@ -449,6 +449,20 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
+  async cancelSubscription(subscriptionId: string): Promise<void> {
+    await axios.delete(`${this.TATUM_BASE_URL}/subscription/${subscriptionId}`, { headers: { 'x-api-key': this.apiKey } })
+  }
+
+  // Tatum also stops scanning the address for deposits
+  async removeDepositAddress({ accountId, address }: AssignDepositAddressParams): Promise<void> {
+    await axios.delete(`${this.TATUM_BASE_URL}/offchain/account/${accountId}/address/${address}`, { headers: { 'x-api-key': this.apiKey } })
+  }
+
+  // Only allowed while the account's balance is zero
+  async deactivateVaAccount(accountId: string): Promise<void> {
+    await axios.put(`${this.TATUM_BASE_URL}/ledger/account/${accountId}/deactivate`, undefined, { headers: { 'x-api-key': this.apiKey } })
+  }
+
   // A virtual account's ledger balance — what Tatum lets a debit take from it
   async getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }> {
     const res = await axios.get(`${this.TATUM_BASE_URL}/ledger/account/${accountId}/balance`, { headers: { 'x-api-key': this.apiKey } })

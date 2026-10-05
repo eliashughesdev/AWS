@@ -7,7 +7,7 @@ import { addUserToGroup, adminCreateUser, EMAIL_RE, findUserByEmail } from '../.
 import { ClaimToken, claimPointerItem, claimRecordId, createClaimToken } from '../../../utils/claimToken'
 import { sendClaimInvite } from '../../../utils/claimInvite'
 import { networkFor } from '../../../utils/currencies'
-import { provisionCustodialAccount } from '../../../utils/custodialAccount'
+import { discardProvisionedAccount, provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getMerchant } from '../../../utils/merchant'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
@@ -176,6 +176,9 @@ export default class OnboardingHandler {
     const written = await transactWriteItems({ puts })
 
     if (!written.success) {
+      // Nothing was written, so an account provisioned for this request has no record
+      if (account) await discardProvisionedAccount(ProviderName.Tatum, account, written.error)
+
       // A cancelled transaction means the txId or the mapping already exists —
       // a redelivery, not a failure. Report the first outcome instead of a 500.
       if (written.error?.name === 'TransactionCanceledException') {

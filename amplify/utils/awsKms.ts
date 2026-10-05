@@ -1,4 +1,4 @@
-import { KMSClient, CreateKeyCommand, GetPublicKeyCommand, SignCommand, SigningAlgorithmSpec, MessageType, KeySpec, KeyUsageType } from '@aws-sdk/client-kms'
+import { KMSClient, CreateKeyCommand, GetPublicKeyCommand, ScheduleKeyDeletionCommand, SignCommand, SigningAlgorithmSpec, MessageType, KeySpec, KeyUsageType } from '@aws-sdk/client-kms'
 import { keccak256 } from 'js-sha3'
 import bs58 from 'bs58'
 import { createHash } from 'crypto'
@@ -48,14 +48,28 @@ export async function createBlockchainKey(
   const kmsKeyId = createResult.KeyMetadata?.KeyId
   if (!kmsKeyId) throw new Error('KMS CreateKey did not return a KeyId')
 
-  // Retrieve the DER-encoded public key
-  const pubKeyResult = await kmsClient.send(new GetPublicKeyCommand({ KeyId: kmsKeyId }))
-  const derPublicKey = pubKeyResult.PublicKey
-  if (!derPublicKey) throw new Error('KMS GetPublicKey did not return a public key')
+  try {
+    // Retrieve the DER-encoded public key
+    const pubKeyResult = await kmsClient.send(new GetPublicKeyCommand({ KeyId: kmsKeyId }))
+    const derPublicKey = pubKeyResult.PublicKey
+    if (!derPublicKey) throw new Error('KMS GetPublicKey did not return a public key')
 
-  const address = deriveAddress(chain, new Uint8Array(derPublicKey as unknown as ArrayBuffer))
+    const address = deriveAddress(chain, new Uint8Array(derPublicKey as unknown as ArrayBuffer))
 
-  return { kmsKeyId, address }
+    return { kmsKeyId, address }
+  } catch (err) {
+    // The caller never learns this key id, so it can only be removed here
+    await scheduleKeyDeletion(kmsKeyId).catch(e => console.error(`KMS key ${kmsKeyId} is orphaned: ${e.message}`))
+    throw err
+  }
+}
+
+/**
+ * Schedules a key for deletion after KMS's minimum 7-day wait, during which
+ * `aws kms cancel-key-deletion` still recovers it.
+ */
+export async function scheduleKeyDeletion(kmsKeyId: string): Promise<void> {
+  await kmsClient.send(new ScheduleKeyDeletionCommand({ KeyId: kmsKeyId, PendingWindowInDays: 7 }))
 }
 
 /**

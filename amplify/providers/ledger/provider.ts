@@ -135,6 +135,9 @@ export interface AccountProvider {
   generateDepositAddress(accountId: string): Promise<GenerateDepositAddressResponse>;
   assignDepositAddress(params: AssignDepositAddressParams): Promise<AssignDepositAddressResponse>;
   createSubscription(params: CreateSubscriptionParams): Promise<CreateSubscriptionResponse>;
+  cancelSubscription(subscriptionId: string): Promise<void>;
+  removeDepositAddress(params: AssignDepositAddressParams): Promise<void>;
+  deactivateVaAccount(accountId: string): Promise<void>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
