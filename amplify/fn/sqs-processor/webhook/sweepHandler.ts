@@ -2,6 +2,7 @@ import { putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { getMasterAccount } from '../../../utils/masterAccount'
+import { findAccountByAddress } from '../../../utils/custodialAccount'
 
 /**
  * Consolidates a customer's just-received token deposit to that currency's
@@ -15,12 +16,21 @@ import { getMasterAccount } from '../../../utils/masterAccount'
  * docs/tatum-integration-model.md's "known gaps").
  */
 export const handleSweep = async (message: any): Promise<boolean> => {
-  const { vAccountId, merchantId, senderAddress, kmsKeyId, amount, currency, txId } = message
+  const { vAccountId, senderAddress, amount, txId } = message
 
-  if (!vAccountId || !senderAddress || !kmsKeyId || !amount || !currency || !txId) {
+  if (!vAccountId || !senderAddress || !amount || !txId) {
     console.error('VALIDATION_ERROR: Missing required fields for sweep processing', message)
     return false
   }
+
+  // The key, merchant and currency come from the stored account that owns the
+  // address, never from the message
+  const account = await findAccountByAddress(senderAddress)
+  if (!account?.kmsKeyId || !account.chain || account.vAccountId !== vAccountId) {
+    console.error(`VALIDATION_ERROR: No custodial account ${vAccountId} at ${senderAddress}; sweep ${txId} not processed`)
+    return false
+  }
+  const { merchantId, kmsKeyId, chain: currency } = account
 
   const master = await getMasterAccount(merchantId, currency)
   if (!master) {

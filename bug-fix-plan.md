@@ -36,7 +36,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 
 | ID | P | Bug | Status | Owner | PR | Done on | Notes |
 |---|---|---|---|---|---|---|--|
-| B1 | P0 | `/payments/process` lets the caller inject any queue message: forged withdrawals signed with any account's key, minted balances | ⬜ | | | | Steps 1–3 pulled forward for B31 (2026-10-05) |
+| B1 | P0 | `/payments/process` lets the caller inject any queue message: forged withdrawals signed with any account's key, minted balances | 🟡 | | | | Steps 1–3 in code 2026-10-05 (pulled forward for B31), not deployed. Steps 4–6 open |
 | B2 | P0 | `/accounts/details` returns any account's KMS key id, ledger id and balance (no ownership check) | ⬜ | | | | Enables B1 theft |
 | B3 | P0 | Clover is sent dollars as cents (100× undercharge) and always `usd` | ⬜ | | | | |
 | B4 | P0 | Balance updates from deposits overwrite concurrent withdrawals (double spend); a failed update loses the credit forever | ⬜ | | | | |
@@ -57,7 +57,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B17 | P2 | WebSocket subscribe is unauthenticated, so others can read payment results (incl. 3DS `clientSecret`) | ⬜ | | | | |
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
-| B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🟡 | | | | Steps 1–4 in code 2026-10-05, not deployed. 4 orphans in `nodapay_ui` as of 2026-10-05. Raised by the client 2026-10-05 |
+| B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
 | B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | ⬜ | | | | Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
@@ -94,15 +94,19 @@ Any signed-in user can:
   from any on-chain address (see B25).
 
 **Fix:**
-- [ ] **1.** Build the queue message from an explicit allowlist in `process.ts` (`paymentId`,
-  `transactionId`, `amount`, `currency`, `provider`, `offSession`, `bin`, `clientIp`). Never
-  spread the body. Take `userId` from the authorizer (B7).
-- [ ] **2.** Route in the worker by **event source** (`record.eventSourceARN` → queue name),
+- [x] **1.** Build the queue message from an explicit allowlist in `process.ts` (`paymentId`,
+  `transactionId`, `amount`, `currency`, `provider`, `offSession`, `bin`, `email`,
+  `firstName`, `lastName`, `returnUrl`: the fields the processors read). Never spread the
+  body. Take `userId` from the authorizer for role `user` (B7); a platform key still names
+  the user it acts for.
+- [x] **2.** Route in the worker by **event source** (`record.eventSourceARN` → queue name),
   not by a field inside the body. Reject a message whose `body.queue` doesn't match its
   source queue.
-- [ ] **3.** Withdrawal and sweep handlers: re-load the account from DynamoDB by
-  `vAccountId` and take `kmsKeyId`, `depositAddress`, `merchantId` and `chain` from the
-  stored record. Never sign with key material taken from a message.
+- [x] **3.** Withdrawal and sweep handlers: re-load the account from DynamoDB (by `userId`
+  and `vAccountId` for a withdrawal, by deposit address for a sweep) and take `kmsKeyId`,
+  `depositAddress`, `merchantId` and `chain` from the stored record. Never sign with key
+  material taken from a message. The producers still send those fields so a deploy can't
+  strand a message in flight; B31 step 6 removes them.
 - [ ] **4.** Payment handler: accept `depositMode`, `vAccountId` and `cryptoAmount` only from
   `deposit.ts`. Either use a separate deposit queue or sign the deposit fields, then
   re-check that the `vAccountId` belongs to `userId`.
@@ -242,7 +246,9 @@ and call `/onboarding/claim` to set their password. `AdminSetUserPassword` works
 ### B7. Card endpoints trust `userId` from the request
 
 Tracked as **F3** in `pci-remediation-plan.md`. It's listed here so the P0 set is complete.
-Fix it in the same PR as B1, because both touch `process.ts`.
+Fix it in the same PR as B1, because both touch `process.ts`. Since B1 step 1,
+`/payments/process` takes `userId` from the authorizer for role `user`; the rest of F3 is
+open.
 
 ---
 
@@ -504,12 +510,12 @@ needed after it.
   authorization, and the undo runs seconds after `CreateKey`. This lets the public Lambda
   schedule the deletion of live custody keys, so it is temporary: B31 step 5 removes it, and
   B31 ships before production.
-- [ ] **5.** One-off cleanup per environment: list keys tagged `service=loudibly`, drop the
+- [x] **5.** One-off cleanup per environment: list keys tagged `service=loudibly`, drop the
   ones referenced by any `ACCOUNT#` row in `v2CustomerTable` or any `MASTER#` row in
   `v1MerchantTable`, confirm that the rest hold no funds on chain, then schedule deletion.
   `scripts/cleanup/kms-key-cleanup.ts` can't be used as it is: it keeps a fixed list of user
   ids, finds the master through the retired SSM parameter, and doesn't check the chain.
-- [ ] **Verified:** `e2e/accounts/AccountsProvisionOrphanTest.ts` (Tatum rejects the VA)
+- [x] **Verified:** `e2e/accounts/AccountsProvisionOrphanTest.ts` (Tatum rejects the VA)
   creates no key. A forced failure after the key exists, and a forced write failure in each
   caller, leave no active key, VA or subscription. The cleanup report shows no unreferenced
   active keys and lists every merchant master as referenced.

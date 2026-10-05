@@ -2,6 +2,29 @@ import { ProviderRegistry } from './AccountProvider'
 import { ProviderName } from '../providers/ledger/ProviderName'
 import { createBlockchainKey, scheduleKeyDeletion } from './awsKms'
 import { networkFor } from './currencies'
+import { queryItemFromIndex, queryRecord } from './db'
+
+// Queue handlers sign for the account these return. The key, address, merchant
+// and chain come from the stored record, never from the message.
+
+export const findAccountByAddress = async (address: string) => {
+  const lookup = await queryItemFromIndex({
+    tableName: 'v2CustomerTable',
+    indexName: 'v1v2CustomerTableByDepositAddress',
+    keyConditionExpression: 'depositAddress = :addr',
+    attributeNames: undefined,
+    attributeValues: { ':addr': address },
+  })
+  if (!lookup.success || !lookup.res?.length) return null
+  return lookup.res[0]
+}
+
+// Throws when the table can't be read, so "no such account" stays distinct from "don't know"
+export const findAccountForUser = async (userId: string, vAccountId: string) => {
+  const lookup = await queryRecord('v2CustomerTable', 'id = :id AND begins_with(sk, :sk)', { ':id': userId, ':sk': 'ACCOUNT#' })
+  if (!lookup.success || !lookup.res) throw new Error(`Failed to read accounts of user ${userId}`)
+  return lookup.res.find(account => account.vAccountId === vAccountId) ?? null
+}
 
 export interface ProvisionedAccount {
   accountNo: string

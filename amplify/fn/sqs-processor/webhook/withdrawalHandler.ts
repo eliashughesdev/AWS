@@ -5,28 +5,41 @@ import { BroadcastUncertainError } from '../../../providers/ledger/provider'
 import { notifyPaymentResult } from '../../../utils/websocket'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
+import { findAccountForUser } from '../../../utils/custodialAccount'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 export const handleWithdrawal = async (message: any): Promise<boolean> => {
-  const { transactionId, userId, vAccountId, merchantId, chain, cryptoAmount, destinationAddress, kmsKeyId, senderAddress } = message
+  const { transactionId, userId, vAccountId, cryptoAmount, destinationAddress } = message
 
-  if (!vAccountId || !chain || !cryptoAmount || !destinationAddress || !kmsKeyId) {
+  if (!userId || !vAccountId || !cryptoAmount || !destinationAddress) {
     console.error('VALIDATION_ERROR: Missing required fields for withdrawal processing', message)
     return false
   }
 
   console.log(`--- Processing Withdrawal [${transactionId}] for Account [${vAccountId}] ---`)
-  console.log(`Sending ${cryptoAmount} ${chain} to ${destinationAddress}`)
+
+  // The key, address, merchant and chain come from the stored account, never
+  // from the message
+  let account: Record<string, any> | null = null
 
   try {
+    account = await findAccountForUser(userId, vAccountId)
+    // Nothing was debited for an account that doesn't exist, so nothing is rolled back
+    if (!account?.kmsKeyId || !account.chain) {
+      console.error(`VALIDATION_ERROR: No custodial account ${vAccountId} for user ${userId}; withdrawal ${transactionId} not processed`)
+      return false
+    }
+    const { chain, merchantId } = account
+    console.log(`Sending ${cryptoAmount} ${chain} to ${destinationAddress}`)
+
     // Token withdrawals (e.g. USDT_TRON) are signed and broadcast from the
     // master account, not the customer's own deposit address — the sweep
     // already moved those tokens there. The customer's own VA (accountId)
     // is still what gets debited in Tatum's ledger; only the on-chain
     // signer/source changes.
-    let signerAddress = senderAddress
-    let signerKmsKeyId = kmsKeyId
+    let signerAddress = account.depositAddress
+    let signerKmsKeyId = account.kmsKeyId
     let masterAccountId: string | undefined
     if (!isNativeCurrency(chain)) {
       const master = await getMasterAccount(merchantId, chain)
@@ -74,6 +87,9 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
 
     return true
   } catch (err) {
+    const chain = account?.chain
+    const senderAddress = account?.depositAddress
+
     // The coins may have left — refunding here could pay the customer twice
     if (err instanceof BroadcastUncertainError) {
       console.error(`CRITICAL: Withdrawal ${transactionId} broadcast outcome unknown — balance NOT rolled back. Resolve manually (withdrawalId=${err.withdrawalId}, masterWithdrawalId=${err.masterWithdrawalId ?? 'n/a'}).`, err)

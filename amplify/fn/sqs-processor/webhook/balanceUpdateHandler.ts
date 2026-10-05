@@ -1,7 +1,8 @@
-import { getRecord, updateItem, putItem, queryItemFromIndex } from '../../../utils/db'
+import { getRecord, updateItem, putItem } from '../../../utils/db'
 import { currencyForAsset, isNativeCurrency } from '../../../utils/currencies'
 import { sendToQueue } from '../../../utils/sqs'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
+import { findAccountByAddress } from '../../../utils/custodialAccount'
 
 interface IncomingBlockchainTransactionRequest {
   address: string;             // the watched account this event is about
@@ -24,18 +25,6 @@ interface IncomingBlockchainTransactionRequest {
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 type Direction = 'CREDIT' | 'DEBIT'
-
-async function findAccountByAddress(address: string) {
-  const lookup = await queryItemFromIndex({
-    tableName: 'v2CustomerTable',
-    indexName: 'v1v2CustomerTableByDepositAddress',
-    keyConditionExpression: 'depositAddress = :addr',
-    attributeNames: undefined,
-    attributeValues: { ':addr': address },
-  })
-  if (!lookup.success || !lookup.res?.length) return null
-  return lookup.res[0]
-}
 
 // Applies one side of a transfer to an account. Idempotent per (account, txId)
 // via the transaction-log claim. Returns false only on an unexpected failure so

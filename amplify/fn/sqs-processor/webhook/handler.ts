@@ -32,28 +32,32 @@ const queueHandlers: Record<string, QueueHandler> = {
   'v1-sweep-queue': handleSweep
 }
 
-const routeMessage = async (recordBody: string) => {
-  try {
-    const body = JSON.parse(recordBody)
-    const queueName = body.queue
+// The queue a record was delivered from. Routing uses this, not the `queue`
+// field in the body, which is whatever the sender wrote.
+const sourceQueue = (record: any): string => String(record.eventSourceARN ?? '').split(':').pop() ?? ''
 
-    if (!queueName) {
-      console.warn('ROUTER: No queue name specified in message body. Message:', recordBody)
+const routeMessage = async (record: any) => {
+  try {
+    const queueName = sourceQueue(record)
+    const handler = queueHandlers[queueName]
+
+    if (!handler) {
+      console.warn(`ROUTER: No handler registered for queue: ${queueName}. Available queues: ${Object.keys(queueHandlers).join(', ')}`)
+      return
+    }
+
+    const body = JSON.parse(record.body)
+
+    if (body.queue && body.queue !== queueName) {
+      console.error(`ROUTER: Rejected a message from ${queueName} that names ${body.queue}`)
       return
     }
 
     console.log(`ROUTER: Processing message for queue: ${queueName}`)
-
-    const handler = queueHandlers[queueName]
-
-    if (handler) {
-      await handler(body)
-    } else {
-      console.warn(`ROUTER: No handler registered for queue: ${queueName}. Available queues: ${Object.keys(queueHandlers).join(', ')}`)
-    }
+    await handler(body)
   } catch (e) {
     console.error('ROUTER_ERROR: Failed to parse or route message:', e)
-    console.error('Raw message body:', recordBody)
+    console.error('Raw message body:', record.body)
   }
 }
 
@@ -66,6 +70,6 @@ export const handler = async (event: any) => {
     console.log(`Received body is ${JSON.stringify(body)}`)
     // delete body.webhook_url
     // await sendRequest(url, { ...body })
-    await routeMessage(record.body)
+    await routeMessage(record)
   }
 }

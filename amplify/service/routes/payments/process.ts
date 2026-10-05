@@ -11,7 +11,11 @@ export default class ProcessPaymentHandler {
     console.log('DEBUG: Incoming Event:', JSON.stringify(event))
     console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
-    const { paymentId, userId, amount, currency, provider = 'stripe', transactionId, offSession, ...additionalParams } = event.body
+    const { paymentId, amount, currency, provider = 'stripe', transactionId, offSession, bin, email, firstName, lastName, returnUrl } = event.body
+
+    // A signed-in user pays as themselves; a platform key names the user it acts for
+    const authorizer = event.requestContext?.authorizer
+    const userId = authorizer?.role === 'user' ? authorizer.userId : event.body.userId
 
     console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider)
 
@@ -22,7 +26,8 @@ export default class ProcessPaymentHandler {
 
     try {
       // transactionId is used for WebSocket correlation (what frontend uses to connect)
-      // paymentId is used to look up the saved payment method
+      // paymentId is used to look up the saved payment method.
+      // Only these fields reach the queue: the body is never spread into the message.
       const queueMessage = {
         queue: 'v1-payment-processing-queue',
         paymentId,
@@ -32,8 +37,12 @@ export default class ProcessPaymentHandler {
         currency,
         provider,
         offSession: offSession || false,
+        bin,
+        email,
+        firstName,
+        lastName,
+        returnUrl,
         timestamp: Date.now(),
-        ...additionalParams
       }
 
       console.log('DEBUG: Sending payment job to SQS queue:', process.env.PAYMENT_PROCESSING_QUEUE_URL)
