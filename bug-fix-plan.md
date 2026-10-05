@@ -58,7 +58,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | ⬜ | | | | Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–3 in code 2026-10-05, not deployed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -543,9 +543,10 @@ signer's memory while it signs.
   on its own path, outside the `/loudibly/api/` path the config loader reads. The API role
   has `ssm:*` on `*` (`backend.ts:46`), so it gets an explicit deny on the seed path. Cost:
   about $1 a month per seed, whatever the number of users.
-- **One signer Lambda** (D5) is the only principal that can use those keys or write to the
-  seed path. It has no public trigger. The API Lambda and the queue processor invoke it and
-  never see key material. Operations:
+- **One signer role** (D5) is the only principal that can use those keys or write to the
+  seed path. Two Lambdas with no public trigger run under it: one hands out seeds and
+  addresses to the API Lambda, the other signs for the queue processor. Neither caller sees
+  key material. Operations:
   - `createSeed(merchantId, network)` creates the seed's KMS key, then generates and stores
     the seed. It returns nothing secret and is safe to repeat.
   - `allocateAddress(merchantId, network)` takes the next index and returns it with its
@@ -563,21 +564,28 @@ enclave (D5). Losing a seed's KMS key or its parameter loses that merchant's fun
 network, and an SSM delete is immediate and final (step 7, D10). All of this needs sign-off
 from whoever owns PCI (see `pci-remediation-plan.md`).
 
-- [ ] **1. Derivation module** (`utils/hdWallet.ts`, no AWS calls). From a seed and an index
-  to the TRON and Solana key and address; sign a TRON transaction (r + s + v, low-S) and a
-  Solana message. Libraries: `@scure/bip32`, `@scure/bip39`, `@noble/curves`, `@noble/hashes`
-  (same author as the `@noble/secp256k1` already in use). Check it locally with `tsx` against
-  the published BIP32 and SLIP-0010 test vectors, and against TronLink and Phantom with a
-  throwaway recovery phrase.
-- [ ] **2. Infrastructure** (`backend.ts`). The signer Lambda in `loudibly-stack`: reserved
-  concurrency, no event source, no URL. Its role: `kms:CreateKey`, encrypt and decrypt only
-  on keys tagged `purpose=hd-seed`, SSM on the seed path only (put and get, no delete), read
-  on `v2CustomerTable`, read and update on `v1MerchantTable`. `mainApiFn` gets an explicit
-  deny on the seed path. `mainApiFn` and the queue processor get `lambda:InvokeFunction` on
-  the signer through `addToRolePolicy` with an ARN built from the function name (a
-  `grantInvoke` on `mainApiFn` would create the same circular stack dependency as
-  `table.grant*`).
-- [ ] **3. Signer** (`fn/hd-signer/handler.ts`), the three operations above.
+- [x] **1. Derivation module** (`utils/hdWallet.ts`, no AWS calls). From a seed and an index
+  to the TRON and Solana address; sign a TRON transaction (r + s + v, low-S) and a Solana
+  message. Private keys stay inside the module. Libraries: `@scure/bip32`, `@scure/bip39`,
+  `@noble/curves`, `@noble/hashes`, on their 1.x line. `npx tsx scripts/checks/hdWallet.ts`
+  checks it against the SLIP-0010 test vector, tronweb, `@solana/web3.js` and Node's own
+  Ed25519. Still to do by hand: compare a throwaway recovery phrase with TronLink and Phantom
+  (`HD_CHECK_PHRASE`).
+- [x] **2. Infrastructure** (`backend.ts`). One role, `HdSignerRole`, and two Lambdas in
+  `loudibly-stack` that run the same handler under it, with no event source and no URL:
+  `hdAddressFn` (create a seed, hand out an address) and `hdSignerFn` (sign). `mainApiFn`
+  may invoke only the first and the queue processor only the second, so the public API can
+  ask for addresses but never for signatures. The role: `kms:CreateKey`, SSM on the seed
+  path only (put and get, no delete), read on `v2CustomerTable`, read and write on
+  `v1MerchantTable`. It uses a seed's key through that key's own policy, not through a tag:
+  a tag takes up to five minutes to count for authorization. `mainApiFn` gets an explicit
+  deny on the seed path, and its invoke permission uses an ARN built from the function name
+  (a `grantInvoke` on `mainApiFn` would create the same circular stack dependency as
+  `table.grant*`). Reserved concurrency is left out: a low account limit makes the deploy
+  fail, so check `aws lambda get-account-settings` first.
+- [x] **3. Signer** (`fn/hd-signer/handler.ts`), the three operations above. Checked
+  locally with `npx tsx scripts/checks/hdSigner.ts`, against in-memory stand-ins
+  for DynamoDB, KMS and SSM. Not yet run on a deployed stack.
   - A seed is 32 random bytes kept as a BIP39 recovery phrase, so a restore works in any
     standard wallet.
   - `createSeed` creates the seed's key tagged `purpose=hd-seed`, with a key policy that
@@ -589,7 +597,8 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   - `allocateAddress` advances `nextIndex` atomically (`UpdateItem ADD`) and never reuses an
     index. It fails when the merchant has no ready seed.
   - `sign` takes a TRON transaction's `raw_data_hex` and hashes it itself, or a Solana
-    serialized message. It refuses a record whose `keyModel` isn't `hd`.
+    serialized message. It refuses a record whose `keyModel` isn't `hd`, or whose stored
+    address isn't the one at its stored index.
   - It wipes key buffers and logs only ids and outcome.
 - [ ] **4. Seeds for merchants.** `/merchants/register` creates the seeds for every supported
   network. A script in `scripts/setup/` does the same for the merchants that already exist,

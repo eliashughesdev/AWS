@@ -4,6 +4,7 @@ import {
   GetItemCommand,
   PutItemCommand,
   QueryCommand,
+  ReturnValue,
   UpdateItemCommand,
   TransactWriteItemsCommand,
   DeleteItemCommand
@@ -141,6 +142,7 @@ interface IUpdateItemRequest {
   conditionExpression?: string
   attributeNames: Record<string, string> | undefined
   attributeValues: Record<string, any>
+  returnValues?: ReturnValue
 }
 /**
  * Update record by id
@@ -166,7 +168,8 @@ export const updateItem = async (r: IUpdateItemRequest) => {
     UpdateExpression: r.updateExpression,
     ConditionExpression: r.conditionExpression,
     ExpressionAttributeNames: r.attributeNames,
-    ExpressionAttributeValues: marshall(r.attributeValues, { removeUndefinedValues: true })
+    ExpressionAttributeValues: marshall(r.attributeValues, { removeUndefinedValues: true }),
+    ReturnValues: r.returnValues,
   })
 
   try {

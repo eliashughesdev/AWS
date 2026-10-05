@@ -618,6 +618,73 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
   resources: ['*'],
 }))
 
+// --- Derived (HD) wallets (B31) ---
+// The one role that may use the per-seed KMS keys; each key's policy names it.
+// Both functions below run the same handler under it, each serving only its own
+// operations, so asking for addresses and asking for signatures are separate
+// permissions.
+const HD_SEED_PARAMETERS = 'arn:aws:ssm:*:*:parameter/loudibly/hd-seed/*'
+
+const hdSignerRole = new iam.Role(apiStack, 'HdSignerRole', {
+  assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+  managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')],
+})
+
+// A seed's key is created here and used through its own key policy
+hdSignerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['kms:CreateKey', 'kms:TagResource'],
+  resources: ['*'],
+}))
+// No delete: a seed parameter is written once and never removed from here
+hdSignerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['ssm:PutParameter', 'ssm:GetParameter'],
+  resources: [HD_SEED_PARAMETERS],
+}))
+hdSignerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+  resources: [v2CustomerTable.tableArn, `${v2CustomerTable.tableArn}/index/*`],
+}))
+hdSignerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
+  resources: [v1MerchantTable.tableArn],
+}))
+
+const hdFunction = (id: string, functionName: string, operations: string) => new lambda.NodejsFunction(apiStack, id, {
+  entry: url.fileURLToPath(new URL('./fn/hd-signer/handler.ts', import.meta.url)),
+  runtime: Runtime.NODEJS_20_X,
+  functionName,
+  role: hdSignerRole,
+  memorySize: 512,
+  timeout: Duration.seconds(30),
+  environment: {
+    HD_OPERATIONS: operations,
+    HD_SIGNER_ROLE_ARN: hdSignerRole.roleArn,
+  },
+})
+
+// Neither has a trigger or a URL: they are only ever invoked by the two roles below
+hdFunction('HdAddressFn', 'hdAddressFn', 'createSeed,allocateAddress')
+const hdSignerFn = hdFunction('HdSignerFn', 'hdSignerFn', 'sign')
+
+// The API provisions accounts, so it may ask for seeds and addresses, never for
+// signatures. The ARN is built from the name: a reference to the function would
+// create the same circular stack dependency as a table grant on mainApiFn.
+backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['lambda:InvokeFunction'],
+  resources: ['arn:aws:lambda:*:*:function:hdAddressFn'],
+}))
+// mainApiFn has ssm:* on everything; seeds are the exception
+backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
+  effect: iam.Effect.DENY,
+  actions: ['ssm:*'],
+  resources: [HD_SEED_PARAMETERS],
+}))
+
+// Withdrawals and sweeps are signed by the queue processor
+sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['lambda:InvokeFunction'],
+  resources: [hdSignerFn.functionArn],
+}))
 
 backend.addOutput({
   custom: {

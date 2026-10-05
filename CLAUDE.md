@@ -81,6 +81,12 @@ These only work against a deployed stack (the target URL, e.g.
 route added in code isn't reachable until `ampx pipeline-deploy` runs. Signing credentials for
 these live in `amplify/service/routes/e2e/credentials.ts`.
 
+Two checks run locally with no deployed stack, both for derived wallets:
+`npx tsx scripts/checks/hdWallet.ts` (the derivation module, against published test vectors
+and other libraries) and `npx tsx scripts/checks/hdSigner.ts` (the signer, against
+in-memory stand-ins for DynamoDB, KMS and SSM). Run them after touching those files or upgrading
+`@noble/*` or `@scure/*`.
+
 Deployed logs: the `aws-logs` project skill (`.claude/skills/aws-logs/`) checks CloudWatch for
 the AWS account linked to the current branch. The branch → account/region/profile map is in
 `.claude/skills/aws-logs/environments.tsv`; add a row there when a branch gets its own stack.
@@ -166,6 +172,25 @@ logged in full by the stream handler — never write a secret (e.g. a plaintext 
 one of them; store a hash instead (see how `utils/claimToken.ts` is used in
 `routes/accounts/onboarding.ts`).
 
+**Queue messages are not trusted.** The webhook processor (`fn/sqs-processor/webhook/handler.ts`)
+routes each record by the queue it was delivered from (`eventSourceARN`), not by the `queue` field
+in its body, and drops a body that names another queue. Routes build queue messages field by
+field — never spread a request body into one (see `routes/payments/process.ts`). The withdrawal and
+sweep handlers load the account from DynamoDB (`findAccountForUser`, `findAccountByAddress` in
+`utils/custodialAccount.ts`) and take the key, address, merchant and chain from it; never sign with
+a key reference taken from a message.
+
+**Derived (HD) wallets (B31, being rolled out — nothing calls them yet).** `utils/hdWallet.ts`
+derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts` is the only code
+that reads a seed: one recovery phrase per merchant per network, an SSM SecureString under
+`/loudibly/hd-seed/` with its own KMS key whose policy lets only `HdSignerRole` decrypt.
+`v1MerchantTable` `SEED#<network>` rows hold the key id, parameter name and `nextIndex`, never
+secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `allocateAddress`;
+only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may). Keep
+that split: the API must never be able to obtain a signature, and nothing outside the handler may
+read the seed path. Never tag a seed key `service=loudibly`; that tag marks the per-account keys
+that B31 deletes.
+
 **Error codes are centralized but not exhaustive.** `amplify/errors/http.ts` maps numeric
 `error_code`s to messages via `processError(code, params)`. Calling it with a code not in the
 `httpErrors` map throws instead of returning a 400 — check the map before reusing a code, and
@@ -194,4 +219,5 @@ add new codes there rather than inlining error responses in handlers.
   CLI only when files under that path changed (see the conditional block in `amplify.yml`).
 - Standalone scripts live under `scripts/`, not the repo root: `setup/`, `migrations/`,
   `cleanup/`, `incidents/` are CloudShell runbooks against live AWS/Tatum (dry run by default,
-  `--commit` to write); `tron-lab/` holds local testnet experiments run with `npx tsx`.
+  `--commit` to write); `tron-lab/` holds local testnet experiments run with `npx tsx`;
+  `checks/` holds checks that run locally with no deployed stack (see Commands).
