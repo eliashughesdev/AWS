@@ -21,3 +21,7 @@ const invoke = async <T>(functionName: string, payload: Record<string, any>): Pr
 /** Creates a merchant's seed for a network, or finishes one left half-created. */
 export const createSeed = (merchantId: string, network: Network) =>
   invoke<{ status: string, created: boolean }>(ADDRESS_FUNCTION, { op: 'createSeed', merchantId, network })
+
+/** The next unused address under a merchant's seed. Fails when the merchant has no ready seed. */
+export const allocateAddress = (merchantId: string, network: Network) =>
+  invoke<{ derivationIndex: number, address: string }>(ADDRESS_FUNCTION, { op: 'allocateAddress', merchantId, network })

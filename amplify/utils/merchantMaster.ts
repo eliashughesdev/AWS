@@ -3,6 +3,8 @@ import { createBlockchainKey } from './awsKms'
 import { networkFor } from './currencies'
 import { ProviderRegistry } from './AccountProvider'
 import { ProviderName } from '../providers/ledger/ProviderName'
+import { custodyKeyModel } from './config'
+import { allocateAddress, createSeed } from './hdSigner'
 
 const TABLE = 'v1MerchantTable'
 
@@ -31,8 +33,8 @@ const saveStep = async (merchantId: string, currency: string, values: Record<str
 
 /**
  * Provisions everything a merchant needs to hold one currency: the master
- * (KMS key, address, a Tatum VA with that address assigned) and a ledger-only
- * fee VA.
+ * (its key, by custodyKeyModel: a KMS key or an address under the merchant's
+ * seed; a Tatum VA with that address assigned) and a ledger-only fee VA.
  */
 export async function provisionMerchantMaster(merchantId: string, currency: string, accountingCurrency: string) {
   const network = networkFor(currency)
@@ -52,10 +54,19 @@ export async function provisionMerchantMaster(merchantId: string, currency: stri
 
   const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
 
-  if (!row.kmsKeyId) {
-    const { kmsKeyId, address } = await createBlockchainKey(network, `master-${merchantId}-${currency}`)
-    await saveStep(merchantId, currency, { kmsKeyId, depositAddress: address }, 'kmsKeyId')
-    row = { ...row, kmsKeyId, depositAddress: address }
+  if (!row.depositAddress) {
+    let key: Record<string, any>
+    if (custodyKeyModel() === 'hd') {
+      // The merchant may predate seeds, or its seed may not have finished at registration
+      await createSeed(merchantId, network)
+      const { derivationIndex, address } = await allocateAddress(merchantId, network)
+      key = { keyModel: 'hd', derivationIndex, depositAddress: address }
+    } else {
+      const { kmsKeyId, address } = await createBlockchainKey(network, `master-${merchantId}-${currency}`)
+      key = { kmsKeyId, depositAddress: address }
+    }
+    await saveStep(merchantId, currency, key, 'depositAddress')
+    row = { ...row, ...key }
   }
 
   if (!row.vAccountId) {

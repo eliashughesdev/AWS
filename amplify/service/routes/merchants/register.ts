@@ -63,10 +63,9 @@ export default class MerchantRegisterHandler {
     console.log(`MERCHANT_REGISTER: merchantId=${merchantId} by=${staffUserId}`)
 
     const outOfTime = new Promise<'pending'>(resolve => setTimeout(() => resolve('pending'), PROVISIONING_BUDGET_MS))
-    const [provisioned, seeds] = await Promise.all([
-      this.provision(merchantId, [...new Set(currencies)], accountingCurrency, outOfTime),
-      this.seeds(merchantId, outOfTime),
-    ])
+    // Seeds first: a derived master needs its network's seed
+    const seeds = await this.seeds(merchantId, outOfTime)
+    const provisioned = await this.provision(merchantId, [...new Set(currencies)], accountingCurrency, outOfTime)
 
     return response({
       statusCode: 200,

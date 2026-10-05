@@ -29,6 +29,9 @@ const MERCHANT_TABLE = 'v1MerchantTable'
 // Outside /loudibly/api/, which the config loader reads with decryption
 const SEED_PATH = '/loudibly/hd-seed'
 
+// Longer than the Lambda can run, so an attempt this old is certainly dead
+const IN_FLIGHT_MS = 60_000
+
 const seedSk = (network: Network) => `SEED#${network}`
 const seedParameter = (merchantId: string, network: Network) => `${SEED_PATH}/${merchantId}/${network}`
 
@@ -106,6 +109,10 @@ const createSeed = async (merchantId: string, network: Network) => {
     if (claim.error?.name !== 'ConditionalCheckFailedException') throw new Error(`Failed to claim ${claimed.sk} for ${merchantId}`, { cause: claim.error })
     row = await loadRow(merchantId, claimed.sk)
     if (!row) throw new Error(`${claimed.sk} for ${merchantId} is being provisioned by another request — retry`)
+    // Joining an attempt that is still running would create a second key
+    if (row.status !== 'ready' && Date.now() - Date.parse(row.createdAt) < IN_FLIGHT_MS) {
+      throw new Error(`${claimed.sk} for ${merchantId} is being created by another request — retry in a minute`)
+    }
   }
   if (row.status === 'ready') return { status: 'ready', created: false }
 

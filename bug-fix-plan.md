@@ -58,7 +58,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–4 in code 2026-10-05; 4 not deployed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–5 in code 2026-10-05; 5 not deployed, and off until `CUSTODY_KEY_MODEL` is `hd`. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -605,12 +605,15 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   doesn't fail the registration. `scripts/setup/create-merchant-seeds.sh` does the same for
   the merchants that already exist, including `loudibly`, and finishes any seed left
   half-created. The script has not been run yet.
-- [ ] **5. Provisioning.** Behind one SSM setting per environment (`kms` until its seeds
-  exist, then `hd`): `provisionCustodialAccount` and `provisionMerchantMaster` call
-  `allocateAddress` in place of `createBlockchainKey()` and store `keyModel: 'hd'` and
-  `derivationIndex` in place of `kmsKeyId`. `merchantId` becomes required in
-  `provisionCustodialAccount`. Once every environment is on `hd`, remove the setting and the
-  KMS statements from the API role (`backend.ts:53` and the B30 step 4 grant).
+- [x] **5. Provisioning.** Behind one SSM setting per environment,
+  `/loudibly/api/CUSTODY_KEY_MODEL` (absent or `kms` until the environment's seeds exist
+  and step 6 is deployed, then `hd`): `provisionCustodialAccount` and
+  `provisionMerchantMaster` call `allocateAddress` in place of `createBlockchainKey()` and
+  store `keyModel: 'hd'` and `derivationIndex` in place of `kmsKeyId`. `merchantId` is now
+  required in `provisionCustodialAccount`. A derived master creates its merchant's seed if
+  there is none. Checked locally with `npx tsx scripts/checks/provisioning.ts`. **Do not set
+  `hd` before step 6 is deployed:** a derived account can receive deposits, but until then
+  it cannot withdraw and its token deposits are not swept.
 - [ ] **6. Signing.** Needs B1 steps 1–3 first. `withdrawFunds` and `sendOnChain`
   (`tatum.ts:173`, `:240`) take a key reference in place of `kmsKeyId`: `{ keyModel: 'kms',
   kmsKeyId }` or `{ keyModel: 'hd', owner }`. One module chooses between `awsKms.ts` and the
@@ -627,7 +630,8 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   its merchant's seed, `loudibly` for direct customers (D9). Schedule a key's deletion only
   after confirming its address holds no funds, or only testnet coins nobody needs. A master
   may hold swept tokens. Then remove the KMS signing path (`awsKms.ts`, `kms:Sign` on the
-  processor role) and the `keyModel` switch.
+  processor role), the `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and the API role's
+  KMS statements (`backend.ts:53` and the B30 step 4 grant).
 - [ ] **Verified:** on the dev account, a new TRON, USDT (TRON) and SOL account under two
   different merchants creates no KMS key, and the two merchants' addresses come from
   different seeds. A new merchant's master is derived too. A testnet deposit, sweep and

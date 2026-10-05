@@ -1,5 +1,6 @@
 import { KMSClient, CreateKeyCommand, GetPublicKeyCommand, ScheduleKeyDeletionCommand, SignCommand, SigningAlgorithmSpec, MessageType, KeySpec, KeyUsageType } from '@aws-sdk/client-kms'
-import { keccak256 } from 'js-sha3'
+// js-sha3 is CommonJS: a default import works bundled and unbundled alike
+import sha3 from 'js-sha3'
 import bs58 from 'bs58'
 import { createHash } from 'crypto'
 import * as secp256k1 from '@noble/secp256k1'
@@ -99,7 +100,7 @@ function deriveTronAddress(derPublicKey: Uint8Array): string {
   const rawPubKey = uncompressed.slice(1)
 
   // Keccak256, take last 20 bytes
-  const hash = keccak256.array(rawPubKey)
+  const hash = sha3.keccak256.array(rawPubKey)
   const addressBytes = new Uint8Array(hash).slice(-20)
 
   // Prepend TRON mainnet byte (0x41)

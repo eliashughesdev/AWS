@@ -3,6 +3,8 @@ import { ProviderName } from '../providers/ledger/ProviderName'
 import { createBlockchainKey, scheduleKeyDeletion } from './awsKms'
 import { networkFor } from './currencies'
 import { queryItemFromIndex, queryRecord } from './db'
+import { custodyKeyModel } from './config'
+import { allocateAddress } from './hdSigner'
 
 // Queue handlers sign for the account these return. The key, address, merchant
 // and chain come from the stored record, never from the message.
@@ -30,7 +32,8 @@ export interface ProvisionedAccount {
   accountNo: string
   depositAddress: string
   vAccountId: string
-  kmsKeyId: string
+  // Only a KMS-model account has its own key; a derived one has an index under its merchant's seed
+  kmsKeyId?: string
   subscriptionId: string
   accountRecord: Record<string, any>
   balanceRecord: Record<string, any>
@@ -63,13 +66,14 @@ const undoProvisioning = async (provider: ProviderName, { vAccountId, kmsKeyId, 
  */
 export const discardProvisionedAccount = async (provider: ProviderName, account: ProvisionedAccount, writeError: any) => {
   if (writeError?.$fault === 'client') return undoProvisioning(provider, account)
-  console.error(`PROVISION_UNDO_SKIPPED: write outcome unknown for ${account.accountNo}; virtual account ${account.vAccountId}, KMS key ${account.kmsKeyId} and subscription ${account.subscriptionId} may be orphaned`)
+  console.error(`PROVISION_UNDO_SKIPPED: write outcome unknown for ${account.accountNo}; virtual account ${account.vAccountId}, KMS key ${account.kmsKeyId ?? 'none'} and subscription ${account.subscriptionId} may be orphaned`)
 }
 
 /**
- * Creates the external half of a custodial account — Tatum virtual account, KMS
- * key, deposit address and webhook subscription — and returns the records to
- * persist. It deliberately does not write anything, and never touches
+ * Creates the external half of a custodial account — Tatum virtual account,
+ * its key (a KMS key, or an address under the merchant's seed, by
+ * custodyKeyModel), deposit address and webhook subscription — and returns
+ * the records to persist. It deliberately does not write anything, and never touches
  * USERPROFILE: callers put the records in their own transaction so account
  * creation stays atomic with whatever else they are writing. A caller whose
  * write then fails must call discardProvisionedAccount.
@@ -82,7 +86,7 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
   chain: string
   provider: ProviderName
   accountingCurrency: string
-  merchantId?: string
+  merchantId: string
 }): Promise<ProvisionedAccount> => {
   // `chain` is a Tatum ledger currency (TRON, SOL, USDT_TRON); the key and the
   // subscription need the network it settles on.
@@ -104,9 +108,21 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
     created.vAccountId = accountId
     console.log(`PROVISION: virtual account ${accountId}`)
 
-    const { kmsKeyId, address } = await createBlockchainKey(network, accountNo)
-    created.kmsKeyId = kmsKeyId
-    console.log(`PROVISION: KMS key ${kmsKeyId}, address ${address}`)
+    // A derived address that ends up unused only skips an index; a KMS key has to be undone
+    let key: { kmsKeyId: string } | { keyModel: 'hd', derivationIndex: number }
+    let address: string
+    if (custodyKeyModel() === 'hd') {
+      const allocated = await allocateAddress(merchantId, network)
+      key = { keyModel: 'hd', derivationIndex: allocated.derivationIndex }
+      address = allocated.address
+      console.log(`PROVISION: index ${allocated.derivationIndex} under ${merchantId}'s ${network} seed, address ${address}`)
+    } else {
+      const kmsKey = await createBlockchainKey(network, accountNo)
+      created.kmsKeyId = kmsKey.kmsKeyId
+      key = { kmsKeyId: kmsKey.kmsKeyId }
+      address = kmsKey.address
+      console.log(`PROVISION: KMS key ${kmsKey.kmsKeyId}, address ${address}`)
+    }
 
     const { address: depositAddress } = await vaProvider.assignDepositAddress({ accountId, address })
     created.depositAddress = depositAddress
@@ -121,7 +137,7 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
       accountNo,
       depositAddress,
       vAccountId: accountId,
-      kmsKeyId,
+      kmsKeyId: created.kmsKeyId,
       subscriptionId,
       accountRecord: {
         id: userId,
@@ -130,7 +146,7 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
         provider,
         accountNo,
         chain,
-        kmsKeyId,
+        ...key,
         depositAddress,
         vAccountId: accountId,
         created_at: now,

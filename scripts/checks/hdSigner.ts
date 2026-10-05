@@ -5,104 +5,12 @@
 //   npx tsx scripts/checks/hdSigner.ts
 
 import crypto from 'crypto'
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { KMSClient } from '@aws-sdk/client-kms'
-import { SSMClient } from '@aws-sdk/client-ssm'
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
 import { Keypair } from '@solana/web3.js'
 import { hdAddress, hdSignTron, seedFromRecoveryPhrase, slip10Ed25519 } from '../../amplify/utils/hdWallet'
-
-const ROLE = 'arn:aws:iam::111122223333:role/hd-signer'
-process.env.HD_SIGNER_ROLE_ARN = ROLE
-
-// ---- stand-ins -------------------------------------------------------------
-
-const tables: Record<string, Map<string, any>> = {}
-const table = (name: string) => (tables[name] ??= new Map())
-const keyOf = (item: any) => `${item.id}|${item.sk ?? ''}`
-const named = (name: string) => Object.assign(new Error(name), { name })
-const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
-
-;(DynamoDBClient.prototype as any).send = async (command: any) => {
-  const input = command.input
-  const rows = table(input.TableName)
-  const values = unmarshall(input.ExpressionAttributeValues ?? {})
-  const names = input.ExpressionAttributeNames ?? {}
-
-  switch (command.constructor.name) {
-    case 'PutItemCommand': {
-      const item = unmarshall(input.Item)
-      if (input.ConditionExpression === 'attribute_not_exists(sk)' && rows.has(keyOf(item))) throw named('ConditionalCheckFailedException')
-      rows.set(keyOf(item), item)
-      return {}
-    }
-    case 'QueryCommand': {
-      const items = [...rows.values()].filter(row => input.IndexName ? row.sk === values[':sk'] : row.id === values[':id'] && row.sk === values[':sk'])
-      return { Items: items.map(wire) }
-    }
-    case 'UpdateItemCommand': {
-      const key = unmarshall(input.Key)
-      const row = rows.get(keyOf(key))
-      const condition: string | undefined = input.ConditionExpression
-      if (condition) {
-        const missing = condition.match(/^attribute_not_exists\((#\w+)\)$/)
-        const equals = condition.match(/^(#\w+) = (:\w+)$/)
-        if (!missing && !equals) throw new Error(`stand-in: unsupported condition ${condition}`)
-        if (missing && row?.[names[missing[1]]] !== undefined) throw named('ConditionalCheckFailedException')
-        if (equals && row?.[names[equals[1]]] !== values[equals[2]]) throw named('ConditionalCheckFailedException')
-      }
-      const next = { ...(row ?? key) }
-      const update: string = input.UpdateExpression
-      if (update.startsWith('SET ')) {
-        for (const part of update.slice(4).split(', ')) {
-          const [name, value] = part.split(' = ')
-          next[names[name]] = values[value]
-        }
-      } else if (update.startsWith('ADD ')) {
-        const [name, value] = update.slice(4).split(' ')
-        next[names[name]] = (next[names[name]] ?? 0) + values[value]
-      } else throw new Error(`stand-in: unsupported update ${update}`)
-      rows.set(keyOf(key), next)
-      return input.ReturnValues ? { Attributes: wire(next) } : {}
-    }
-  }
-  throw new Error(`stand-in: unsupported command ${command.constructor.name}`)
-}
-
-const keys: { id: string, policy: any, tags: any[] }[] = []
-;(KMSClient.prototype as any).send = async (command: any) => {
-  if (command.constructor.name !== 'CreateKeyCommand') throw new Error(`stand-in: unsupported command ${command.constructor.name}`)
-  const id = `key-${keys.length + 1}`
-  keys.push({ id, policy: JSON.parse(command.input.Policy), tags: command.input.Tags })
-  return { KeyMetadata: { KeyId: id } }
-}
-
-const parameters = new Map<string, { value: string, keyId: string, type: string }>()
-;(SSMClient.prototype as any).send = async (command: any) => {
-  const input = command.input
-  if (command.constructor.name === 'PutParameterCommand') {
-    if (parameters.has(input.Name) && !input.Overwrite) throw named('ParameterAlreadyExists')
-    parameters.set(input.Name, { value: input.Value, keyId: input.KeyId, type: input.Type })
-    return {}
-  }
-  if (command.constructor.name === 'GetParameterCommand') {
-    const parameter = parameters.get(input.Name)
-    if (!parameter) throw named('ParameterNotFound')
-    return { Parameter: { Value: parameter.value } }
-  }
-  throw new Error(`stand-in: unsupported command ${command.constructor.name}`)
-}
-
-// ---- checks ----------------------------------------------------------------
+import { check, finish, kmsKeys as keys, parameters, rejects, SIGNER_ROLE as ROLE, table } from './standIns'
 
 const { handler } = await import('../../amplify/fn/hd-signer/handler')
 
-let failed = 0
-const check = (name: string, ok: boolean, detail = '') => {
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${ok || !detail ? '' : ` — ${detail}`}`)
-  if (!ok) failed++
-}
-const rejects = async (promise: Promise<unknown>) => promise.then(() => false, () => true)
 const as = (operations: string) => { process.env.HD_OPERATIONS = operations }
 const merchants = table('v1MerchantTable')
 const accounts = table('v2CustomerTable')
@@ -136,6 +44,11 @@ parameters.set('/loudibly/hd-seed/acme/SOL', { value: stored!.value, keyId: 'key
 await handler({ op: 'createSeed', merchantId: 'acme', network: 'SOL' })
 check('a resumed createSeed finishes', seedRow('acme', 'SOL').status === 'ready')
 check('a resumed createSeed keeps the stored phrase and creates no key', parameters.get('/loudibly/hd-seed/acme/SOL')!.value === stored!.value && keys.length === 1)
+
+// A creation that is still running is not joined
+merchants.set('busy|PROFILE', { id: 'busy', sk: 'PROFILE', status: 'active' })
+merchants.set('busy|SEED#TRON', { id: 'busy', sk: 'SEED#TRON', network: 'TRON', status: 'provisioning', nextIndex: 0, createdAt: new Date().toISOString() })
+check('a seed another request is creating right now is not joined', await rejects(handler({ op: 'createSeed', merchantId: 'busy', network: 'TRON' })) && keys.length === 1)
 
 // 4. Who may have a seed
 check('an unknown merchant is refused', await rejects(handler({ op: 'createSeed', merchantId: 'nobody', network: 'TRON' })))
@@ -194,5 +107,4 @@ as('createSeed,allocateAddress')
 check('the address function refuses to sign', await rejects(handler({ op: 'sign', owner: { accountNo: 'acc-1' }, rawDataHex })))
 check('an unknown operation is refused', await rejects(handler({ op: 'constructor' })))
 
-console.log(failed ? `\n${failed} check(s) FAILED` : '\nAll checks passed')
-process.exit(failed ? 1 : 0)
+finish()
