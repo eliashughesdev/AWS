@@ -3,6 +3,7 @@ import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { findAccountByAddress } from '../../../utils/custodialAccount'
+import { accountKeyRef } from '../../../utils/signing'
 
 /**
  * Consolidates a customer's just-received token deposit to that currency's
@@ -26,11 +27,12 @@ export const handleSweep = async (message: any): Promise<boolean> => {
   // The key, merchant and currency come from the stored account that owns the
   // address, never from the message
   const account = await findAccountByAddress(senderAddress)
-  if (!account?.kmsKeyId || !account.chain || account.vAccountId !== vAccountId) {
+  const key = account && accountKeyRef(account)
+  if (!account || !key || !account.chain || account.vAccountId !== vAccountId) {
     console.error(`VALIDATION_ERROR: No custodial account ${vAccountId} at ${senderAddress}; sweep ${txId} not processed`)
     return false
   }
-  const { merchantId, kmsKeyId, chain: currency } = account
+  const { merchantId, chain: currency } = account
 
   const master = await getMasterAccount(merchantId, currency)
   if (!master) {
@@ -74,7 +76,7 @@ export const handleSweep = async (message: any): Promise<boolean> => {
       senderAddress,
       recipientAddress: masterAddress,
       amount: String(amount),
-      kmsKeyId,
+      key,
     })
 
     console.log(`SWEEP_SUCCESS: depositTx=${txId}, sweepTx=${sweepTxId}`)

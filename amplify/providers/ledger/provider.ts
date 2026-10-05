@@ -1,3 +1,5 @@
+import type { KeyRef } from '../../utils/signing'
+
 export interface CreateAccountParams {
   userId: string
   currency: string
@@ -64,7 +66,7 @@ export interface WithdrawFundsParams {
   address: string
   amount: string
   currency: string
-  kmsKeyId: string
+  key: KeyRef
   senderAddress: string
   masterAccountId?: string
 }
@@ -89,7 +91,7 @@ export interface SendOnChainParams {
   senderAddress: string
   recipientAddress: string
   amount: string
-  kmsKeyId: string
+  key: KeyRef
 }
 
 export interface SendOnChainResponse {

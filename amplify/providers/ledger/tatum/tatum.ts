@@ -18,7 +18,7 @@ import { CreateAccountParams,
   import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
-import { signTronTransaction, signSolTransaction } from '../../../utils/awsKms'
+import { signSol, signTron, type KeyRef } from '../../../utils/signing'
 import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
 import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
 
@@ -166,11 +166,11 @@ export class TatumProvider implements AccountProvider {
    * Uses the custom signing mechanism — avoids Tatum KMS polling entirely:
    *   1. Create offchain withdrawal record in Tatum ledger (debits the VA)
    *   2. Build an unsigned blockchain transaction via Tatum's node proxy
-   *   3. Sign the transaction hash with AWS KMS (on-demand)
+   *   3. Sign the transaction with the sender's key (its KMS key or the HD signer)
    *   4. Broadcast the signed transaction via Tatum's broadcast endpoint
    *   5. Mark the withdrawal complete in Tatum's ledger
    */
-  async withdrawFunds({ accountId, address, amount, currency, kmsKeyId, senderAddress, masterAccountId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
+  async withdrawFunds({ accountId, address, amount, currency, key, senderAddress, masterAccountId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
     const decimals = this.DECIMAL_PLACES[chain] ?? 6
     const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
@@ -199,8 +199,8 @@ export class TatumProvider implements AccountProvider {
     let broadcasting = false
     let txId: string
     try {
-      // Steps 2 + 3: Build unsigned tx, sign with AWS KMS
-      const signedTxData = await this._buildAndSignTransaction({ chain, senderAddress, recipientAddress: address, amount: roundedAmount, kmsKeyId })
+      // Steps 2 + 3: Build unsigned tx, sign it
+      const signedTxData = await this._buildAndSignTransaction({ chain, senderAddress, recipientAddress: address, amount: roundedAmount, key })
       console.log(`DEBUG (TatumProvider): Steps 2+3 done — transaction built and signed.`)
 
       // Step 4: Broadcast the signed transaction via Tatum's broadcast endpoint
@@ -231,17 +231,17 @@ export class TatumProvider implements AccountProvider {
 
   /**
    * Moves already-custodied on-chain funds from one address to another,
-   * signed by the given KMS key — no Tatum ledger interaction. Unlike
+   * signed by the given key — no Tatum ledger interaction. Unlike
    * withdrawFunds(), there is no virtual account to debit here: used for
    * internal treasury moves (e.g. sweeping a deposit to the master account)
    * where the customer's own balance was already credited separately and
    * must not be touched again.
    */
-  async sendOnChain({ chain, senderAddress, recipientAddress, amount, kmsKeyId }: SendOnChainParams): Promise<SendOnChainResponse> {
+  async sendOnChain({ chain, senderAddress, recipientAddress, amount, key }: SendOnChainParams): Promise<SendOnChainResponse> {
     const normalizedChain = chain.toUpperCase()
     console.log(`DEBUG (TatumProvider): sendOnChain started. chain=${normalizedChain}, amount=${amount}, from=${senderAddress}, to=${recipientAddress}`)
 
-    const signedTxData = await this._buildAndSignTransaction({ chain: normalizedChain, senderAddress, recipientAddress, amount, kmsKeyId })
+    const signedTxData = await this._buildAndSignTransaction({ chain: normalizedChain, senderAddress, recipientAddress, amount, key })
     const txId = await this._broadcastTransaction(normalizedChain, signedTxData)
 
     console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
@@ -267,10 +267,10 @@ export class TatumProvider implements AccountProvider {
 
   /**
    * Steps 2 + 3: Builds an unsigned blockchain transaction via Tatum's node
-   * proxy, then signs it with AWS KMS.
+   * proxy, then signs it with the sender's key.
    */
-  private async _buildAndSignTransaction({ chain, senderAddress, recipientAddress, amount, kmsKeyId }: {
-    chain: string; senderAddress: string; recipientAddress: string; amount: string; kmsKeyId: string
+  private async _buildAndSignTransaction({ chain, senderAddress, recipientAddress, amount, key }: {
+    chain: string; senderAddress: string; recipientAddress: string; amount: string; key: KeyRef
   }): Promise<any> {
     if (chain === 'TRON') {
       // Build unsigned TRON transaction via Tatum's TronGrid node proxy
@@ -284,8 +284,7 @@ export class TatumProvider implements AccountProvider {
       const unsignedTx = buildRes.data
       if (!unsignedTx.txID) throw new Error('TRON node did not return a txID for the unsigned transaction')
 
-      // Sign the txID (32-byte hash) with AWS KMS secp256k1
-      const signatureHex = await signTronTransaction(kmsKeyId, unsignedTx.txID, senderAddress)
+      const signatureHex = await signTron(key, unsignedTx, senderAddress)
       return { ...unsignedTx, signature: [signatureHex] }
     }
 
@@ -310,7 +309,7 @@ export class TatumProvider implements AccountProvider {
       const tx = new VersionedTransaction(messageV0)
 
       // Ed25519 signature over the serialized v0 message (not a hash).
-      const signatureHex = await signSolTransaction(kmsKeyId, tx.message.serialize())
+      const signatureHex = await signSol(key, tx.message.serialize())
       tx.addSignature(fromPubkey, Buffer.from(signatureHex, 'hex'))
 
       // Raw signed tx (base64) — _broadcastTransaction submits it to the Solana
@@ -333,7 +332,7 @@ export class TatumProvider implements AccountProvider {
       const estimatedBandwidth = estimateTronBandwidth(unsignedTx)
       await ensureBandwidth(senderAddress, estimatedBandwidth)
 
-      const signatureHex = await signTronTransaction(kmsKeyId, unsignedTx.txID, senderAddress)
+      const signatureHex = await signTron(key, unsignedTx, senderAddress)
       return { ...unsignedTx, signature: [signatureHex] }
     }
 

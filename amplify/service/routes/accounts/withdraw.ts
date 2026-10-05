@@ -5,6 +5,7 @@ import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
+import { accountKeyRef } from '../../../utils/signing'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -61,8 +62,8 @@ export default class WithdrawHandler {
       return processError(100006)
     }
 
-    if (!kmsKeyId) {
-      console.error(`ERROR: Account ${accountNumber} has no kmsKeyId — cannot create AWS KMS signing request`)
+    if (!accountKeyRef(accountRecord)) {
+      console.error(`ERROR: Account ${accountNumber} has no signing key — cannot withdraw`)
       return processError(100006)
     }
 

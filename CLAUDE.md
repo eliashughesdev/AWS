@@ -81,11 +81,14 @@ These only work against a deployed stack (the target URL, e.g.
 route added in code isn't reachable until `ampx pipeline-deploy` runs. Signing credentials for
 these live in `amplify/service/routes/e2e/credentials.ts`.
 
-Two checks run locally with no deployed stack, both for derived wallets:
+Four checks run locally with no deployed stack, all around custody keys:
 `npx tsx scripts/checks/hdWallet.ts` (the derivation module, against published test vectors
-and other libraries) and `npx tsx scripts/checks/hdSigner.ts` (the signer, against
-in-memory stand-ins for DynamoDB, KMS and SSM). Run them after touching those files or upgrading
-`@noble/*` or `@scure/*`.
+and other libraries), `npx tsx scripts/checks/hdSigner.ts` (the signer),
+`npx tsx scripts/checks/provisioning.ts` (account and master provisioning) and
+`npx tsx scripts/checks/signing.ts` (withdrawals and sweeps, verifying whose key signed). The
+last three run against in-memory stand-ins for AWS, Tatum and the chains
+(`scripts/checks/standIns.ts`) and cover the KMS and derived models alike. Run them after touching
+provisioning, signing, the withdrawal or sweep handlers, or upgrading `@noble/*` or `@scure/*`.
 
 Deployed logs: the `aws-logs` project skill (`.claude/skills/aws-logs/`) checks CloudWatch for
 the AWS account linked to the current branch. The branch → account/region/profile map is in
@@ -180,13 +183,21 @@ sweep handlers load the account from DynamoDB (`findAccountForUser`, `findAccoun
 `utils/custodialAccount.ts`) and take the key, address, merchant and chain from it; never sign with
 a key reference taken from a message.
 
-**Derived (HD) wallets (B31, being rolled out — nothing calls them yet).** `utils/hdWallet.ts`
+**Derived (HD) wallets (B31, being rolled out — built end to end, off until an environment is switched).** `utils/hdWallet.ts`
 derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts` is the only code
 that reads a seed: one recovery phrase per merchant per network, an SSM SecureString under
 `/loudibly/hd-seed/` with its own KMS key whose policy lets only `HdSignerRole` decrypt.
 `v1MerchantTable` `SEED#<network>` rows hold the key id, parameter name and `nextIndex`, never
 secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `allocateAddress`;
-only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may). Keep
+only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may); callers
+go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and by
+`scripts/setup/create-merchant-seeds.sh` for merchants registered before that. New accounts and
+masters use a seed only where the SSM setting `/loudibly/api/CUSTODY_KEY_MODEL` is `hd`
+(`custodyKeyModel()` in `utils/config.ts`); otherwise they still get a KMS key. A derived record
+has `keyModel: 'hd'` and `derivationIndex` and no `kmsKeyId`. Anything that signs goes through
+`utils/signing.ts`: `accountKeyRef(record)` (or `getMasterAccount(...).key`) gives a `KeyRef`, and
+`signTron` / `signSol` send it to KMS or to the signer. Never read `kmsKeyId` to decide how to
+sign, and never build a `KeyRef` from a queue message. Keep
 that split: the API must never be able to obtain a signature, and nothing outside the handler may
 read the seed path. Never tag a seed key `service=loudibly`; that tag marks the per-account keys
 that B31 deletes.

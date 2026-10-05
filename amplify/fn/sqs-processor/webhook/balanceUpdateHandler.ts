@@ -3,6 +3,7 @@ import { currencyForAsset, isNativeCurrency } from '../../../utils/currencies'
 import { sendToQueue } from '../../../utils/sqs'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
 import { findAccountByAddress } from '../../../utils/custodialAccount'
+import { accountKeyRef } from '../../../utils/signing'
 
 interface IncomingBlockchainTransactionRequest {
   address: string;             // the watched account this event is about
@@ -155,24 +156,17 @@ const FEE_PAYER_RESOLVERS: Record<string, (body: IncomingBlockchainTransactionRe
   SOL: (body) => body.address,
 }
 
-async function enqueueSweep(params: {
-  vAccountId: string
-  merchantId?: string
-  senderAddress: string
-  kmsKeyId?: string
-  amount: number
-  currency: string
-  txId: string
-}): Promise<void> {
-  if (!params.kmsKeyId) {
-    console.error(`SWEEP_ENQUEUE_ERROR: Account ${params.vAccountId} has no kmsKeyId — cannot sweep`)
+async function enqueueSweep(account: Record<string, any>, sweep: { senderAddress: string, amount: number, currency: string, txId: string }): Promise<void> {
+  if (!accountKeyRef(account)) {
+    console.error(`SWEEP_ENQUEUE_ERROR: Account ${account.vAccountId} has no signing key — cannot sweep`)
     return
   }
 
+  // The handler takes the key from the stored account; kmsKeyId only travels for a handler still on older code
   const queueUrl = process.env.SWEEP_QUEUE_URL || ''
-  const result = await sendToQueue(queueUrl, { queue: 'v1-sweep-queue', ...params })
+  const result = await sendToQueue(queueUrl, { queue: 'v1-sweep-queue', vAccountId: account.vAccountId, merchantId: account.merchantId, kmsKeyId: account.kmsKeyId, ...sweep })
   if (!result.success) {
-    console.error(`SWEEP_ENQUEUE_ERROR: Failed to queue sweep for tx ${params.txId}:`, result.e)
+    console.error(`SWEEP_ENQUEUE_ERROR: Failed to queue sweep for tx ${sweep.txId}:`, result.e)
   }
 }
 
@@ -307,15 +301,7 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   // Token deposits (e.g. USDT_TRON) get swept on-chain to the master account
   // right after crediting — native-chain deposits are left where they are.
   if (credited && !isNativeCurrency(currency)) {
-    await enqueueSweep({
-      vAccountId: primary.vAccountId,
-      merchantId: primary.merchantId,
-      senderAddress: body.address,
-      kmsKeyId: primary.kmsKeyId,
-      amount,
-      currency,
-      txId,
-    })
+    await enqueueSweep(primary, { senderAddress: body.address, amount, currency, txId })
   }
 
   return credited

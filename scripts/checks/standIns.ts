@@ -1,6 +1,6 @@
-// In-memory stand-ins for the AWS services the derived-wallet code talks to
-// (DynamoDB, KMS, SSM and the Lambda that runs the signer), plus the helpers
-// the checks share. Importing this file installs them.
+// In-memory stand-ins for what the derived-wallet code talks to (DynamoDB, KMS,
+// SSM, the Lambda that runs the signer, and Tatum's account calls), plus the
+// helpers the checks share. Importing this file installs them.
 
 import crypto from 'crypto'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
@@ -8,6 +8,8 @@ import { KMSClient } from '@aws-sdk/client-kms'
 import { LambdaClient } from '@aws-sdk/client-lambda'
 import { SSMClient } from '@aws-sdk/client-ssm'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
+import { secp256k1 } from '@noble/curves/secp256k1'
+import { TatumProvider } from '../../amplify/providers/ledger/tatum/tatum'
 
 export const SIGNER_ROLE = 'arn:aws:iam::111122223333:role/hd-signer'
 process.env.HD_SIGNER_ROLE_ARN = SIGNER_ROLE
@@ -35,8 +37,16 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
       return {}
     }
     case 'QueryCommand': {
-      const items = [...rows.values()].filter(row => input.IndexName ? row.sk === values[':sk'] : row.id === values[':id'] && row.sk === values[':sk'])
-      return { Items: items.map(wire) }
+      // Key conditions joined by AND: `attr = :v`, `#alias = :v`, `begins_with(attr, :v)`
+      const tests = (input.KeyConditionExpression as string).split(' AND ').map(part => {
+        const prefix = part.match(/^begins_with\((#?\w+), (:\w+)\)$/)
+        const equals = part.match(/^(#?\w+) = (:\w+)$/)
+        if (!prefix && !equals) throw new Error(`stand-in: unsupported key condition ${part}`)
+        const [, attribute, value] = (prefix ?? equals)!
+        const name = names[attribute] ?? attribute
+        return (row: any) => prefix ? String(row[name] ?? '').startsWith(values[value]) : row[name] === values[value]
+      })
+      return { Items: [...rows.values()].filter(row => tests.every(test => test(row))).map(wire) }
     }
     case 'UpdateItemCommand': {
       const key = unmarshall(input.Key)
@@ -69,7 +79,24 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
 
 // ---- KMS -------------------------------------------------------------------
 
-export const kmsKeys: { id: string, usage: string, policy: any, tags: any[], publicKey?: Buffer, deletionScheduled?: boolean }[] = []
+export const kmsKeys: { id: string, usage: string, policy: any, tags: any[], publicKey?: Buffer, sign?: (message: Uint8Array) => Uint8Array, deletionScheduled?: boolean }[] = []
+
+// A per-account signing key is a real key pair, so what it signs can be verified
+const signingKey = (keySpec: string) => {
+  if (keySpec === 'ECC_SECG_P256K1') {
+    const privateKey = secp256k1.utils.randomPrivateKey()
+    return {
+      // SubjectPublicKeyInfo header for secp256k1, then the uncompressed point
+      publicKey: Buffer.concat([Buffer.from('3056301006072a8648ce3d020106052b8104000a034200', 'hex'), secp256k1.getPublicKey(privateKey, false)]),
+      sign: (digest: Uint8Array) => secp256k1.sign(digest, privateKey).toDERRawBytes(),
+    }
+  }
+  const pair = crypto.generateKeyPairSync('ed25519')
+  return {
+    publicKey: pair.publicKey.export({ type: 'spki', format: 'der' }),
+    sign: (message: Uint8Array) => crypto.sign(null, message, pair.privateKey),
+  }
+}
 
 ;(KMSClient.prototype as any).send = async (command: any) => {
   const input = command.input
@@ -77,17 +104,14 @@ export const kmsKeys: { id: string, usage: string, policy: any, tags: any[], pub
   switch (command.constructor.name) {
     case 'CreateKeyCommand': {
       const id = `key-${kmsKeys.length + 1}`
-      // A per-account signing key needs a public key for its address
-      const publicKey = input.KeyUsage !== 'SIGN_VERIFY'
-        ? undefined
-        : input.KeySpec === 'ECC_SECG_P256K1'
-          ? crypto.generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ type: 'spki', format: 'der' })
-          : crypto.generateKeyPairSync('ed25519').publicKey.export({ type: 'spki', format: 'der' })
-      kmsKeys.push({ id, usage: input.KeyUsage, policy: input.Policy ? JSON.parse(input.Policy) : null, tags: input.Tags ?? [], publicKey })
+      const pair = input.KeyUsage === 'SIGN_VERIFY' ? signingKey(input.KeySpec) : {}
+      kmsKeys.push({ id, usage: input.KeyUsage, policy: input.Policy ? JSON.parse(input.Policy) : null, tags: input.Tags ?? [], ...pair })
       return { KeyMetadata: { KeyId: id } }
     }
     case 'GetPublicKeyCommand':
       return { PublicKey: key!.publicKey }
+    case 'SignCommand':
+      return { Signature: key!.sign!(input.Message) }
     case 'ScheduleKeyDeletionCommand':
       key!.deletionScheduled = true
       return {}
@@ -130,7 +154,44 @@ const OPERATIONS: Record<string, string> = { hdAddressFn: 'createSeed,allocateAd
   }
 }
 
+// ---- Tatum: the calls provisioning makes -------------------------------------
+
+export const tatum = {
+  accounts: [] as string[],
+  assigned: [] as string[],
+  subscriptions: [] as string[],
+  cancelled: [] as string[],
+  removed: [] as string[],
+  deactivated: [] as string[],
+  failSubscription: false,
+}
+
+process.env.TATUM_WEBHOOK_URL = 'https://example.test/webhook'
+
+Object.assign(TatumProvider.prototype, {
+  createVaAccount: async () => {
+    const accountId = `va-${tatum.accounts.length + 1}`
+    tatum.accounts.push(accountId)
+    return { accountId }
+  },
+  assignDepositAddress: async ({ address }: { address: string }) => {
+    tatum.assigned.push(address)
+    return { address }
+  },
+  createSubscription: async () => {
+    if (tatum.failSubscription) throw new Error('Tatum refused the subscription')
+    const subscriptionId = `sub-${tatum.subscriptions.length + 1}`
+    tatum.subscriptions.push(subscriptionId)
+    return { subscriptionId }
+  },
+  cancelSubscription: async (subscriptionId: string) => { tatum.cancelled.push(subscriptionId) },
+  removeDepositAddress: async ({ address }: { address: string }) => { tatum.removed.push(address) },
+  deactivateVaAccount: async (accountId: string) => { tatum.deactivated.push(accountId) },
+})
+
 // ---- shared by the checks --------------------------------------------------
+
+export const useKeyModel = (model?: 'hd') => { model ? process.env.CUSTODY_KEY_MODEL = model : delete process.env.CUSTODY_KEY_MODEL }
 
 let failed = 0
 export const check = (name: string, ok: boolean, detail = '') => {

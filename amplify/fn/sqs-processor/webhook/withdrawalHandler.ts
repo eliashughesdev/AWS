@@ -6,6 +6,7 @@ import { notifyPaymentResult } from '../../../utils/websocket'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { findAccountForUser } from '../../../utils/custodialAccount'
+import { accountKeyRef } from '../../../utils/signing'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
@@ -26,7 +27,8 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
   try {
     account = await findAccountForUser(userId, vAccountId)
     // Nothing was debited for an account that doesn't exist, so nothing is rolled back
-    if (!account?.kmsKeyId || !account.chain) {
+    const accountKey = account && accountKeyRef(account)
+    if (!account || !accountKey || !account.chain) {
       console.error(`VALIDATION_ERROR: No custodial account ${vAccountId} for user ${userId}; withdrawal ${transactionId} not processed`)
       return false
     }
@@ -39,13 +41,13 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     // is still what gets debited in Tatum's ledger; only the on-chain
     // signer/source changes.
     let signerAddress = account.depositAddress
-    let signerKmsKeyId = account.kmsKeyId
+    let signerKey = accountKey
     let masterAccountId: string | undefined
     if (!isNativeCurrency(chain)) {
       const master = await getMasterAccount(merchantId, chain)
       if (!master) throw new Error(`No ${chain} master for merchant ${merchantId ?? '(none)'} — cannot process token withdrawal`)
       signerAddress = master.depositAddress
-      signerKmsKeyId = master.kmsKeyId
+      signerKey = master.key
       masterAccountId = master.vAccountId
     }
 
@@ -55,7 +57,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       address: destinationAddress,
       amount: String(cryptoAmount),
       currency: chain,
-      kmsKeyId: signerKmsKeyId,
+      key: signerKey,
       senderAddress: signerAddress,
       masterAccountId,
     })

@@ -58,7 +58,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–5 in code 2026-10-05; 5 not deployed, and off until `CUSTODY_KEY_MODEL` is `hd`. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–6 in code 2026-10-05; 6 not deployed. Derived accounts are off until `CUSTODY_KEY_MODEL` is `hd`. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -106,7 +106,7 @@ Any signed-in user can:
   and `vAccountId` for a withdrawal, by deposit address for a sweep) and take `kmsKeyId`,
   `depositAddress`, `merchantId` and `chain` from the stored record. Never sign with key
   material taken from a message. The producers still send those fields so a deploy can't
-  strand a message in flight; B31 step 6 removes them.
+  strand a message in flight; B31 step 8 removes them.
 - [ ] **4.** Payment handler: accept `depositMode`, `vAccountId` and `cryptoAmount` only from
   `deposit.ts`. Either use a separate deposit queue or sign the deposit fields, then
   re-check that the `vAccountId` belongs to `userId`.
@@ -614,11 +614,15 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   there is none. Checked locally with `npx tsx scripts/checks/provisioning.ts`. **Do not set
   `hd` before step 6 is deployed:** a derived account can receive deposits, but until then
   it cannot withdraw and its token deposits are not swept.
-- [ ] **6. Signing.** Needs B1 steps 1–3 first. `withdrawFunds` and `sendOnChain`
+- [x] **6. Signing.** Needs B1 steps 1–3 first. `withdrawFunds` and `sendOnChain`
   (`tatum.ts:173`, `:240`) take a key reference in place of `kmsKeyId`: `{ keyModel: 'kms',
-  kmsKeyId }` or `{ keyModel: 'hd', owner }`. One module chooses between `awsKms.ts` and the
-  signer. `withdrawalHandler.ts` and `sweepHandler.ts` build the reference from the record
-  they loaded. `withdraw.ts:64` and `balanceUpdateHandler.ts:178` stop requiring `kmsKeyId`.
+  kmsKeyId }` or `{ keyModel: 'hd', owner }`. `utils/signing.ts` builds it from a stored
+  record and chooses between `awsKms.ts` and the signer. `withdrawalHandler.ts` and
+  `sweepHandler.ts` build the reference from the record they loaded, and `getMasterAccount`
+  returns a master's. `/accounts/withdraw` and the sweep enqueue accept a derived account.
+  For TRON the signer hashes `raw_data` itself and the result is compared with the node's
+  `txID`. Checked locally with `npx tsx scripts/checks/signing.ts`, for KMS and derived
+  accounts alike. Not yet run on a deployed stack.
 - [ ] **7. Backup and restore.** Required before any mainnet seed is created; testnet can run
   without it. The signer also encrypts each new seed to an offline backup public key and
   stores that copy in a separate, versioned bucket with object lock. The private half is
@@ -630,7 +634,8 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   its merchant's seed, `loudibly` for direct customers (D9). Schedule a key's deletion only
   after confirming its address holds no funds, or only testnet coins nobody needs. A master
   may hold swept tokens. Then remove the KMS signing path (`awsKms.ts`, `kms:Sign` on the
-  processor role), the `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and the API role's
+  processor role), the key fields the withdrawal and sweep messages still carry, the
+  `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and the API role's
   KMS statements (`backend.ts:53` and the B30 step 4 grant).
 - [ ] **Verified:** on the dev account, a new TRON, USDT (TRON) and SOL account under two
   different merchants creates no KMS key, and the two merchants' addresses come from

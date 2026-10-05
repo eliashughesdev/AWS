@@ -5,6 +5,10 @@ import type { Network } from './currencies'
 // names are the ones set in backend.ts; each caller's role may invoke only the
 // one it needs.
 const ADDRESS_FUNCTION = 'hdAddressFn'
+const SIGNER_FUNCTION = 'hdSignerFn'
+
+// Who a signature is for: a customer account, or a merchant's master for a currency
+export type SeedOwner = { accountNo: string } | { merchantId: string, currency: string }
 
 const lambda = new LambdaClient({})
 
@@ -25,3 +29,11 @@ export const createSeed = (merchantId: string, network: Network) =>
 /** The next unused address under a merchant's seed. Fails when the merchant has no ready seed. */
 export const allocateAddress = (merchantId: string, network: Network) =>
   invoke<{ derivationIndex: number, address: string }>(ADDRESS_FUNCTION, { op: 'allocateAddress', merchantId, network })
+
+/**
+ * Signs for a derived account or master. TRON takes the transaction's
+ * `raw_data_hex` and gets back the txId the signer computed; Solana takes the
+ * serialized message in base64.
+ */
+export const signWithSeed = (owner: SeedOwner, payload: { rawDataHex: string } | { messageBase64: string }) =>
+  invoke<{ signature: string, txId?: string }>(SIGNER_FUNCTION, { op: 'sign', owner, ...payload })

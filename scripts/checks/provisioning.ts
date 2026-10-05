@@ -6,49 +6,12 @@
 //   npx tsx scripts/checks/provisioning.ts
 
 import crypto from 'crypto'
-import { check, finish, kmsKeys, parameters, rejects, table } from './standIns'
-import { TatumProvider } from '../../amplify/providers/ledger/tatum/tatum'
+import { check, finish, kmsKeys, parameters, rejects, table, tatum, useKeyModel as useModel } from './standIns'
 import { ProviderName } from '../../amplify/providers/ledger/ProviderName'
 import { discardProvisionedAccount, provisionCustodialAccount } from '../../amplify/utils/custodialAccount'
 import { provisionMerchantMaster } from '../../amplify/utils/merchantMaster'
 import { createSeed } from '../../amplify/utils/hdSigner'
 import { hdAddress, hdSignTron, seedFromRecoveryPhrase } from '../../amplify/utils/hdWallet'
-
-process.env.TATUM_WEBHOOK_URL = 'https://example.test/webhook'
-
-// ---- Tatum stand-in ---------------------------------------------------------
-
-const tatum = {
-  accounts: [] as string[],
-  assigned: [] as string[],
-  subscriptions: [] as string[],
-  cancelled: [] as string[],
-  removed: [] as string[],
-  deactivated: [] as string[],
-  failSubscription: false,
-}
-Object.assign(TatumProvider.prototype, {
-  createVaAccount: async () => {
-    const accountId = `va-${tatum.accounts.length + 1}`
-    tatum.accounts.push(accountId)
-    return { accountId }
-  },
-  assignDepositAddress: async ({ address }: { address: string }) => {
-    tatum.assigned.push(address)
-    return { address }
-  },
-  createSubscription: async () => {
-    if (tatum.failSubscription) throw new Error('Tatum refused the subscription')
-    const subscriptionId = `sub-${tatum.subscriptions.length + 1}`
-    tatum.subscriptions.push(subscriptionId)
-    return { subscriptionId }
-  },
-  cancelSubscription: async (subscriptionId: string) => { tatum.cancelled.push(subscriptionId) },
-  removeDepositAddress: async ({ address }: { address: string }) => { tatum.removed.push(address) },
-  deactivateVaAccount: async (accountId: string) => { tatum.deactivated.push(accountId) },
-})
-
-// ---- helpers ----------------------------------------------------------------
 
 const merchants = table('v1MerchantTable')
 const accounts = table('v2CustomerTable')
@@ -59,7 +22,6 @@ const provision = (merchantId: string, chain = 'TRON') =>
 const seedOf = (merchantId: string, network: string) => seedFromRecoveryPhrase(parameters.get(`/loudibly/hd-seed/${merchantId}/${network}`)!.value)
 const signingKeys = () => kmsKeys.filter(k => k.usage === 'SIGN_VERIFY').length
 const deletions = () => kmsKeys.filter(k => k.deletionScheduled).length
-const useModel = (model?: 'hd') => { model ? process.env.CUSTODY_KEY_MODEL = model : delete process.env.CUSTODY_KEY_MODEL }
 
 // 1. With no setting, an account still gets its own KMS key
 useModel()
