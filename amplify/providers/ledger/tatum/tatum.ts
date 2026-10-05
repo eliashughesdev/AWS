@@ -166,7 +166,7 @@ export class TatumProvider implements AccountProvider {
    * Uses the custom signing mechanism — avoids Tatum KMS polling entirely:
    *   1. Create offchain withdrawal record in Tatum ledger (debits the VA)
    *   2. Build an unsigned blockchain transaction via Tatum's node proxy
-   *   3. Sign the transaction with the sender's key (its KMS key or the HD signer)
+   *   3. Sign the transaction with the sender's key (the HD signer)
    *   4. Broadcast the signed transaction via Tatum's broadcast endpoint
    *   5. Mark the withdrawal complete in Tatum's ledger
    */
@@ -284,7 +284,7 @@ export class TatumProvider implements AccountProvider {
       const unsignedTx = buildRes.data
       if (!unsignedTx.txID) throw new Error('TRON node did not return a txID for the unsigned transaction')
 
-      const signatureHex = await signTron(key, unsignedTx, senderAddress)
+      const signatureHex = await signTron(key, unsignedTx)
       return { ...unsignedTx, signature: [signatureHex] }
     }
 
@@ -332,7 +332,7 @@ export class TatumProvider implements AccountProvider {
       const estimatedBandwidth = estimateTronBandwidth(unsignedTx)
       await ensureBandwidth(senderAddress, estimatedBandwidth)
 
-      const signatureHex = await signTron(key, unsignedTx, senderAddress)
+      const signatureHex = await signTron(key, unsignedTx)
       return { ...unsignedTx, signature: [signatureHex] }
     }
 

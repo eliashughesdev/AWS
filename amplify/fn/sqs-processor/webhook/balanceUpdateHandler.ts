@@ -162,9 +162,9 @@ async function enqueueSweep(account: Record<string, any>, sweep: { senderAddress
     return
   }
 
-  // The handler takes the key from the stored account; kmsKeyId only travels for a handler still on older code
+  // The handler finds the account by senderAddress and takes its key and merchant from the stored record
   const queueUrl = process.env.SWEEP_QUEUE_URL || ''
-  const result = await sendToQueue(queueUrl, { queue: 'v1-sweep-queue', vAccountId: account.vAccountId, merchantId: account.merchantId, kmsKeyId: account.kmsKeyId, ...sweep })
+  const result = await sendToQueue(queueUrl, { queue: 'v1-sweep-queue', vAccountId: account.vAccountId, ...sweep })
   if (!result.success) {
     console.error(`SWEEP_ENQUEUE_ERROR: Failed to queue sweep for tx ${sweep.txId}:`, result.e)
   }

@@ -2,13 +2,11 @@
 // SSM, the Lambda that runs the signer, and Tatum's account calls), plus the
 // helpers the checks share. Importing this file installs them.
 
-import crypto from 'crypto'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { KMSClient } from '@aws-sdk/client-kms'
 import { LambdaClient } from '@aws-sdk/client-lambda'
 import { SSMClient } from '@aws-sdk/client-ssm'
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb'
-import { secp256k1 } from '@noble/curves/secp256k1'
 import { TatumProvider } from '../../amplify/providers/ledger/tatum/tatum'
 
 export const SIGNER_ROLE = 'arn:aws:iam::111122223333:role/hd-signer'
@@ -79,44 +77,14 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
 
 // ---- KMS -------------------------------------------------------------------
 
-export const kmsKeys: { id: string, usage: string, policy: any, tags: any[], publicKey?: Buffer, sign?: (message: Uint8Array) => Uint8Array, deletionScheduled?: boolean }[] = []
-
-// A per-account signing key is a real key pair, so what it signs can be verified
-const signingKey = (keySpec: string) => {
-  if (keySpec === 'ECC_SECG_P256K1') {
-    const privateKey = secp256k1.utils.randomPrivateKey()
-    return {
-      // SubjectPublicKeyInfo header for secp256k1, then the uncompressed point
-      publicKey: Buffer.concat([Buffer.from('3056301006072a8648ce3d020106052b8104000a034200', 'hex'), secp256k1.getPublicKey(privateKey, false)]),
-      sign: (digest: Uint8Array) => secp256k1.sign(digest, privateKey).toDERRawBytes(),
-    }
-  }
-  const pair = crypto.generateKeyPairSync('ed25519')
-  return {
-    publicKey: pair.publicKey.export({ type: 'spki', format: 'der' }),
-    sign: (message: Uint8Array) => crypto.sign(null, message, pair.privateKey),
-  }
-}
+export const kmsKeys: { id: string, usage: string, policy: any, tags: any[] }[] = []
 
 ;(KMSClient.prototype as any).send = async (command: any) => {
   const input = command.input
-  const key = kmsKeys.find(k => k.id === input.KeyId)
-  switch (command.constructor.name) {
-    case 'CreateKeyCommand': {
-      const id = `key-${kmsKeys.length + 1}`
-      const pair = input.KeyUsage === 'SIGN_VERIFY' ? signingKey(input.KeySpec) : {}
-      kmsKeys.push({ id, usage: input.KeyUsage, policy: input.Policy ? JSON.parse(input.Policy) : null, tags: input.Tags ?? [], ...pair })
-      return { KeyMetadata: { KeyId: id } }
-    }
-    case 'GetPublicKeyCommand':
-      return { PublicKey: key!.publicKey }
-    case 'SignCommand':
-      return { Signature: key!.sign!(input.Message) }
-    case 'ScheduleKeyDeletionCommand':
-      key!.deletionScheduled = true
-      return {}
-  }
-  throw new Error(`stand-in: unsupported command ${command.constructor.name}`)
+  if (command.constructor.name !== 'CreateKeyCommand') throw new Error(`stand-in: unsupported command ${command.constructor.name}`)
+  const id = `key-${kmsKeys.length + 1}`
+  kmsKeys.push({ id, usage: input.KeyUsage, policy: input.Policy ? JSON.parse(input.Policy) : null, tags: input.Tags ?? [] })
+  return { KeyMetadata: { KeyId: id } }
 }
 
 // ---- SSM -------------------------------------------------------------------
@@ -190,8 +158,6 @@ Object.assign(TatumProvider.prototype, {
 })
 
 // ---- shared by the checks --------------------------------------------------
-
-export const useKeyModel = (model?: 'hd') => { model ? process.env.CUSTODY_KEY_MODEL = model : delete process.env.CUSTODY_KEY_MODEL }
 
 let failed = 0
 export const check = (name: string, ok: boolean, detail = '') => {

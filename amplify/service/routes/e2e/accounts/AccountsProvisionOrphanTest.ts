@@ -1,9 +1,9 @@
 import crypto from 'crypto'
 import { customer } from '../credentials'
 
-// B30: the KMS key is created before Tatum rejects the accounting currency.
-// Expect a 400 with error_code 100002. Before the fix the new key stays Enabled
-// and unreferenced; after it, the key is PendingDeletion.
+// B30: Tatum rejects the accounting currency, so provisioning fails at its
+// first step. Expect a 400 with error_code 100002 and nothing left behind: no
+// Tatum account, and no index used under the merchant's seed.
 
 const path = '/v1/accounts/account'
 

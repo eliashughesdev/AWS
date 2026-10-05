@@ -24,7 +24,7 @@ export async function getMasterAccount(merchantId: string | undefined, currency:
   const row = result.success ? result.res?.[0] : undefined
   if (row?.status !== 'ready') return null
 
-  const key: KeyRef | null = row.keyModel === 'hd' ? { keyModel: 'hd', owner } : row.kmsKeyId ? { keyModel: 'kms', kmsKeyId: row.kmsKeyId } : null
-  if (!key) return null
-  return { depositAddress: row.depositAddress, key, vAccountId: row.vAccountId }
+  // A master that isn't a derived wallet has nothing that can sign for it
+  if (row.keyModel !== 'hd') return null
+  return { depositAddress: row.depositAddress, key: owner, vAccountId: row.vAccountId }
 }

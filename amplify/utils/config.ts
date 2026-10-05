@@ -34,16 +34,6 @@ export function brandName(): string {
   return name
 }
 
-/**
- * How new custodial accounts and masters get their key: `kms` (one KMS key
- * each, the default) or `hd` (an address under the merchant's seed). Set
- * CUSTODY_KEY_MODEL to `hd` only once the environment's seeds exist. An
- * existing account keeps the model it was created with.
- */
-export function custodyKeyModel(): 'kms' | 'hd' {
-  return process.env.CUSTODY_KEY_MODEL === 'hd' ? 'hd' : 'kms'
-}
-
 const DEFAULT_CLAIM_TOKEN_TTL_SECONDS = 7 * 86_400
 
 /**

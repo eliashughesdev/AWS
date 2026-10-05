@@ -1,18 +1,17 @@
 // Runs withdrawals and sweeps end to end against in-memory stand-ins for AWS,
-// Tatum and the two chains, for KMS-model and derived accounts alike. The
-// stand-in chains accept a transaction only as far as recording who signed it,
-// so each check can say whose key actually signed. Exits 1 on any mismatch. Run:
+// Tatum and the two chains. The stand-in chains accept a transaction only as
+// far as recording who signed it, so each check can say whose key actually
+// signed. Exits 1 on any mismatch. Run:
 //
 //   npx tsx scripts/checks/signing.ts
 
 import crypto from 'crypto'
 import axios from 'axios'
 import { Connection, VersionedTransaction } from '@solana/web3.js'
-import { secp256k1 } from '@noble/curves/secp256k1'
-import { check, finish, rejects, table, useKeyModel } from './standIns'
+import { TronWeb, utils as tronUtils } from 'tronweb'
+import { check, finish, rejects, table } from './standIns'
 import { TatumProvider } from '../../amplify/providers/ledger/tatum/tatum'
 import { ProviderName } from '../../amplify/providers/ledger/ProviderName'
-import { deriveAddress } from '../../amplify/utils/awsKms'
 import { provisionCustodialAccount } from '../../amplify/utils/custodialAccount'
 import { provisionMerchantMaster } from '../../amplify/utils/merchantMaster'
 import { getMasterAccount } from '../../amplify/utils/masterAccount'
@@ -25,13 +24,8 @@ import { handleSweep } from '../../amplify/fn/sqs-processor/webhook/sweepHandler
 
 const sha256 = (hex: string) => crypto.createHash('sha256').update(Buffer.from(hex, 'hex')).digest('hex')
 
-// The TRON address whose key produced an r + s + v signature over a txID
-const tronSigner = (txId: string, signature: string) => {
-  const recovered = secp256k1.Signature.fromCompact(signature.slice(0, 128))
-    .addRecoveryBit(parseInt(signature.slice(128), 16) - 27)
-    .recoverPublicKey(txId)
-  return deriveAddress('TRON', recovered.toRawBytes(false))
-}
+// The TRON address whose key produced an r + s + v signature over a txID, by tronweb's own recovery
+const tronSigner = (txId: string, signature: string) => TronWeb.address.fromHex(tronUtils.crypto.ecRecover(txId, signature))
 
 const unsignedTron = (owner: string) => {
   const raw = crypto.randomBytes(120).toString('hex')
@@ -96,39 +90,33 @@ const withdrawal = (vAccountId: string, destinationAddress: string) => ({
   chain: 'TRON',
 })
 
-useKeyModel()
-const kmsTron = await open('TRON')
-useKeyModel('hd')
 await createSeed('acme', 'TRON')
 await createSeed('acme', 'SOL')
 const hdTron = await open('TRON')
+const otherTron = await open('TRON')
 const hdSol = await open('SOL')
 const hdToken = await open('TUSDT_TRON')
 await provisionMerchantMaster('acme', 'TUSDT_TRON', 'USD')
 const master = (await getMasterAccount('acme', 'TUSDT_TRON'))!
 
 // 1. Choosing the key from a stored record
-check('a derived account\'s key is the signer, named by account number', JSON.stringify(accountKeyRef(hdTron.accountRecord)) === JSON.stringify({ keyModel: 'hd', owner: { accountNo: hdTron.accountNo } }))
-check('a KMS account\'s key is its KMS key', JSON.stringify(accountKeyRef(kmsTron.accountRecord)) === JSON.stringify({ keyModel: 'kms', kmsKeyId: kmsTron.kmsKeyId }))
-check('a record with neither has no key', accountKeyRef({ accountNo: 'x', chain: 'TRON' }) === null)
-check('a derived master\'s key is the signer, named by merchant and currency', JSON.stringify(master.key) === JSON.stringify({ keyModel: 'hd', owner: { merchantId: 'acme', currency: 'TUSDT_TRON' } }))
+check('an account\'s key names it by account number', JSON.stringify(accountKeyRef(hdTron.accountRecord)) === JSON.stringify({ accountNo: hdTron.accountNo }))
+check('an old KMS-model record has no key', accountKeyRef({ accountNo: 'x', chain: 'TRON', kmsKeyId: 'an-old-kms-key' }) === null)
+check('a master\'s key names it by merchant and currency', JSON.stringify(master.key) === JSON.stringify({ merchantId: 'acme', currency: 'TUSDT_TRON' }))
 
-// 2. Signing a TRON transaction either way
+// 2. Signing a TRON transaction
 const tx = unsignedTron(hdTron.depositAddress)
-check('the signer\'s signature is by the derived account\'s own key', tronSigner(tx.txID, await signTron(accountKeyRef(hdTron.accountRecord)!, tx, hdTron.depositAddress)) === hdTron.depositAddress)
-check('a KMS signature is by the KMS account\'s own key', tronSigner(tx.txID, await signTron(accountKeyRef(kmsTron.accountRecord)!, tx, kmsTron.depositAddress)) === kmsTron.depositAddress)
-check('a txID that is not the hash of its raw_data is refused', await rejects(signTron(accountKeyRef(hdTron.accountRecord)!, { ...tx, txID: 'ab'.repeat(32) }, hdTron.depositAddress)))
+check('a signature is by the account\'s own key', tronSigner(tx.txID, await signTron(accountKeyRef(hdTron.accountRecord)!, tx)) === hdTron.depositAddress)
+check('…and not by another account\'s', tronSigner(tx.txID, await signTron(accountKeyRef(otherTron.accountRecord)!, tx)) === otherTron.depositAddress && otherTron.depositAddress !== hdTron.depositAddress)
+check('a txID that is not the hash of its raw_data is refused', await rejects(signTron(accountKeyRef(hdTron.accountRecord)!, { ...tx, txID: 'ab'.repeat(32) })))
 
 // 3. Withdrawals, through the real handler and the real Tatum provider
-const destination = kmsTron.depositAddress
-check('a derived TRON account\'s withdrawal is processed', await handleWithdrawal(withdrawal(hdTron.vAccountId, destination)))
+const destination = otherTron.depositAddress
+check('a TRON account\'s withdrawal is processed', await handleWithdrawal(withdrawal(hdTron.vAccountId, destination)))
 check('…sent from its own address and signed by its own key', tronBroadcasts.at(-1)?.from === hdTron.depositAddress && tronBroadcasts.at(-1)?.signedBy === hdTron.depositAddress)
 check('…its Tatum account is the one debited, and the withdrawal completed', ledger.debits.at(-1)?.accountId === hdTron.vAccountId && ledger.completed.includes(ledger.debits.at(-1)!.id))
 
-check('a KMS TRON account\'s withdrawal is still processed', await handleWithdrawal(withdrawal(kmsTron.vAccountId, hdTron.depositAddress)))
-check('…sent from its own address and signed by its own key', tronBroadcasts.at(-1)?.from === kmsTron.depositAddress && tronBroadcasts.at(-1)?.signedBy === kmsTron.depositAddress)
-
-check('a derived Solana account\'s withdrawal is processed', await handleWithdrawal(withdrawal(hdSol.vAccountId, hdSol.depositAddress)))
+check('a Solana account\'s withdrawal is processed', await handleWithdrawal(withdrawal(hdSol.vAccountId, hdSol.depositAddress)))
 check('…paid by its own address with a signature that verifies', solBroadcasts.at(-1)?.from === hdSol.depositAddress && solBroadcasts.at(-1)?.valid === true)
 
 const debits = ledger.debits.length
@@ -154,12 +142,8 @@ check('a sweep is signed by the account that received the deposit, to its own me
 
 Object.assign(TatumProvider.prototype, real)
 
-// 5. Masters
-useKeyModel()
-merchants.set('beta|PROFILE', { id: 'beta', sk: 'PROFILE', status: 'active' })
-await provisionMerchantMaster('beta', 'TUSDT_TRON', 'USD')
-check('a KMS master\'s key is its KMS key', (await getMasterAccount('beta', 'TUSDT_TRON'))?.key.keyModel === 'kms')
-merchants.set('beta|MASTER#USDT_TRON', { id: 'beta', sk: 'MASTER#USDT_TRON', currency: 'USDT_TRON', status: 'ready', depositAddress: 'T-none', vAccountId: 'va-x' })
-check('a master with no key is not used', (await getMasterAccount('beta', 'USDT_TRON')) === null)
+// 5. An old KMS-model master
+merchants.set('beta|MASTER#USDT_TRON', { id: 'beta', sk: 'MASTER#USDT_TRON', currency: 'USDT_TRON', status: 'ready', kmsKeyId: 'an-old-kms-key', depositAddress: 'T-none', vAccountId: 'va-x' })
+check('a master that is not a derived wallet is not used', (await getMasterAccount('beta', 'USDT_TRON')) === null)
 
 finish()

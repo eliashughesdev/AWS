@@ -87,7 +87,7 @@ and other libraries), `npx tsx scripts/checks/hdSigner.ts` (the signer),
 `npx tsx scripts/checks/provisioning.ts` (account and master provisioning) and
 `npx tsx scripts/checks/signing.ts` (withdrawals and sweeps, verifying whose key signed). The
 last three run against in-memory stand-ins for AWS, Tatum and the chains
-(`scripts/checks/standIns.ts`) and cover the KMS and derived models alike. Run them after touching
+(`scripts/checks/standIns.ts`). Run them after touching
 provisioning, signing, the withdrawal or sweep handlers, or upgrading `@noble/*` or `@scure/*`.
 
 Deployed logs: the `aws-logs` project skill (`.claude/skills/aws-logs/`) checks CloudWatch for
@@ -137,8 +137,9 @@ an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger o
 may be refunded automatically, since the coins may already have left.
 
 **Account provisioning undoes itself.** `provisionCustodialAccount` (`utils/custodialAccount.ts`)
-creates the Tatum VA before the KMS key and, on any failure, cancels the subscription, removes the
-address, deactivates the VA and schedules the key's deletion. It writes nothing, so a caller whose
+creates the Tatum VA, then takes the next address under the merchant's seed, and on any failure
+cancels the subscription, removes the address and deactivates the VA (an unused address only skips
+an index). It writes nothing, so a caller whose
 own write then fails must call `discardProvisionedAccount(provider, account, writeError)`.
 
 **DynamoDB is single-table-ish per concern**, all defined in `amplify/backend.ts` (not in
@@ -183,24 +184,23 @@ sweep handlers load the account from DynamoDB (`findAccountForUser`, `findAccoun
 `utils/custodialAccount.ts`) and take the key, address, merchant and chain from it; never sign with
 a key reference taken from a message.
 
-**Derived (HD) wallets (B31, being rolled out — built end to end, off until an environment is switched).** `utils/hdWallet.ts`
-derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts` is the only code
-that reads a seed: one recovery phrase per merchant per network, an SSM SecureString under
-`/loudibly/hd-seed/` with its own KMS key whose policy lets only `HdSignerRole` decrypt.
+**Custody keys are derived (HD) wallets.** Every custodial account and merchant master is a numbered
+address under its merchant's seed: one seed per merchant per network, `loudibly` for direct
+customers. A record has `keyModel: 'hd'` and `derivationIndex`; there are no per-account KMS keys
+any more, and a leftover record with only a `kmsKeyId` has nothing that can sign for it.
+`utils/hdWallet.ts` derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts`
+is the only code that reads a seed: a recovery phrase kept as an SSM SecureString under
+`/loudibly/hd-seed/` with its own KMS key, whose policy lets only `HdSignerRole` decrypt.
 `v1MerchantTable` `SEED#<network>` rows hold the key id, parameter name and `nextIndex`, never
 secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `allocateAddress`;
 only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may); callers
 go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and by
-`scripts/setup/create-merchant-seeds.sh` for merchants registered before that. New accounts and
-masters use a seed only where the SSM setting `/loudibly/api/CUSTODY_KEY_MODEL` is `hd`
-(`custodyKeyModel()` in `utils/config.ts`); otherwise they still get a KMS key. A derived record
-has `keyModel: 'hd'` and `derivationIndex` and no `kmsKeyId`. Anything that signs goes through
-`utils/signing.ts`: `accountKeyRef(record)` (or `getMasterAccount(...).key`) gives a `KeyRef`, and
-`signTron` / `signSol` send it to KMS or to the signer. Never read `kmsKeyId` to decide how to
-sign, and never build a `KeyRef` from a queue message. Keep
-that split: the API must never be able to obtain a signature, and nothing outside the handler may
-read the seed path. Never tag a seed key `service=loudibly`; that tag marks the per-account keys
-that B31 deletes.
+`scripts/setup/create-merchant-seeds.sh` for merchants registered before that. Anything that signs
+goes through `utils/signing.ts`: `accountKeyRef(record)` (or `getMasterAccount(...).key`) names the
+record, and `signTron` / `signSol` ask the signer, which reads the seed and index itself. Never
+build that reference from a queue message. Keep the split between the two Lambdas: the API must
+never be able to obtain a signature, and nothing outside the handler may read the seed path. A
+seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 
 **Error codes are centralized but not exhaustive.** `amplify/errors/http.ts` maps numeric
 `error_code`s to messages via `processError(code, params)`. Calling it with a code not in the

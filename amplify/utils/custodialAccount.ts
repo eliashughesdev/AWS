@@ -1,9 +1,7 @@
 import { ProviderRegistry } from './AccountProvider'
 import { ProviderName } from '../providers/ledger/ProviderName'
-import { createBlockchainKey, scheduleKeyDeletion } from './awsKms'
 import { networkFor } from './currencies'
 import { queryItemFromIndex, queryRecord } from './db'
-import { custodyKeyModel } from './config'
 import { allocateAddress } from './hdSigner'
 
 // Queue handlers sign for the account these return. The key, address, merchant
@@ -32,14 +30,12 @@ export interface ProvisionedAccount {
   accountNo: string
   depositAddress: string
   vAccountId: string
-  // Only a KMS-model account has its own key; a derived one has an index under its merchant's seed
-  kmsKeyId?: string
   subscriptionId: string
   accountRecord: Record<string, any>
   balanceRecord: Record<string, any>
 }
 
-type Created = Partial<Pick<ProvisionedAccount, 'vAccountId' | 'kmsKeyId' | 'depositAddress' | 'subscriptionId'>>
+type Created = Partial<Pick<ProvisionedAccount, 'vAccountId' | 'depositAddress' | 'subscriptionId'>>
 
 const undo = async (what: string, step: () => Promise<void>) => {
   try {
@@ -51,12 +47,12 @@ const undo = async (what: string, step: () => Promise<void>) => {
 }
 
 // Newest first. Each step is best effort, so one failure doesn't strand the rest.
-const undoProvisioning = async (provider: ProviderName, { vAccountId, kmsKeyId, depositAddress, subscriptionId }: Created) => {
+// The address itself needs no undoing: an unused index is only skipped.
+const undoProvisioning = async (provider: ProviderName, { vAccountId, depositAddress, subscriptionId }: Created) => {
   const vaProvider = ProviderRegistry.getProvider(provider)
   if (subscriptionId) await undo(`cancel subscription ${subscriptionId}`, () => vaProvider.cancelSubscription(subscriptionId))
   if (vAccountId && depositAddress) await undo(`remove address ${depositAddress} from virtual account ${vAccountId}`, () => vaProvider.removeDepositAddress({ accountId: vAccountId, address: depositAddress }))
   if (vAccountId) await undo(`deactivate virtual account ${vAccountId}`, () => vaProvider.deactivateVaAccount(vAccountId))
-  if (kmsKeyId) await undo(`schedule deletion of KMS key ${kmsKeyId}`, () => scheduleKeyDeletion(kmsKeyId))
 }
 
 /**
@@ -66,14 +62,13 @@ const undoProvisioning = async (provider: ProviderName, { vAccountId, kmsKeyId, 
  */
 export const discardProvisionedAccount = async (provider: ProviderName, account: ProvisionedAccount, writeError: any) => {
   if (writeError?.$fault === 'client') return undoProvisioning(provider, account)
-  console.error(`PROVISION_UNDO_SKIPPED: write outcome unknown for ${account.accountNo}; virtual account ${account.vAccountId}, KMS key ${account.kmsKeyId ?? 'none'} and subscription ${account.subscriptionId} may be orphaned`)
+  console.error(`PROVISION_UNDO_SKIPPED: write outcome unknown for ${account.accountNo}; virtual account ${account.vAccountId} and subscription ${account.subscriptionId} may be orphaned`)
 }
 
 /**
  * Creates the external half of a custodial account — Tatum virtual account,
- * its key (a KMS key, or an address under the merchant's seed, by
- * custodyKeyModel), deposit address and webhook subscription — and returns
- * the records to persist. It deliberately does not write anything, and never touches
+ * the next address under its merchant's seed, and a webhook subscription for
+ * it — and returns the records to persist. It deliberately does not write anything, and never touches
  * USERPROFILE: callers put the records in their own transaction so account
  * creation stays atomic with whatever else they are writing. A caller whose
  * write then fails must call discardProvisionedAccount.
@@ -102,27 +97,14 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
   const created: Created = {}
 
   try {
-    // The virtual account comes before the key: it needs no address, so a
-    // request Tatum rejects fails here with nothing to undo.
+    // The virtual account comes first: it needs no address, so a request
+    // Tatum rejects fails here with nothing to undo.
     const { accountId } = await vaProvider.createVaAccount({ userId, currency: chain, accountingCurrency })
     created.vAccountId = accountId
     console.log(`PROVISION: virtual account ${accountId}`)
 
-    // A derived address that ends up unused only skips an index; a KMS key has to be undone
-    let key: { kmsKeyId: string } | { keyModel: 'hd', derivationIndex: number }
-    let address: string
-    if (custodyKeyModel() === 'hd') {
-      const allocated = await allocateAddress(merchantId, network)
-      key = { keyModel: 'hd', derivationIndex: allocated.derivationIndex }
-      address = allocated.address
-      console.log(`PROVISION: index ${allocated.derivationIndex} under ${merchantId}'s ${network} seed, address ${address}`)
-    } else {
-      const kmsKey = await createBlockchainKey(network, accountNo)
-      created.kmsKeyId = kmsKey.kmsKeyId
-      key = { kmsKeyId: kmsKey.kmsKeyId }
-      address = kmsKey.address
-      console.log(`PROVISION: KMS key ${kmsKey.kmsKeyId}, address ${address}`)
-    }
+    const { derivationIndex, address } = await allocateAddress(merchantId, network)
+    console.log(`PROVISION: index ${derivationIndex} under ${merchantId}'s ${network} seed, address ${address}`)
 
     const { address: depositAddress } = await vaProvider.assignDepositAddress({ accountId, address })
     created.depositAddress = depositAddress
@@ -137,7 +119,6 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
       accountNo,
       depositAddress,
       vAccountId: accountId,
-      kmsKeyId: created.kmsKeyId,
       subscriptionId,
       accountRecord: {
         id: userId,
@@ -146,7 +127,8 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
         provider,
         accountNo,
         chain,
-        ...key,
+        keyModel: 'hd',
+        derivationIndex,
         depositAddress,
         vAccountId: accountId,
         created_at: now,

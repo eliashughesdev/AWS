@@ -58,7 +58,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–6 in code 2026-10-05; 6 not deployed. Derived accounts are off until `CUSTODY_KEY_MODEL` is `hd`. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🔵 | | | | Steps 1–6 deployed, derived accounts proven and the old KMS accounts retired in every environment (2026-10-05). Step 8 code removal not yet deployed. Step 7 (backup) skipped for now: required before any mainnet seed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -508,7 +508,7 @@ needed after it.
 - [x] **4.** Grant `kms:ScheduleKeyDeletion` to the API Lambda, only on signing keys
   (`kms:KeyUsage` = `SIGN_VERIFY`). Not by tag: a tag takes up to five minutes to count for
   authorization, and the undo runs seconds after `CreateKey`. This lets the public Lambda
-  schedule the deletion of live custody keys, so it is temporary: B31 step 5 removes it, and
+  schedule the deletion of live custody keys, so it was temporary: B31 step 8 removed it, and
   B31 ships before production.
 - [x] **5.** One-off cleanup per environment: list keys tagged `service=loudibly`, drop the
   ones referenced by any `ACCOUNT#` row in `v2CustomerTable` or any `MASTER#` row in
@@ -629,14 +629,20 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   generated offline once and split between several people (D8). Each seed key's policy
   denies `kms:ScheduleKeyDeletion`. Drill: rebuild one merchant's seed from the backup and
   reproduce its addresses.
-- [ ] **8. Retire the per-account keys** (decided 2026-10-05: existing accounts don't stay on
-  KMS). Per environment, delete every existing account and master and re-create it under
-  its merchant's seed, `loudibly` for direct customers (D9). Schedule a key's deletion only
-  after confirming its address holds no funds, or only testnet coins nobody needs. A master
-  may hold swept tokens. Then remove the KMS signing path (`awsKms.ts`, `kms:Sign` on the
-  processor role), the key fields the withdrawal and sweep messages still carry, the
-  `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and the API role's
-  KMS statements (`backend.ts:53` and the B30 step 4 grant).
+- [x] **8. Retire the per-account keys** (decided 2026-10-05: existing accounts don't stay on
+  KMS). In two parts, and in this order:
+  - **Per environment, once derived accounts are proven there:** delete every existing
+    account and master so it can be created again under its merchant's seed, `loudibly` for
+    direct customers (D9). `scripts/migrations/retire-kms-accounts.sh` does it for every
+    KMS-model account in the environment (dry run by default, one confirmation) and hands
+    each master to `scripts/cleanup/delete-merchant-master.sh`. It skips an account whose
+    address or app balance is nonzero unless told otherwise, and never touches a key whose
+    tags don't match. A master may hold swept tokens.
+  - **Only when no environment has a KMS account or master left:** remove the KMS signing
+    path (`awsKms.ts`, `kms:Sign` on the processor role), the key fields the withdrawal and
+    sweep messages still carry, the `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and
+    the API role's KMS statements (`backend.ts:53` and the B30 step 4 grant). Removing it
+    earlier breaks withdrawals for every account still on KMS.
 - [ ] **Verified:** on the dev account, a new TRON, USDT (TRON) and SOL account under two
   different merchants creates no KMS key, and the two merchants' addresses come from
   different seeds. A new merchant's master is derived too. A testnet deposit, sweep and

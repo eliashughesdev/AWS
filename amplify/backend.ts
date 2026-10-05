@@ -50,24 +50,6 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(
 
 backend.mainApiFn.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
-    actions: ['kms:CreateKey', 'kms:GetPublicKey', 'kms:DescribeKey', 'kms:TagResource'],
-    resources: ['*']
-  })
-)
-
-// Temporary (B30): provisioning deletes the key of an account it could not finish.
-// Scoped by key usage, not by tag: a tag takes up to five minutes to count for
-// authorization, and this runs seconds after CreateKey. Goes away with B31.
-backend.mainApiFn.resources.lambda.addToRolePolicy(
-  new iam.PolicyStatement({
-    actions: ['kms:ScheduleKeyDeletion'],
-    resources: ['*'],
-    conditions: { StringEquals: { 'kms:KeyUsage': 'SIGN_VERIFY' } }
-  })
-)
-
-backend.mainApiFn.resources.lambda.addToRolePolicy(
-  new iam.PolicyStatement({
     actions: ['ses:SendEmail', 'ses:SendRawEmail'],
     resources: ['*']
   })
@@ -215,7 +197,7 @@ sqsV1WebhookProcessingFn.addEventSource(
 
 sqsV1WebhookProcessingFn.addToRolePolicy(
   new iam.PolicyStatement({
-    actions: ['kms:Sign', 'kms:GetPublicKey', 'dynamodb:*', 'sqs:*', 'execute-api:*', 'ssm:GetParametersByPath', 'ssm:GetParameters', 'ssm:GetParameter'],
+    actions: ['dynamodb:*', 'sqs:*', 'execute-api:*', 'ssm:GetParametersByPath', 'ssm:GetParameters', 'ssm:GetParameter'],
     resources: ['*']
   })
 )

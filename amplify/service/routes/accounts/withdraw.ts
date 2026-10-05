@@ -54,8 +54,6 @@ export default class WithdrawHandler {
 
     const accountChain = accountRecord.chain  // e.g. 'BTC', 'SOL', 'ETH', 'TRON'
     const vAccountId = accountRecord.vAccountId
-    const kmsKeyId = accountRecord.kmsKeyId
-    const senderAddress = accountRecord.depositAddress
 
     if (!accountChain) {
       console.error(`ERROR: Account ${accountNumber} is not a crypto account`)
@@ -138,8 +136,6 @@ export default class WithdrawHandler {
         chain: accountChain,
         cryptoAmount,
         destinationAddress,
-        kmsKeyId,
-        senderAddress,
         exchangeRate,
         originalAmount: amount,
         originalCurrency: currency,
