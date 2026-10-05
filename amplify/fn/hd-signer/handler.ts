@@ -2,8 +2,8 @@ import { CreateKeyCommand, KMSClient } from '@aws-sdk/client-kms'
 import { GetParameterCommand, PutParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
 import { unmarshall } from '@aws-sdk/util-dynamodb'
 import { putItem, queryItemFromIndex, queryRecord, updateItem } from '../../utils/db'
-import { networkFor, type Network } from '../../utils/currencies'
-import { getMerchant, SYSTEM_MERCHANT_ID } from '../../utils/merchant'
+import { networkFor, NETWORKS, type Network } from '../../utils/currencies'
+import { SYSTEM_MERCHANT_ID } from '../../utils/merchant'
 import { hdAddress, hdSignSol, hdSignTron, newRecoveryPhrase, seedFromRecoveryPhrase } from '../../utils/hdWallet'
 
 /**
@@ -32,8 +32,9 @@ const SEED_PATH = '/loudibly/hd-seed'
 const seedSk = (network: Network) => `SEED#${network}`
 const seedParameter = (merchantId: string, network: Network) => `${SEED_PATH}/${merchantId}/${network}`
 
+// Consistent reads: a merchant or seed written a moment ago must be seen
 const loadRow = async (merchantId: string, sk: string) => {
-  const result = await queryRecord(MERCHANT_TABLE, 'id = :id AND sk = :sk', { ':id': merchantId, ':sk': sk })
+  const result = await queryRecord(MERCHANT_TABLE, 'id = :id AND sk = :sk', { ':id': merchantId, ':sk': sk }, true)
   if (!result.success) throw new Error(`Failed to read ${sk} for merchant ${merchantId}`)
   return result.res?.[0] ?? null
 }
@@ -95,11 +96,7 @@ const createSeedKey = async (merchantId: string, network: Network): Promise<stri
  * never overwritten.
  */
 const createSeed = async (merchantId: string, network: Network) => {
-  if (merchantId !== SYSTEM_MERCHANT_ID) {
-    const merchant = await getMerchant(merchantId)
-    if (!merchant.success) throw new Error(`Failed to read merchant ${merchantId}`)
-    if (!merchant.res) throw new Error(`Unknown merchant ${merchantId}`)
-  }
+  if (merchantId !== SYSTEM_MERCHANT_ID && !(await loadRow(merchantId, 'PROFILE'))) throw new Error(`Unknown merchant ${merchantId}`)
 
   const claimed = { id: merchantId, sk: seedSk(network), network, status: 'provisioning', nextIndex: 0, createdAt: new Date().toISOString() }
   const claim = await putItem(MERCHANT_TABLE, claimed, 'attribute_not_exists(sk)')
@@ -223,7 +220,6 @@ const sign = async (owner: Owner, payload: { rawDataHex?: string, messageBase64?
   }
 }
 
-const NETWORKS: Network[] = ['TRON', 'SOL']
 const MERCHANT_ID = /^[A-Za-z0-9_.-]+$/
 
 const seedTarget = (event: any): [string, Network] => {

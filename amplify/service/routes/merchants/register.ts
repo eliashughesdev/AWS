@@ -4,8 +4,9 @@ import { randomBytes } from 'crypto'
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { transactWriteItems } from '../../../utils/db'
-import { networkFor } from '../../../utils/currencies'
+import { networkFor, NETWORKS } from '../../../utils/currencies'
 import { provisionMerchantMaster } from '../../../utils/merchantMaster'
+import { createSeed } from '../../../utils/hdSigner'
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string } }
@@ -24,6 +25,10 @@ const PROVISIONING_BUDGET_MS = 20_000
  * Optionally provisions the requested currencies (master + fee VA each). One
  * that fails or runs out of time doesn't fail the registration; retry it with
  * /merchants/masters/provision, which resumes where it stopped.
+ *
+ * Also creates the merchant's seeds, one per network, for its customers'
+ * derived addresses. One that fails or runs out of time doesn't fail the
+ * registration either; scripts/setup/create-merchant-seeds.sh finishes it.
  */
 export default class MerchantRegisterHandler {
   async execute(event: Event, context: Context) {
@@ -57,17 +62,34 @@ export default class MerchantRegisterHandler {
 
     console.log(`MERCHANT_REGISTER: merchantId=${merchantId} by=${staffUserId}`)
 
-    const provisioned = await this.provision(merchantId, [...new Set(currencies)], accountingCurrency)
+    const outOfTime = new Promise<'pending'>(resolve => setTimeout(() => resolve('pending'), PROVISIONING_BUDGET_MS))
+    const [provisioned, seeds] = await Promise.all([
+      this.provision(merchantId, [...new Set(currencies)], accountingCurrency, outOfTime),
+      this.seeds(merchantId, outOfTime),
+    ])
 
     return response({
       statusCode: 200,
       headers: null,
-      bodyObject: { success: true, merchantId, apiKey, currencies: provisioned },
+      bodyObject: { success: true, merchantId, apiKey, currencies: provisioned, seeds },
     })
   }
 
-  private async provision(merchantId: string, currencies: string[], accountingCurrency: string) {
-    const outOfTime = new Promise<'pending'>(resolve => setTimeout(() => resolve('pending'), PROVISIONING_BUDGET_MS))
+  // Every network, whatever currencies the merchant starts with
+  private async seeds(merchantId: string, outOfTime: Promise<'pending'>) {
+    const results = await Promise.all(NETWORKS.map(network => Promise.race([
+      createSeed(merchantId, network)
+        .then(() => 'ready')
+        .catch(err => {
+          console.error(`MERCHANT_REGISTER: ${network} seed for ${merchantId} failed: ${err.message}`)
+          return 'failed'
+        }),
+      outOfTime,
+    ])))
+    return Object.fromEntries(NETWORKS.map((network, i) => [network, results[i]]))
+  }
+
+  private async provision(merchantId: string, currencies: string[], accountingCurrency: string, outOfTime: Promise<'pending'>) {
     const results = await Promise.all(currencies.map(currency => Promise.race([
       provisionMerchantMaster(merchantId, currency, accountingCurrency)
         .then(master => ({ status: 'ready', depositAddress: master.depositAddress }))

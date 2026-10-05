@@ -58,7 +58,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
-| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–3 in code 2026-10-05, not deployed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🟡 | | | | Steps 1–4 in code 2026-10-05; 4 not deployed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -600,9 +600,11 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
     serialized message. It refuses a record whose `keyModel` isn't `hd`, or whose stored
     address isn't the one at its stored index.
   - It wipes key buffers and logs only ids and outcome.
-- [ ] **4. Seeds for merchants.** `/merchants/register` creates the seeds for every supported
-  network. A script in `scripts/setup/` does the same for the merchants that already exist,
-  including `loudibly`.
+- [x] **4. Seeds for merchants.** `/merchants/register` creates the seeds for every supported
+  network and reports each one's status in its response (`seeds`). A failed or slow one
+  doesn't fail the registration. `scripts/setup/create-merchant-seeds.sh` does the same for
+  the merchants that already exist, including `loudibly`, and finishes any seed left
+  half-created. The script has not been run yet.
 - [ ] **5. Provisioning.** Behind one SSM setting per environment (`kms` until its seeds
   exist, then `hd`): `provisionCustodialAccount` and `provisionMerchantMaster` call
   `allocateAddress` in place of `createBlockchainKey()` and store `keyModel: 'hd'` and

@@ -31,11 +31,12 @@ export const getRecord = async (tableName: string | undefined, id: string) => {
   }
 }
 
-export const queryRecord = async (tableName: string | undefined, keyConditionExpression: string, expressionAttributeValues: Record<string, any>) => {
+export const queryRecord = async (tableName: string | undefined, keyConditionExpression: string, expressionAttributeValues: Record<string, any>, consistentRead = false) => {
   const input = new QueryCommand({
     TableName: tableName,
     KeyConditionExpression: keyConditionExpression,
     ExpressionAttributeValues: marshall(expressionAttributeValues),
+    ConsistentRead: consistentRead,
   })
   try {
     const res = await db.send(input)

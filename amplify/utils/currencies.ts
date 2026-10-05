@@ -1,5 +1,7 @@
 export type Network = 'TRON' | 'SOL'
 
+export const NETWORKS: Network[] = ['TRON', 'SOL']
+
 // Tatum ledger currencies the app supports, mapped to the network they settle on.
 // Mirrors Tatum's model: the asset *is* the ledger currency, so an account's `chain`
 // field holds one of these keys — not a network. Use networkFor() wherever the network
