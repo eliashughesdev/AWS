@@ -35,7 +35,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 ## 1. Summary & Tracker
 
 | ID | P | Bug | Status | Owner | PR | Done on | Notes |
-|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|--|
 | B1 | P0 | `/payments/process` lets the caller inject any queue message: forged withdrawals signed with any account's key, minted balances | ⬜ | | | | |
 | B2 | P0 | `/accounts/details` returns any account's KMS key id, ledger id and balance (no ownership check) | ⬜ | | | | Enables B1 theft |
 | B3 | P0 | Clover is sent dollars as cents (100× undercharge) and always `usd` | ⬜ | | | | |
@@ -43,6 +43,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B5 | P0 | SQS consumer never reports failures, so nothing is ever retried and there is no dead-letter queue | ⬜ | | | | Hides B4, B9, B22 |
 | B6 | P0 | Onboarding adopts existing Cognito users and hands the merchant a token that sets their password (account takeover) | ⬜ | | | | |
 | B7 | P0 | Card endpoints trust `userId` from the request (list or charge anyone's cards) | ⬜ | | | | = PCI **F3** |
+| B29 | P0 | Tatum errors are logged whole, writing the live Tatum API key (`x-api-key`) to CloudWatch in plain text | ⬜ | | | | |
 | B8 | P1 | Card deposits credit only the local balance, not the Tatum ledger, so that money can't be withdrawn or transferred | ⬜ | | | | Needs decision D1 |
 | B9 | P1 | Deposits that need 3-D Secure are charged but never credited | ⬜ | | | | |
 | B10 | P1 | Transfers: no amount validation, non-atomic unchecked balance writes, can spend funds reserved for a pending withdrawal | ⬜ | | | | |
