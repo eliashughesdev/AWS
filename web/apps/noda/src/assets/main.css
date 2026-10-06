@@ -9,6 +9,21 @@
   --color-muted:   #ACACAC;  /* inactive tabs and header icons */
   --color-line:    #303030;  /* divider under the header */
   --color-outline: #454545;  /* border of the header controls */
+
+  --color-card:      #0F111A;
+  --color-card-line: #272831;
+  --color-tile:      #091426;  /* quick-action tiles */
+  --color-tile-line: #2B344A;
+
+  /* Icon colours and the darker disc each one sits on */
+  --color-green:       #34C759;
+  --color-green-dim:   #10343B;
+  --color-blue:        #5168C5;
+  --color-blue-dim:    #15244B;
+  --color-yellow:      #FFCC00;
+  --color-yellow-dim:  #3F3824;
+  --color-accent-dim:  #152F39;
+  --color-red:         #FF383C;
 }
 
 html, body {
@@ -40,4 +55,31 @@ body {
 
 .bg-avatar {
   background: linear-gradient(90deg, #3CCCD6, #0E2952);
+}
+
+/* Cards with a teal-to-blue border: the fill sits on the padding box, the border gradient behind it. */
+.card-glow,
+.card-stat {
+  border: 1px solid transparent;
+}
+
+.card-glow {
+  background:
+    linear-gradient(180deg, #0B0F23, #020617) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+  box-shadow: 2px 3px 12px #0E3031;
+}
+
+.card-stat {
+  background:
+    linear-gradient(160deg, #0C1026, #050B25) padding-box,
+    linear-gradient(90deg, #1F7583, #0D294F) border-box;
+}
+
+.bg-shield {
+  background: linear-gradient(90deg, #42E0E6, #1D627D);
+}
+
+.bg-pill {
+  background: linear-gradient(90deg, #215056, #142E36 50%, #050B14);
 }

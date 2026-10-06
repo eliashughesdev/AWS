@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { checkAccess, type AccessRules } from '@loudibly/core/auth/guards'
 import TopNavLayout from '../layouts/TopNavLayout.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
+import DashboardView from '../views/DashboardView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta extends AccessRules {
@@ -20,7 +21,7 @@ const router = createRouter({
       redirect: { name: 'dashboard' },
       meta: { requiresAuth: true },
       children: [
-        { path: 'dashboard',    name: 'dashboard',    component: ComingSoonView, meta: { title: 'Dashboard' } },
+        { path: 'dashboard',    name: 'dashboard',    component: DashboardView,  meta: { title: 'Dashboard' } },
         { path: 'accounts',     name: 'accounts',     component: ComingSoonView, meta: { title: 'Accounts' } },
         { path: 'deposit',      name: 'deposit',      component: ComingSoonView, meta: { title: 'Deposit' } },
         { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView, meta: { title: 'Withdraw' } },

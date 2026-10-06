@@ -79,7 +79,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   </nav>
 
   <div class="relative">
-    <div class="flex h-[49px] items-center px-[10px] lg:h-[111px] lg:px-[30px] lg:pb-[28px] lg:pt-[47px]">
+    <div class="flex h-[61px] items-center px-[10px] pb-[12px] lg:h-[110px] lg:px-[30px] lg:pb-[27px] lg:pt-[47px]">
       <h1 class="text-[20px] font-semibold max-lg:mb-[2px] lg:text-[30px] lg:leading-[36px]">{{ route.meta.title }}</h1>
       <button
         type="button"
@@ -93,7 +93,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
     </div>
 
     <!-- Not in Figma: the desktop tabs, stacked. -->
-    <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 top-full z-10 lg:hidden">
+    <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 top-[49px] z-10 lg:hidden">
       <RouterLink
         v-for="tab in tabs"
         :key="tab.name"
@@ -110,4 +110,8 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   <main class="px-[10px] lg:px-[30px]">
     <RouterView />
   </main>
+
+  <footer class="px-[10px] py-[21px] text-[10px] leading-none font-medium text-muted lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
+    NodabaseStaging©2025
+  </footer>
 </template>

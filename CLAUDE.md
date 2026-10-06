@@ -27,13 +27,15 @@ There are three deployable pieces in this one repo:
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
     production (see `amplify.yml`).
   - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
-    domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header and
-    navigation (`TopNavLayout`, which also draws each page's heading from the route's
-    `meta.title`); the eight tabs still open one placeholder view. Its git-ignored
+    domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header, navigation
+    and footer (`TopNavLayout`, which also draws each page's heading from the route's
+    `meta.title`) and the Dashboard, whose content is all mockup data kept in
+    `src/placeholders/dashboard.ts`; the other seven tabs open one placeholder view. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
     1440px and a 320px page) — build only what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
-    `src/icons.ts`, drawn by `AppIcon` in the text colour).
+    `src/icons.ts`, drawn by `AppIcon` in the text colour; its `mobile` prop names a second
+    cut for below the `lg` breakpoint).
   - `web/core/` (`@loudibly/core`) — the headless shared package imported by apps: backend API
     client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
     non-custodial chain code (`wallet/`: Solana, TRON, session keys). Consumed as source (no
