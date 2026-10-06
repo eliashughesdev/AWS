@@ -503,7 +503,7 @@ const ensureSystemMerchant: cr.AwsSdkCall = {
   parameters: {
     TableName: v1MerchantTable.tableName,
     Item: {
-      id: { S: 'loudibly1' },
+      id: { S: 'loudibly' },
       sk: { S: 'PROFILE' },
       name: { S: 'Loudibly' },
       status: { S: 'active' },
