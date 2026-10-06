@@ -2,7 +2,7 @@ import { ProviderRegistry } from './AccountProvider'
 import { ProviderName } from '../providers/ledger/ProviderName'
 import { networkFor } from './currencies'
 import { queryItemFromIndex, queryRecord } from './db'
-import { allocateAddress } from './hdSigner'
+import { allocateAddress, createSeed } from './hdSigner'
 import { canHoldCurrency } from './masterAccount'
 
 // Queue handlers sign for the account these return. The key, address, merchant
@@ -97,6 +97,10 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
   const webhookUrl = process.env.TATUM_WEBHOOK_URL!
 
   console.log(`PROVISION: ${chain} on ${network} for user ${userId} as ${accountNo}`)
+
+  // A merchant's first account on a network creates its seed; after that this
+  // changes nothing. Before the Tatum account, so a failure here leaves nothing.
+  await createSeed(merchantId, network)
 
   const vaProvider = ProviderRegistry.getProvider(provider)
   const created: Created = {}

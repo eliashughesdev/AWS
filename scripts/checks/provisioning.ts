@@ -10,7 +10,6 @@ import { check, finish, kmsKeys, parameters, rejects, table, tatum } from './sta
 import { ProviderName } from '../../amplify/providers/ledger/ProviderName'
 import { discardProvisionedAccount, provisionCustodialAccount } from '../../amplify/utils/custodialAccount'
 import { provisionMerchantMaster } from '../../amplify/utils/merchantMaster'
-import { createSeed } from '../../amplify/utils/hdSigner'
 import { hdAddress, hdSignTron, seedFromRecoveryPhrase } from '../../amplify/utils/hdWallet'
 
 const merchants = table('v1MerchantTable')
@@ -23,14 +22,12 @@ const seedOf = (merchantId: string, network: string) => seedFromRecoveryPhrase(p
 // The only KMS keys are the seeds' own: one per merchant per network
 const accountKeys = () => kmsKeys.filter(k => k.usage !== 'ENCRYPT_DECRYPT').length
 
-// 1. A merchant with no seed yet
-check('an account for a merchant with no seed fails', await rejects(provision('acme')))
-check('…its virtual account is deactivated', tatum.deactivated.length === 1)
+// 1. A merchant's first account on a network creates its seed
+const first = await provision('acme')
+check('a merchant\'s first account creates its seed', merchants.get('acme|SEED#TRON')?.status === 'ready' && kmsKeys.length === 1)
+check('a merchant that does not exist gets no seed and no account', await rejects(provision('nobody')) && tatum.accounts.length === 1 && kmsKeys.length === 1)
 
 // 2. Accounts
-await createSeed('acme', 'TRON')
-await createSeed('beta', 'TRON')
-const first = await provision('acme')
 const second = await provision('acme')
 const other = await provision('beta')
 check('an account stores its model and index, and no KMS key',
@@ -40,6 +37,7 @@ check('Tatum is given that address', tatum.assigned.includes(first.depositAddres
 check('the merchant\'s next account gets the next index', second.accountRecord.derivationIndex === 1 && second.depositAddress === hdAddress(seedOf('acme', 'TRON'), 'TRON', 1))
 check('another merchant\'s account comes from that merchant\'s seed', other.accountRecord.derivationIndex === 0 && other.depositAddress === hdAddress(seedOf('beta', 'TRON'), 'TRON', 0) && other.depositAddress !== first.depositAddress)
 check('no per-account KMS key was created for them', accountKeys() === 0)
+check('later accounts reuse their merchant\'s seed: one key each for the two merchants', kmsKeys.length === 2)
 check('every account keeps its merchant', first.accountRecord.merchantId === 'acme' && other.accountRecord.merchantId === 'beta')
 
 // 3. A failure after the address was handed out

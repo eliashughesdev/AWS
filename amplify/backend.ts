@@ -23,6 +23,7 @@ import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
+import * as cr from 'aws-cdk-lib/custom-resources'
 import { Code, Function, Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda'
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs'
 import { mainApiFn } from './fn/api/resource'
@@ -492,6 +493,37 @@ const v1MerchantTable = new dynamo.Table(apiStack, 'MerchantTable', {
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
   tableName: 'v1MerchantTable',
 })
+
+// The system merchant (the system's own direct customers, no API key) exists in
+// every environment: each deploy creates its profile unless it is already there.
+// `loudibly` must match SYSTEM_MERCHANT_ID in utils/merchant.ts.
+const ensureSystemMerchant: cr.AwsSdkCall = {
+  service: 'DynamoDB',
+  action: 'putItem',
+  parameters: {
+    TableName: v1MerchantTable.tableName,
+    Item: {
+      id: { S: 'loudibly1' },
+      sk: { S: 'PROFILE' },
+      name: { S: 'Loudibly' },
+      status: { S: 'active' },
+      accountingCurrency: { S: 'USD' },
+      createdBy: { S: 'deploy' },
+      // A new value on every deploy, which is also what makes this run on every deploy
+      createdAt: { S: new Date().toISOString() },
+    },
+    ConditionExpression: 'attribute_not_exists(id)',
+  },
+  // Already there: leave it exactly as it is
+  ignoreErrorCodesMatching: 'ConditionalCheckFailedException',
+  physicalResourceId: cr.PhysicalResourceId.of('system-merchant'),
+}
+const systemMerchant = new cr.AwsCustomResource(apiStack, 'SystemMerchant', {
+  onCreate: ensureSystemMerchant,
+  onUpdate: ensureSystemMerchant,
+  policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [v1MerchantTable.tableArn] }),
+})
+systemMerchant.node.addDependency(v1MerchantTable)
 
 const streamTopic = new sns.Topic(apiStack, 'v1StreamTopic')
 
