@@ -10,9 +10,11 @@ import { hdAddress, hdSignSol, hdSignTron, newRecoveryPhrase, seedFromRecoveryPh
  * Derived (HD) wallets: the only code that ever sees a seed.
  *
  * One seed per merchant per network. Each seed is a recovery phrase kept as an
- * SSM SecureString under its own KMS key, whose policy lets only this
- * function's role decrypt. v1MerchantTable holds a `SEED#<network>` row per
- * seed (key id, parameter name, next index, status) and no secret material.
+ * SSM SecureString under its merchant's KMS key (one per merchant, shared by
+ * its networks), whose policy lets only this function's role decrypt.
+ * v1MerchantTable holds a `SEEDKEY` row per merchant (key id) and a
+ * `SEED#<network>` row per seed (key id, parameter name, next index, status),
+ * and no secret material.
  *
  * Two Lambdas run this handler, each serving only the operations listed in
  * HD_OPERATIONS: one hands out seeds and addresses, the other signs. That
@@ -31,7 +33,10 @@ const SEED_PATH = '/loudibly/hd-seed'
 
 // Longer than the Lambda can run, so an attempt this old is certainly dead
 const IN_FLIGHT_MS = 60_000
+// How long a request waits for another one creating the merchant's key
+const KEY_WAIT_MS = 5_000
 
+const SEED_KEY_SK = 'SEEDKEY'
 const seedSk = (network: Network) => `SEED#${network}`
 const seedParameter = (merchantId: string, network: Network) => `${SEED_PATH}/${merchantId}/${network}`
 
@@ -42,20 +47,22 @@ const loadRow = async (merchantId: string, sk: string) => {
   return result.res?.[0] ?? null
 }
 
-// Saves a finished step on the SEED# row. `onlyIfMissing` makes a racing call
-// fail here instead of overwriting what the other one created.
-const saveStep = async (merchantId: string, network: Network, values: Record<string, any>, onlyIfMissing?: string) => {
+const inFlight = (row: Record<string, any>) => Date.now() - Date.parse(row.createdAt) < IN_FLIGHT_MS
+
+// Saves a finished step on a SEEDKEY or SEED# row. `onlyIfMissing` makes a racing
+// call fail here instead of overwriting what the other one created.
+const saveStep = async (merchantId: string, sk: string, values: Record<string, any>, onlyIfMissing?: string) => {
   const keys = Object.keys(values)
   const result = await updateItem({
     tableName: MERCHANT_TABLE,
-    key: { id: merchantId, sk: seedSk(network) },
+    key: { id: merchantId, sk },
     updateExpression: 'SET ' + keys.map(k => `#${k} = :${k}`).join(', '),
     conditionExpression: onlyIfMissing ? `attribute_not_exists(#${onlyIfMissing})` : undefined,
     attributeNames: Object.fromEntries(keys.map(k => [`#${k}`, k])),
     attributeValues: Object.fromEntries(keys.map(k => [`:${k}`, values[k]])),
   })
   if (!result.success) {
-    throw new Error(`Failed to save ${keys.join(', ')} on ${seedSk(network)} for ${merchantId}: ${JSON.stringify(values)} may be orphaned`, { cause: result.error })
+    throw new Error(`Failed to save ${keys.join(', ')} on ${sk} for ${merchantId}: ${JSON.stringify(values)} may be orphaned`, { cause: result.error })
   }
 }
 
@@ -74,22 +81,45 @@ const seedKeyPolicy = () => {
   }
 }
 
-const createSeedKey = async (merchantId: string, network: Network): Promise<string> => {
+const createSeedKey = async (merchantId: string): Promise<string> => {
   const result = await kms.send(new CreateKeyCommand({
     KeySpec: 'SYMMETRIC_DEFAULT',
     KeyUsage: 'ENCRYPT_DECRYPT',
-    Description: `HD seed key for merchant ${merchantId} on ${network}`,
+    Description: `HD seed key for merchant ${merchantId}`,
     Policy: JSON.stringify(seedKeyPolicy()),
     // This role can't change key policies, which is the point; the account still can
     BypassPolicyLockoutSafetyCheck: true,
     Tags: [
       { TagKey: 'purpose', TagValue: 'hd-seed' },
       { TagKey: 'merchantId', TagValue: merchantId },
-      { TagKey: 'network', TagValue: network },
     ],
   }))
   const kmsKeyId = result.KeyMetadata?.KeyId
   if (!kmsKeyId) throw new Error('KMS CreateKey did not return a KeyId')
+  return kmsKeyId
+}
+
+/**
+ * The merchant's seed key, created by whichever request claims the SEEDKEY row
+ * first. A request that loses the claim waits for that key rather than create
+ * a second one, since registration creates every network's seed at once.
+ */
+const merchantSeedKey = async (merchantId: string): Promise<string> => {
+  const claim = await putItem(MERCHANT_TABLE, { id: merchantId, sk: SEED_KEY_SK, createdAt: new Date().toISOString() }, 'attribute_not_exists(sk)')
+  if (!claim.success) {
+    if (claim.error?.name !== 'ConditionalCheckFailedException') throw new Error(`Failed to claim ${SEED_KEY_SK} for ${merchantId}`, { cause: claim.error })
+    const deadline = Date.now() + KEY_WAIT_MS
+    let row = await loadRow(merchantId, SEED_KEY_SK)
+    while (row && !row.kmsKeyId && inFlight(row) && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 250))
+      row = await loadRow(merchantId, SEED_KEY_SK)
+    }
+    if (row?.kmsKeyId) return row.kmsKeyId
+    if (!row || inFlight(row)) throw new Error(`${SEED_KEY_SK} for ${merchantId} is being created by another request — retry in a minute`)
+  }
+
+  const kmsKeyId = await createSeedKey(merchantId)
+  await saveStep(merchantId, SEED_KEY_SK, { kmsKeyId }, 'kmsKeyId')
   return kmsKeyId
 }
 
@@ -110,15 +140,15 @@ const createSeed = async (merchantId: string, network: Network) => {
     row = await loadRow(merchantId, claimed.sk)
     if (!row) throw new Error(`${claimed.sk} for ${merchantId} is being provisioned by another request — retry`)
     // Joining an attempt that is still running would create a second key
-    if (row.status !== 'ready' && Date.now() - Date.parse(row.createdAt) < IN_FLIGHT_MS) {
+    if (row.status !== 'ready' && inFlight(row)) {
       throw new Error(`${claimed.sk} for ${merchantId} is being created by another request — retry in a minute`)
     }
   }
   if (row.status === 'ready') return { status: 'ready', created: false }
 
   if (!row.kmsKeyId) {
-    const kmsKeyId = await createSeedKey(merchantId, network)
-    await saveStep(merchantId, network, { kmsKeyId }, 'kmsKeyId')
+    const kmsKeyId = await merchantSeedKey(merchantId)
+    await saveStep(merchantId, seedSk(network), { kmsKeyId }, 'kmsKeyId')
     row = { ...row, kmsKeyId }
   }
 
@@ -136,10 +166,10 @@ const createSeed = async (merchantId: string, network: Network) => {
       // Stored by an earlier attempt that died before saving the step: keep that seed
       if (err.name !== 'ParameterAlreadyExists') throw new Error(`Failed to store the seed: ${err.name}`)
     }
-    await saveStep(merchantId, network, { parameterName })
+    await saveStep(merchantId, seedSk(network), { parameterName })
   }
 
-  await saveStep(merchantId, network, { status: 'ready' })
+  await saveStep(merchantId, seedSk(network), { status: 'ready' })
   return { status: 'ready', created: true }
 }
 

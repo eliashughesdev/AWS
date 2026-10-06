@@ -58,6 +58,22 @@ await handler({ op: 'createSeed', merchantId: 'loudibly', network: 'TRON' })
 check('the system merchant gets a seed without a PROFILE row', seedRow('loudibly', 'TRON').status === 'ready')
 check('two merchants have different seeds and keys', parameters.get('/loudibly/hd-seed/loudibly/TRON')!.value !== stored!.value && seedRow('loudibly', 'TRON').kmsKeyId !== 'key-1')
 
+// One KMS key per merchant, shared by its networks
+const before = keys.length
+await handler({ op: 'createSeed', merchantId: 'loudibly', network: 'SOL' })
+const loudiblyKey = seedRow('loudibly', 'TRON').kmsKeyId
+check('a merchant\'s second network reuses its key', keys.length === before && seedRow('loudibly', 'SOL').kmsKeyId === loudiblyKey && parameters.get('/loudibly/hd-seed/loudibly/SOL')!.keyId === loudiblyKey)
+check('…under a seed of its own', parameters.get('/loudibly/hd-seed/loudibly/SOL')!.value !== parameters.get('/loudibly/hd-seed/loudibly/TRON')!.value)
+
+merchants.set('duo|PROFILE', { id: 'duo', sk: 'PROFILE', status: 'active' })
+await Promise.all(['TRON', 'SOL'].map(network => handler({ op: 'createSeed', merchantId: 'duo', network })))
+check('creating both networks at once makes one key', keys.length === before + 1 && seedRow('duo', 'TRON').status === 'ready' && seedRow('duo', 'SOL').status === 'ready' && seedRow('duo', 'TRON').kmsKeyId === seedRow('duo', 'SOL').kmsKeyId)
+
+merchants.set('stale|PROFILE', { id: 'stale', sk: 'PROFILE', status: 'active' })
+merchants.set('stale|SEEDKEY', { id: 'stale', sk: 'SEEDKEY', createdAt: new Date(Date.now() - 120_000).toISOString() })
+await handler({ op: 'createSeed', merchantId: 'stale', network: 'TRON' })
+check('a key claim that died before creating its key is taken over', seedRow('stale', 'TRON').status === 'ready' && merchants.get('stale|SEEDKEY').kmsKeyId === seedRow('stale', 'TRON').kmsKeyId)
+
 // 5. Handing out addresses
 const handed = []
 for (let i = 0; i < 3; i++) handed.push(await handler({ op: 'allocateAddress', merchantId: 'acme', network: 'TRON' }))

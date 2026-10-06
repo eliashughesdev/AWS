@@ -538,17 +538,17 @@ signer's memory while it signs.
 - **Each account is an index under its merchant's seed:** TRON `m/44'/195'/0'/0/<i>` (BIP32),
   Solana `m/44'/501'/<i>'/0'` (SLIP-0010, which only allows hardened paths). Each user still
   gets a distinct deposit address, which is how deposits are attributed.
-- **A seed is data, locked by its own KMS key** (D7). The signer creates one KMS symmetric
-  key per seed and stores the seed as an SSM SecureString encrypted under that key (D10),
+- **A seed is data, locked by its merchant's KMS key** (D7). The signer creates one KMS
+  symmetric key per merchant and stores each seed as an SSM SecureString encrypted under it (D10),
   on its own path, outside the `/loudibly/api/` path the config loader reads. The API role
   has `ssm:*` on `*` (`backend.ts:46`), so it gets an explicit deny on the seed path. Cost:
-  about $1 a month per seed, whatever the number of users.
+  about $1 a month per merchant, whatever the number of users or networks.
 - **One signer role** (D5) is the only principal that can use those keys or write to the
   seed path. Two Lambdas with no public trigger run under it: one hands out seeds and
   addresses to the API Lambda, the other signs for the queue processor. Neither caller sees
   key material. Operations:
-  - `createSeed(merchantId, network)` creates the seed's KMS key, then generates and stores
-    the seed. It returns nothing secret and is safe to repeat.
+  - `createSeed(merchantId, network)` creates the merchant's KMS key if it has none, then
+    generates and stores the seed. It returns nothing secret and is safe to repeat.
   - `allocateAddress(merchantId, network)` takes the next index and returns it with its
     address.
   - `sign(owner, payload)`, where the owner is an `accountNo` or a merchant master
@@ -588,7 +588,8 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
   for DynamoDB, KMS and SSM. Not yet run on a deployed stack.
   - A seed is 32 random bytes kept as a BIP39 recovery phrase, so a restore works in any
     standard wallet.
-  - `createSeed` creates the seed's key tagged `purpose=hd-seed`, with a key policy that
+  - `createSeed` creates the merchant's key on its first seed (a `SEEDKEY` row, claimed so
+    parallel calls make one key), tagged `purpose=hd-seed`, with a key policy that
     denies `kms:Decrypt` to everyone except the signer's role.
   - Each seed has a row in `v1MerchantTable` (`id` = merchant, `sk` = `SEED#<network>`) with
     the key id, the parameter's name, `nextIndex` and `status`, and no secret material.
@@ -724,7 +725,7 @@ local side `withdraw.ts:103` (principal only) plus the later real-fee debit
 | D4 | Custodial key model (B30, B31): one KMS asymmetric key per account, or one derived (HD) master wallet per curve with an isolated signer | Derived master wallet per curve | **Derived (HD) wallets with an isolated signer. One seed per merchant per network (client, 2026-10-05), not per curve. Seeds encrypted under one KMS key** | 2026-10-05 |
 | D5 | Where the B31 signer runs: a dedicated Lambda, or an enclave (Evervault Enclave or AWS Nitro Enclaves) | Dedicated Lambda first; move to an enclave before real-money volume | **Dedicated Lambda now; the client is studying the enclave option** | 2026-10-05 |
 | D6 | What the client's "platform wallet" for customers with no merchant is (B31) | The system merchant `loudibly`, with seeds like any other merchant | **The system merchant `loudibly`, with seeds like any other merchant** | 2026-10-05 |
-| D7 | One KMS key for all seeds, or one per seed (B31). The client's cost example assumes $1 a month per merchant wallet | One key now. Moving to one per seed later is a KMS re-encrypt and changes no address | **One KMS key per seed** | 2026-10-05 |
+| D7 | One KMS key for all seeds, or one per seed (B31). The client's cost example assumes $1 a month per merchant wallet | One key now. Moving to one per seed later is a KMS re-encrypt and changes no address | **One KMS key per merchant**, shared by its network seeds (was one per seed until 2026-10-06; seeds created before keep their own key) | 2026-10-06 |
 | D8 | Who holds the shares of the offline seed backup key (B31 step 7) | At least three people across the client and Loudibly, any two of whom can restore | | |
 | D9 | Existing accounts when their KMS keys are retired (B31 step 8): keep each account and re-point it to a derived address, or delete and re-create it | Delete and re-create while every environment is on testnet. A re-pointed account keeps a balance whose coins stayed at the old address | **Delete and re-create under the new scheme** | 2026-10-05 |
 | D10 | Where the encrypted seed is stored (B31): an SSM SecureString, or Secrets Manager | Secrets Manager: a deleted secret can be recovered for 7 to 30 days and the API role can't reach it. About $0.40 a month per seed | **SSM for now; the client is deciding on Secrets Manager** | 2026-10-05 |

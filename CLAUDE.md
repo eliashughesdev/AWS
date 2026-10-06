@@ -190,8 +190,9 @@ customers. A record has `keyModel: 'hd'` and `derivationIndex`; there are no per
 any more, and a leftover record with only a `kmsKeyId` has nothing that can sign for it.
 `utils/hdWallet.ts` derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts`
 is the only code that reads a seed: a recovery phrase kept as an SSM SecureString under
-`/loudibly/hd-seed/` with its own KMS key, whose policy lets only `HdSignerRole` decrypt.
-`v1MerchantTable` `SEED#<network>` rows hold the key id, parameter name and `nextIndex`, never
+`/loudibly/hd-seed/` under its merchant's KMS key (one per merchant, shared by its networks),
+whose policy lets only `HdSignerRole` decrypt. `v1MerchantTable` holds that key's id on a
+`SEEDKEY` row and `SEED#<network>` rows with the key id, parameter name and `nextIndex`, never
 secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `allocateAddress`;
 only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may); callers
 go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and
