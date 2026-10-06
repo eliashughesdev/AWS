@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { signIn } from '@loudibly/core/auth/cognito'
 import { CForm, CButton } from '@coreui/vue'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { verifyClaimToken, claimAccount } from '@loudibly/core/api/onboarding'
+import { useClaim } from '@loudibly/core/composables/useClaim'
+import { passwordStrength } from '@loudibly/core/composables/useSignUp'
 
 const route  = useRoute()
 const router = useRouter()
@@ -15,11 +15,7 @@ type Step = 'checking' | 'form' | 'dead'
 const step  = ref<Step>('checking')
 const error = ref('')
 
-// Held in memory only — the token is stripped from the address bar on mount.
-let token = ''
-
-const email     = ref('')
-const firstName = ref('')
+const { email, firstName, verify, setPassword } = useClaim()
 
 const password    = ref('')
 const confirmPass = ref('')
@@ -28,16 +24,7 @@ const showConfirm = ref(false)
 const accepted    = ref(false)
 const submitting  = ref(false)
 
-const passwordBars = computed((): number => {
-  const p = password.value
-  if (!p) return 0
-  let score = 0
-  if (p.length >= 8) score++
-  if (/[A-Z]/.test(p)) score++
-  if (/[0-9]/.test(p)) score++
-  if (/[^A-Za-z0-9]/.test(p)) score++
-  return score
-})
+const passwordBars = computed((): number => passwordStrength(password.value))
 
 const passwordStrengthLabel = computed((): string =>
   (['', 'Weak', 'Fair', 'Good', 'Strong'] as const)[passwordBars.value] ?? ''
@@ -48,7 +35,7 @@ const canSubmit = computed((): boolean =>
 )
 
 onMounted(async () => {
-  token = String(route.query.token ?? '')
+  const token = String(route.query.token ?? '')
 
   // Keep the token out of the address bar, the browser history and any Referer
   // header the page sends on.
@@ -60,19 +47,17 @@ onMounted(async () => {
     return
   }
 
-  const { ok, data } = await verifyClaimToken(token)
+  const result = await verify(token)
 
-  if (!ok) {
+  if (!result.ok) {
     step.value = 'dead'
-    error.value = data?.message
-      ? `${String(data.message).charAt(0).toUpperCase()}${String(data.message).slice(1)}.`
+    error.value = result.message
+      ? `${String(result.message).charAt(0).toUpperCase()}${String(result.message).slice(1)}.`
       : 'This link could not be checked. Open the link from your email again.'
     return
   }
 
-  email.value     = data?.res?.data?.email ?? ''
-  firstName.value = data?.res?.data?.firstName ?? ''
-  step.value      = 'form'
+  step.value = 'form'
 })
 
 async function handleSubmit() {
@@ -85,16 +70,15 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    const { ok, data } = await claimAccount(token, password.value)
+    const result = await setPassword(password.value)
 
-    if (!ok) {
-      error.value = data?.message ? String(data.message) : 'Could not set your password.'
-      // The link is spent in these two cases — no point keeping the form up.
-      if (data?.error_code === 100035 || data?.error_code === 100036) step.value = 'dead'
+    if (!result.ok) {
+      error.value = result.message ? String(result.message) : 'Could not set your password.'
+      // The link is spent — no point keeping the form up.
+      if (result.linkSpent) step.value = 'dead'
       return
     }
 
-    await signIn({ username: email.value, password: password.value })
     router.push({ name: 'dashboard' })
   } catch {
     // Password is set; only the automatic sign-in failed. Send them to sign in

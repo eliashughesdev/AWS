@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { confirmSignUp, getCurrentUser } from '@loudibly/core/auth/cognito'
+import { isSignedIn } from '@loudibly/core/auth/signIn'
+import { confirmEmail } from '@loudibly/core/composables/useSignUp'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,21 +21,16 @@ onMounted(async () => {
   }
 
   try {
-    await confirmSignUp({ username: email, confirmationCode: code })
+    await confirmEmail(email, code)
   } catch (e: unknown) {
-    const msg = (e as Error).message ?? ''
-    // Already confirmed (e.g. the code was used in the app first) — treat as success
-    if (!msg.includes('Current status is CONFIRMED')) {
-      failed.value = true
-      errorMsg.value = msg || 'Confirmation failed. The link may have expired.'
-      return
-    }
+    failed.value = true
+    errorMsg.value = ((e as Error).message ?? '') || 'Confirmation failed. The link may have expired.'
+    return
   }
 
-  try {
-    await getCurrentUser()
+  if (await isSignedIn()) {
     router.push({ name: 'dashboard', query: { verified: '1' } })
-  } catch {
+  } else {
     router.push({ name: 'auth', query: { verified: '1', email } })
   }
 })

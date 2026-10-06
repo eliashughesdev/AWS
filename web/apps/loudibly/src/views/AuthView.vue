@@ -1,17 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { signIn, signUp, confirmSignUp, getCurrentUser, resendSignUpCode, getAccessToken } from '@loudibly/core/auth/cognito'
+import { signInWithPassword, isSignedIn } from '@loudibly/core/auth/signIn'
+import { useSignUp, passwordStrength } from '@loudibly/core/composables/useSignUp'
 import { useRoute, useRouter } from 'vue-router'
 import { CForm, CFormLabel, CFormInput, CButton } from '@coreui/vue'
-import { deriveTronAddress, generateTronWallet } from '@loudibly/core/wallet/tron'
-import { deriveSolanaAddress, generateSolanaWallet } from '@loudibly/core/wallet/solana'
+import { deriveAddress, generateWallet } from '@loudibly/core/wallet/keys'
 import { useWalletSession } from '@loudibly/core/wallet/session'
 import { CHAINS, chainLabels, type Chain } from '@loudibly/core/wallet/types'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
-import { saveProfile } from '@loudibly/core/api/profile'
-
-const PENDING_PROFILE_KEY = 'loudibly.pendingProfile'
 
 const route  = useRoute()
 const router = useRouter()
@@ -32,21 +29,6 @@ const error   = ref('')
 const verifiedBanner = ref(false)
 
 function clearError() { error.value = '' }
-
-// Saves the name captured at signup once a session exists. Stored in localStorage
-// because link-based confirmation happens in a new tab with fresh component state.
-async function flushPendingProfile() {
-  const raw = localStorage.getItem(PENDING_PROFILE_KEY)
-  if (!raw) return
-  try {
-    const { name, email } = JSON.parse(raw)
-    if (!(await getAccessToken()) || !name) return
-    await saveProfile({ name, email })
-    localStorage.removeItem(PENDING_PROFILE_KEY)
-  } catch (e) {
-    console.error('Failed to save pending profile', e)
-  }
-}
 
 function switchTab(tab: Tab) {
   activeTab.value = tab
@@ -74,10 +56,6 @@ function switchMode(m: Mode) {
   clearError()
 }
 
-function deriveAddress(chain: Chain, privateKey: string): string {
-  return chain === 'SOL' ? deriveSolanaAddress(privateKey) : deriveTronAddress(privateKey)
-}
-
 function handleNonCustodialSignIn() {
   clearError()
   const key = ncPrivateKey.value.trim()
@@ -99,10 +77,7 @@ async function handleNonCustodialGenerate() {
   clearError()
   loading.value = true
   try {
-    const wallet = ncChain.value === 'SOL'
-      ? generateSolanaWallet()
-      : await generateTronWallet()
-    ncGenerated.value = { address: wallet.address, privateKey: wallet.privateKey }
+    ncGenerated.value = await generateWallet(ncChain.value)
     ncKeySaved.value  = false
     step.value        = 'ncKey'
   } catch (e: unknown) {
@@ -139,9 +114,7 @@ async function handleSignIn() {
   clearError()
   loading.value = true
   try {
-    const result = await signIn({ username: siEmail.value.trim(), password: siPassword.value })
-    if (result.isSignedIn) {
-      await flushPendingProfile()
+    if (await signInWithPassword(siEmail.value.trim(), siPassword.value)) {
       router.push('/dashboard')
     }
   } catch (e: unknown) {
@@ -159,21 +132,10 @@ const suPassword    = ref('')
 const suConfirmPass = ref('')
 const showSuPass    = ref(false)
 const showSuConfirm = ref(false)
-const pendingEmail     = ref('')
-const pendingPassword  = ref('')
-const pendingFirstName = ref('')
-const pendingLastName  = ref('')
 
-const passwordBars = computed((): number => {
-  const p = suPassword.value
-  if (!p) return 0
-  let score = 0
-  if (p.length >= 8) score++
-  if (/[A-Z]/.test(p)) score++
-  if (/[0-9]/.test(p)) score++
-  if (/[^A-Za-z0-9]/.test(p)) score++
-  return score
-})
+const { pendingEmail, register, confirm, resend } = useSignUp()
+
+const passwordBars = computed((): number => passwordStrength(suPassword.value))
 
 const passwordStrengthLabel = computed((): string => {
   return (['', 'Weak', 'Fair', 'Good', 'Strong'] as const)[passwordBars.value] ?? ''
@@ -187,26 +149,15 @@ async function handleSignUp() {
   }
   loading.value = true
   try {
-    const { nextStep: ns } = await signUp({
-      username: suEmail.value.trim(),
-      password: suPassword.value,
-      options: {
-        userAttributes: {
-          email: suEmail.value.trim(),
-        },
-      },
+    const needsCode = await register({
+      email:     suEmail.value.trim(),
+      password:  suPassword.value,
+      firstName: suFirstName.value.trim(),
+      lastName:  suLastName.value.trim(),
     })
-    if (ns.signUpStep === 'CONFIRM_SIGN_UP') {
-      pendingEmail.value     = suEmail.value.trim()
-      pendingPassword.value  = suPassword.value
-      pendingFirstName.value = suFirstName.value.trim()
-      pendingLastName.value  = suLastName.value.trim()
-      localStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify({
-        name: `${pendingFirstName.value} ${pendingLastName.value}`.trim(),
-        email: pendingEmail.value,
-      }))
-      confirmCode.value      = ''
-      step.value             = 'confirm'
+    if (needsCode) {
+      confirmCode.value = ''
+      step.value        = 'confirm'
     } else {
       router.push('/')
     }
@@ -245,22 +196,7 @@ async function handleConfirm() {
   clearError()
   loading.value = true
   try {
-    let confirmed = false
-    try {
-      const { isSignUpComplete } = await confirmSignUp({
-        username: pendingEmail.value,
-        confirmationCode: confirmCode.value.trim(),
-      })
-      confirmed = isSignUpComplete
-    } catch (e: unknown) {
-      // Already confirmed via the email link — proceed to sign in
-      const msg = (e as Error).message ?? ''
-      if (!msg.includes('Current status is CONFIRMED')) throw e
-      confirmed = true
-    }
-    if (confirmed) {
-      await signIn({ username: pendingEmail.value, password: pendingPassword.value })
-      await flushPendingProfile()
+    if (await confirm(confirmCode.value.trim())) {
       router.push('/dashboard')
     }
   } catch (e: unknown) {
@@ -273,7 +209,7 @@ async function handleConfirm() {
 async function handleResend() {
   clearError()
   try {
-    await resendSignUpCode({ username: pendingEmail.value })
+    await resend()
   } catch (e: unknown) {
     error.value = (e as Error).message ?? 'Could not resend code.'
   }
@@ -285,11 +221,8 @@ onMounted(async () => {
     verifiedBanner.value = true
     if (typeof route.query.email === 'string') siEmail.value = route.query.email
   }
-  try {
-    await getCurrentUser()
+  if (await isSignedIn()) {
     router.push({ name: 'dashboard', query: route.query.verified === '1' ? { verified: '1' } : {} })
-  } catch {
-    // Not signed in — stay on auth page
   }
 })
 </script>

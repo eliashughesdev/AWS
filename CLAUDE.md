@@ -39,7 +39,14 @@ There are three deployable pieces in this one repo:
   on an HTTP error status (views branch on `ok`), only on network failure. Apps never import
   `aws-amplify`: Cognito goes through `@loudibly/core/auth/cognito`, and route access through
   `checkAccess()` in `@loudibly/core/auth/guards`, which returns a reason that each app's router
-  maps to its own routes.
+  maps to its own routes. Views get their data and flows from `@loudibly/core/composables/*`
+  (user, accounts, transactions, KYC, transfer/deposit/withdraw, cards, wallet reads and sends,
+  sign-up, the claim link; password sign-in is `auth/signIn`, key handling `wallet/keys`)
+  instead of calling `api/*` themselves: a `load()` throws when the request itself fails and
+  the view decides what to show. Core holds no user-facing wording — a view passes its own text
+  for each kind of failure (`FailureMessages` in `composables/queuedOperation.ts`) — and no
+  routing. Composables stop their own timers and sockets with `onScopeDispose`, so call them
+  in `setup`.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and
   `node_modules/` may still exist and should be ignored.
