@@ -59,6 +59,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B19 | P2 | Unlimited account creation per user (each one costs a KMS key, ledger account and subscription); merchant keys create accounts under the merchant id | ⬜ | | | | |
 | B30 | P2 | Account provisioning leaves orphaned KMS keys (and Tatum VAs) when a Tatum call fails | 🔵 | | | | Deployed; the rejected-VA check passed and the orphan keys were cleaned up (2026-10-05). Later-failure paths not exercised. Raised by the client 2026-10-05 |
 | B31 | P2 | One KMS key per account doesn't scale in cost: move custodial accounts to derived (HD) wallets, one seed per merchant per network, with an isolated signer | 🔵 | | | | Steps 1–6 deployed, derived accounts proven and the old KMS accounts retired in every environment (2026-10-05). Step 8 code removal not yet deployed. Step 7 (backup) skipped for now: required before any mainnet seed. Decided in D4–D7, D9; D10 interim; open D8. Step 6 needs B1 steps 1–3. Raised by the client 2026-10-05 |
+| B32 | P2 | A person can belong to only one merchant: onboarding by a second merchant is refused (`100032`), and the refusal itself tells that merchant the email is known | ⬜ | | | | Decided in D11 (merchants are isolated). Depends on B6 |
 | B20 | P2 | Fixed 1 TRX Tatum withdrawal fee isn't mirrored locally, so ledgers drift and full-balance withdrawals fail | ⬜ | | | | |
 | B21 | P2 | Withdrawal rounding: 8 decimals locally vs 6 at Tatum | ⬜ | | | | |
 | B23 | P2 | Tatum webhook route crashes without `X-Forwarded-For` or with an unknown `type`; router crashes on a missing body; `/health` returns 404 | ⬜ | | | | |
@@ -700,6 +701,63 @@ local side `withdraw.ts:103` (principal only) plus the later real-fee debit
 
 ---
 
+### B32. One merchant per person, and onboarding reveals other merchants
+
+**Where:** `routes/accounts/onboarding.ts:226-244` (`createIdentity`) refuses an email that
+already has a profile with `100032`. `USERPROFILE.merchantId` holds a single merchant, set
+once by onboarding (`onboarding.ts:152`) or by `/accounts/account` (`account.ts:50`) and never
+changed. `/accounts/account` opens every account under that one merchant (`account.ts:35`).
+
+**What goes wrong:**
+- A payer onboarded by merchant A (or signed up directly) can't be onboarded by merchant B:
+  B's request fails, B can't credit them, and the payer can't use B's service with us.
+- The refusal leaks. `100032` ("already registered to a different user") tells B that this
+  email is already a customer somewhere, which D11 forbids. Other responses would leak the
+  same way once existing users are accepted: `isNew`, `201` vs `200`, whether a `claimToken`
+  is returned, and the global `userId` (the Cognito sub), which two merchants could compare
+  to find shared customers.
+
+**Already per merchant (no change needed):** each `ACCOUNT#` record has its own
+`merchantId`, which deposits, sweeps, withdrawals, masters and signing all use. The mapping
+row `EXT#<merchantId>#<externalId>` is per merchant.
+
+**Target (D11):** one identity per person, any number of merchant relationships, and each
+merchant sees only its own.
+
+- [ ] **1. Fix B6 first.** Attaching an existing user to a new merchant must never create a
+  claim token or anything else that lets the merchant set or reset the user's password.
+- [ ] **2. Memberships.** Add a `MERCHANT#<merchantId>` row per relationship under the user
+  (`externalId`, `onboardedAt`, the merchant's own customer id). Treat
+  `USERPROFILE.merchantId` as legacy: backfill one membership row per existing profile, then
+  stop reading it.
+- [ ] **3. Onboarding attaches instead of refusing.** For an email with an existing profile,
+  write the membership and mapping, open an account under the new merchant, and email the
+  user that they've been added. Remove the `100032` path for this case.
+- [ ] **4. Responses that reveal nothing.** Return the same shape and status for a new and an
+  existing person, from the merchant's point of view: "new to this merchant" is fine,
+  "new to us" isn't. Return a per-merchant customer id (e.g. `cus_<random>` stored on the
+  membership row) instead of the Cognito sub. Never return a claim token for an existing
+  person; deliver the invite only by email.
+- [ ] **5. Merchant-scoped access.** Every route a merchant key can call
+  (`allowedRoles` including `admin` or `merchant`, e.g. `/accounts/transfer`,
+  `/accounts/deposit`, `/accounts/onboarding/resend`) must check that each account it touches
+  has `merchantId` equal to the caller's merchant, and must never list or count a user's
+  accounts under other merchants. Error messages must not say whether a foreign account
+  exists.
+- [ ] **6. Direct customers too.** A direct sign-up (`internal-001`) can later be onboarded by a
+  merchant, and is treated the same way. The merchant must not learn they were already a
+  direct customer.
+- [ ] **7. `/accounts/account`.** Open new accounts under `internal-001` unless the request is
+  made in a merchant's context, never under whichever merchant the profile happens to have.
+- [ ] **8. Emails and the dashboard.** Invites and notifications sent on behalf of merchant A
+  never mention merchant B. The user's own dashboard may show all their accounts, grouped by
+  merchant (it's the user's data, not a merchant's).
+- [ ] **Verified:** onboarding the same email from merchant A and then merchant B succeeds
+  both times, with responses identical in shape and status to a brand-new person's and with
+  different customer ids. B gets no claim token for the existing person. With B's key, every
+  merchant route returns the same not-found error for A's account as for an account number
+  that doesn't exist. B6's verification still passes.
+
 ## 5. P3 — Low / Cleanup
 
 - [ ] **B25.** Delete `accountBackfillHandler.ts` and its queue (nothing enqueues to it),
@@ -729,6 +787,7 @@ local side `withdraw.ts:103` (principal only) plus the later real-fee debit
 | D8 | Who holds the shares of the offline seed backup key (B31 step 7) | At least three people across the client and Loudibly, any two of whom can restore | | |
 | D9 | Existing accounts when their KMS keys are retired (B31 step 8): keep each account and re-point it to a derived address, or delete and re-create it | Delete and re-create while every environment is on testnet. A re-pointed account keeps a balance whose coins stayed at the old address | **Delete and re-create under the new scheme** | 2026-10-05 |
 | D10 | Where the encrypted seed is stored (B31): an SSM SecureString, or Secrets Manager | Secrets Manager: a deleted secret can be recovered for 7 to 30 days and the API role can't reach it. About $0.40 a month per seed | **SSM for now; the client is deciding on Secrets Manager** | 2026-10-05 |
+| D11 | Can a person be a customer of several merchants, and may a merchant see the others (B32) | Several merchants; each merchant sees only its own relationship | **Several merchants. A merchant must never be able to tell that its customer uses another merchant, or the system directly** | 2026-10-06 |
 
 ---
 
@@ -917,6 +976,7 @@ These are independent of each other, so take them in any order or in parallel.
 - [ ] **B18 + B24**: Didit webhook resolves the user by session, checks timestamp
   freshness, compares lengths safely, and doesn't create phantom profiles.
 - [ ] **B19**: account creation limits and role checks.
+- [ ] **B32**: several merchants per person, isolated from each other (D11). After B6.
 - [ ] **B30 and B31** were raised by the client on 2026-10-05, so they run now, ahead of the
   stages above. Order:
   1. B30 steps 1–4 (stop the leak), then step 5 in each environment.
