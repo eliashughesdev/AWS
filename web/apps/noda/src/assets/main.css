@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
+/* Values measured from the Figma exports in brand-source/figma. */
 @theme {
   --font-sans: "Inter", sans-serif;
-  --color-page: #000000;
+
+  --color-page:    #000000;
+  --color-accent:  #43E5EA;  /* active tab, toggle, moon */
+  --color-muted:   #ACACAC;  /* inactive tabs and header icons */
+  --color-line:    #303030;  /* divider under the header */
+  --color-outline: #454545;  /* border of the header controls */
 }
 
 html, body {
@@ -10,7 +16,28 @@ html, body {
   margin: 0;
 }
 
+/* The design's text matches Inter's display cut (optical size 32) at every size. */
 body {
   background: var(--color-page);
   color: #FFFFFF;
+  font-variation-settings: "opsz" 32;
+}
+
+/* On every element, so the spacing follows each font size. */
+@layer base {
+  * {
+    letter-spacing: 0.01em;
+  }
+}
+
+.bg-tabbar {
+  background: linear-gradient(90deg, #0D0E0E, #13191A);
+}
+
+.bg-tab-active {
+  background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-avatar {
+  background: linear-gradient(90deg, #3CCCD6, #0E2952);
 }

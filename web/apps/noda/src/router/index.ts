@@ -4,7 +4,9 @@ import TopNavLayout from '../layouts/TopNavLayout.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 
 declare module 'vue-router' {
-  interface RouteMeta extends AccessRules {}
+  interface RouteMeta extends AccessRules {
+    title?: string  // page heading, drawn by the layout
+  }
 }
 
 const router = createRouter({
@@ -18,14 +20,16 @@ const router = createRouter({
       redirect: { name: 'dashboard' },
       meta: { requiresAuth: true },
       children: [
-        { path: 'dashboard',    name: 'dashboard',    component: ComingSoonView },
-        { path: 'accounts',     name: 'accounts',     component: ComingSoonView },
-        { path: 'deposit',      name: 'deposit',      component: ComingSoonView },
-        { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView },
-        { path: 'convert',      name: 'convert',      component: ComingSoonView },
-        { path: 'payments',     name: 'payments',     component: ComingSoonView },
-        { path: 'earn',         name: 'earn',         component: ComingSoonView },
-        { path: 'transactions', name: 'transactions', component: ComingSoonView },
+        { path: 'dashboard',    name: 'dashboard',    component: ComingSoonView, meta: { title: 'Dashboard' } },
+        { path: 'accounts',     name: 'accounts',     component: ComingSoonView, meta: { title: 'Accounts' } },
+        { path: 'deposit',      name: 'deposit',      component: ComingSoonView, meta: { title: 'Deposit' } },
+        { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView, meta: { title: 'Withdraw' } },
+        { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },
+        { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
+        { path: 'earn',         name: 'earn',         component: ComingSoonView, meta: { title: 'Earn' } },
+        { path: 'transactions', name: 'transactions', component: ComingSoonView, meta: { title: 'Transactions' } },
+        // Where header controls with nothing behind them lead (language, theme, notifications, settings).
+        { path: 'coming-soon',  name: 'coming-soon',  component: ComingSoonView, meta: { title: 'Coming soon' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/dashboard' },

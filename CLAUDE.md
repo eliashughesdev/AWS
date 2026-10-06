@@ -26,6 +26,14 @@ There are three deployable pieces in this one repo:
     wallet dashboard, send, receive, ledger, all read straight from the chain with an
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
     production (see `amplify.yml`).
+  - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
+    domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header and
+    navigation (`TopNavLayout`, which also draws each page's heading from the route's
+    `meta.title`); the eight tabs still open one placeholder view. Its git-ignored
+    `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
+    1440px and a 320px page) — build only what an image there shows. The design has no SVG
+    icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
+    `src/icons.ts`, drawn by `AppIcon` in the text colour).
   - `web/core/` (`@loudibly/core`) — the headless shared package imported by apps: backend API
     client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
     non-custodial chain code (`wallet/`: Solana, TRON, session keys). Consumed as source (no
@@ -74,6 +82,7 @@ cd web
 yarn install                          # one install for core + every app
 yarn workspace loudibly dev
 yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
+yarn workspace noda dev               # same scripts for the NODA app
 ```
 
 There is no unit/integration test runner (no jest/vitest config, no `test` script). Backend
