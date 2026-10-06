@@ -35,6 +35,11 @@ export function useWalletSession() {
     state,
     wallets: computed(() => state.wallets),
     active: computed(() => state.wallets.find(w => w.address === state.activeAddress) ?? null),
+    // "TDemoT…9i0j" for the active wallet, '' when there is none.
+    shortAddress: computed(() => {
+      const address = state.wallets.find(w => w.address === state.activeAddress)?.address ?? ''
+      return address ? `${address.slice(0, 6)}…${address.slice(-4)}` : ''
+    }),
     isUnlocked: computed(() => state.wallets.length > 0),
     addWallet,
     setActive,

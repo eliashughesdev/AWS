@@ -3,51 +3,25 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { useWalletSession } from '@loudibly/core/wallet/session'
-import { readWallet, type WalletRead } from '@loudibly/core/wallet/reads'
+import { useWalletReads } from '@loudibly/core/composables/useWalletReads'
 import { chainLabels, type OnChainTx } from '@loudibly/core/wallet/types'
 
 const router  = useRouter()
 const session = useWalletSession()
+const { history: rows, loading, failed, load, refresh } = useWalletReads()
 
-const reads    = ref<WalletRead[]>([])
-const loading  = ref(true)
-const errorMsg = ref('')
-const copied   = ref('')
+const copied = ref('')
 
-const displayName = computed(() => {
-  const address = session.active.value?.address ?? ''
-  return address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Wallet'
-})
-
-async function refresh(force = false) {
-  errorMsg.value = ''
-  try {
-    reads.value = await Promise.all(
-      session.wallets.value.map(w => readWallet(w.chain, w.address, force)),
-    )
-  } catch (e) {
-    errorMsg.value = 'Could not reach the network.'
-    console.error('Failed to read history', e)
-  } finally {
-    loading.value = false
-  }
-}
+const displayName = computed(() => session.shortAddress.value || 'Wallet')
+const errorMsg    = computed(() => failed.value ? 'Could not reach the network.' : '')
 
 onMounted(() => {
   if (session.wallets.value.length === 0) {
     router.push({ name: 'auth' })
     return
   }
-  refresh()
+  load()
 })
-
-// The chain only returns the most recent window of history (100 txs). Anything
-// older lives on-chain and is not mirrored here — nothing is stored server-side.
-const rows = computed(() =>
-  reads.value
-    .flatMap(r => r.transactions.map(tx => ({ tx, chain: r.chain })))
-    .sort((a, b) => (b.tx.timestamp ?? 0) - (a.tx.timestamp ?? 0)),
-)
 
 function txToDisplay(tx: OnChainTx) {
   const incoming = tx.amount >= 0

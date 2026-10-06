@@ -3,13 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { useWalletSession } from '@loudibly/core/wallet/session'
-import { readWallet, bust } from '@loudibly/core/wallet/reads'
-import { sendTronTransaction } from '@loudibly/core/wallet/tron'
-import { sendSolanaTransaction } from '@loudibly/core/wallet/solana'
+import { useWalletSend, SOL_FEE_BUFFER } from '@loudibly/core/composables/useWalletSend'
 import { chainLabels } from '@loudibly/core/wallet/types'
-
-// Solana cannot spend its entire balance — a little must remain for fees.
-const SOL_FEE_BUFFER = 0.000005
 
 const router  = useRouter()
 const session = useWalletSession()
@@ -17,35 +12,15 @@ const session = useWalletSession()
 const fromAddress = ref('')
 const destination = ref('')
 const amount      = ref('')
-const balance     = ref<number | null>(null)
 const sending     = ref(false)
 const errorMsg    = ref('')
 const txId        = ref('')
 const copied      = ref('')
 
 const wallet = computed(() => session.wallets.value.find(w => w.address === fromAddress.value) ?? null)
+const { balance, maxSendable, loadBalance, send } = useWalletSend(wallet)
 
-const displayName = computed(() => {
-  const address = session.active.value?.address ?? ''
-  return address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Wallet'
-})
-
-const maxSendable = computed(() => {
-  if (balance.value === null || !wallet.value) return 0
-  const max = wallet.value.chain === 'SOL' ? balance.value - SOL_FEE_BUFFER : balance.value
-  return max > 0 ? max : 0
-})
-
-async function loadBalance() {
-  if (!wallet.value) return
-  balance.value = null
-  try {
-    const read = await readWallet(wallet.value.chain, wallet.value.address)
-    balance.value = read.balance
-  } catch (e) {
-    console.error('Failed to read balance', e)
-  }
-}
+const displayName = computed(() => session.shortAddress.value || 'Wallet')
 
 onMounted(() => {
   if (session.wallets.value.length === 0) {
@@ -81,14 +56,7 @@ async function handleSend() {
 
   sending.value = true
   try {
-    // Signed and broadcast entirely in this browser with the in-session key —
-    // the server is never involved and never sees the key.
-    txId.value = w.chain === 'SOL'
-      ? await sendSolanaTransaction(w.privateKey, destination.value.trim(), amount.value)
-      : await sendTronTransaction(w.privateKey, destination.value.trim(), amount.value)
-
-    // Our own action shouldn't wait out the read TTL.
-    bust(w.address)
+    txId.value = await send(destination.value.trim(), amount.value)
     destination.value = ''
     amount.value = ''
     await loadBalance()

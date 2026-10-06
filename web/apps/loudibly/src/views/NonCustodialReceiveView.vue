@@ -15,10 +15,7 @@ const copied    = ref(false)
 
 const wallet = computed(() => session.wallets.value.find(w => w.address === selected.value) ?? null)
 
-const displayName = computed(() => {
-  const address = session.active.value?.address ?? ''
-  return address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Wallet'
-})
+const displayName = computed(() => session.shortAddress.value || 'Wallet')
 
 async function generateQr(address: string) {
   try {
