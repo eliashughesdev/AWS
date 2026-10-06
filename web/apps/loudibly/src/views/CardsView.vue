@@ -4,23 +4,12 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { listPaymentMethods, savePaymentMethod } from '@loudibly/core/api/payments'
+import { useCards, detectCardType } from '@loudibly/core/composables/useCards'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
-
-interface SavedCard {
-  id: string
-  lastFour: string
-  bin: string | null
-  cardType: string
-  createdAt: number
-  isRecurringReady: boolean
-}
-
-const cards       = ref<SavedCard[]>([])
-const cardsLoading = ref(true)
+const { cards, loading: cardsLoading, load, save } = useCards()
 
 const cardName   = ref('')
 const cardNumber = ref('')
@@ -30,14 +19,10 @@ const saveError  = ref('')
 const saving     = ref(false)
 
 async function loadCards() {
-  cardsLoading.value = true
   try {
-    const { data } = await listPaymentMethods(userId.value)
-    cards.value = data.res ?? []
+    await load(userId.value)
   } catch (e) {
     console.error('Failed to load cards', e)
-  } finally {
-    cardsLoading.value = false
   }
 }
 
@@ -52,16 +37,6 @@ onMounted(async () => {
 async function handleSignOut() {
   await signOut()
   router.push('/auth')
-}
-
-// ── Card type detection ────────────────────────────────────────────────────────
-function detectCardType(number: string): string {
-  const n = number.replace(/\s/g, '')
-  if (/^4/.test(n))          return 'visa'
-  if (/^5[1-5]/.test(n))     return 'mastercard'
-  if (/^3[47]/.test(n))      return 'amex'
-  if (/^6(?:011|5)/.test(n)) return 'discover'
-  return 'unknown'
 }
 
 const detectedType = computed(() => detectCardType(cardNumber.value))
@@ -100,22 +75,9 @@ async function saveCard() {
     return
   }
 
-  const clean    = cardNumber.value.replace(/\s/g, '')
-  const lastFour = clean.slice(-4)
-  const bin      = clean.slice(0, 8)
-  const cardType = detectCardType(clean)
-
   saving.value = true
   try {
-    const { ok } = await savePaymentMethod({
-      paymentMethod: {
-        lastFour,
-        bin,
-        cardType,
-        cardData: JSON.stringify({ number: clean, cvc: cvc.value, expiry: { month, year } }),
-      },
-      userId: userId.value,
-    })
+    const ok = await save(userId.value, { number: cardNumber.value, cvc: cvc.value, month, year })
 
     if (!ok) {
       saveError.value = 'Failed to save card. Please try again.'

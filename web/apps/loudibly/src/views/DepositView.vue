@@ -6,12 +6,13 @@ import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useDeposit } from '@loudibly/core/composables/useDeposit'
-import { listPaymentMethods } from '@loudibly/core/api/payments'
+import { useCards } from '@loudibly/core/composables/useCards'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 const { accounts, load: loadAccounts } = useAccounts()
+const { cards, load: loadCards } = useCards()
 const { status: depositStatus, error: depositError, submitting, send, reset } = useDeposit({
   rejected:   'Deposit request failed. Please try again.',
   failed:     'Payment declined. Please try again.',
@@ -19,14 +20,6 @@ const { status: depositStatus, error: depositError, submitting, send, reset } = 
   unexpected: 'An unexpected error occurred.',
 })
 
-interface SavedCard {
-  id: string
-  lastFour: string
-  cardType: string
-  isRecurringReady: boolean
-}
-
-const cards    = ref<SavedCard[]>([])
 const loading  = ref(true)
 
 const selectedAccount = ref('')
@@ -41,11 +34,10 @@ onMounted(async () => {
   }
 
   try {
-    const [, cardsRes] = await Promise.all([
+    await Promise.all([
       loadAccounts(),
-      listPaymentMethods(userId.value),
+      loadCards(userId.value),
     ])
-    cards.value = cardsRes.data.res ?? []
 
     if (accounts.value.length > 0) selectedAccount.value = accounts.value[0].accountNo
     if (cards.value.length > 0)    selectedCard.value    = cards.value[0].id
