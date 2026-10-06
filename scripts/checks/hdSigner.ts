@@ -54,16 +54,16 @@ check('a seed another request is creating right now is not joined', await reject
 check('an unknown merchant is refused', await rejects(handler({ op: 'createSeed', merchantId: 'nobody', network: 'TRON' })))
 check('a merchant id with a path in it is refused', await rejects(handler({ op: 'createSeed', merchantId: 'acme/../x', network: 'TRON' })))
 check('an unknown network is refused', await rejects(handler({ op: 'createSeed', merchantId: 'acme', network: 'BTC' })))
-await handler({ op: 'createSeed', merchantId: 'loudibly', network: 'TRON' })
-check('the system merchant gets a seed without a PROFILE row', seedRow('loudibly', 'TRON').status === 'ready')
-check('two merchants have different seeds and keys', parameters.get('/loudibly/hd-seed/loudibly/TRON')!.value !== stored!.value && seedRow('loudibly', 'TRON').kmsKeyId !== 'key-1')
+await handler({ op: 'createSeed', merchantId: 'internal-001', network: 'TRON' })
+check('the system merchant gets a seed without a PROFILE row', seedRow('internal-001', 'TRON').status === 'ready')
+check('two merchants have different seeds and keys', parameters.get('/loudibly/hd-seed/internal-001/TRON')!.value !== stored!.value && seedRow('internal-001', 'TRON').kmsKeyId !== 'key-1')
 
 // One KMS key per merchant, shared by its networks
 const before = keys.length
-await handler({ op: 'createSeed', merchantId: 'loudibly', network: 'SOL' })
-const loudiblyKey = seedRow('loudibly', 'TRON').kmsKeyId
-check('a merchant\'s second network reuses its key', keys.length === before && seedRow('loudibly', 'SOL').kmsKeyId === loudiblyKey && parameters.get('/loudibly/hd-seed/loudibly/SOL')!.keyId === loudiblyKey)
-check('…under a seed of its own', parameters.get('/loudibly/hd-seed/loudibly/SOL')!.value !== parameters.get('/loudibly/hd-seed/loudibly/TRON')!.value)
+await handler({ op: 'createSeed', merchantId: 'internal-001', network: 'SOL' })
+const systemKey = seedRow('internal-001', 'TRON').kmsKeyId
+check('a merchant\'s second network reuses its key', keys.length === before && seedRow('internal-001', 'SOL').kmsKeyId === systemKey && parameters.get('/loudibly/hd-seed/loudibly/SOL')!.keyId === systemKey)
+check('…under a seed of its own', parameters.get('/loudibly/hd-seed/internal-001/SOL')!.value !== parameters.get('/loudibly/hd-seed/internal-001/TRON')!.value)
 
 merchants.set('duo|PROFILE', { id: 'duo', sk: 'PROFILE', status: 'active' })
 await Promise.all(['TRON', 'SOL'].map(network => handler({ op: 'createSeed', merchantId: 'duo', network })))

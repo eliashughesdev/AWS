@@ -117,8 +117,9 @@ own team who approve its treasury operations — precedence staff > admin > merc
 `v1UserKeysTable`, role `admin`). One key per merchant: `X-Project` is the merchant id —
 onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
 `100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
-merchant: the system's own direct customers belong to `loudibly` (`SYSTEM_MERCHANT_ID` in
-`utils/merchant.ts`, no API key), which `/accounts/account` uses as the default. `/webhook/*` has **no authorizer at all** — routes that need
+merchant: the system's own direct customers belong to `internal-001`, named `Internal001`
+(`SYSTEM_MERCHANT_ID` in `utils/systemMerchant.ts`, no API key; it was `loudibly` before
+2026-10-06, and accounts created before then keep that id and its seeds), which `/accounts/account` uses as the default. `/webhook/*` has **no authorizer at all** — routes that need
 to be publicly callable but also need auth must live under `/accounts/` or `/payments/`
 instead, not `/webhook/`.
 
@@ -185,7 +186,7 @@ sweep handlers load the account from DynamoDB (`findAccountForUser`, `findAccoun
 a key reference taken from a message.
 
 **Custody keys are derived (HD) wallets.** Every custodial account and merchant master is a numbered
-address under its merchant's seed: one seed per merchant per network, `loudibly` for direct
+address under its merchant's seed: one seed per merchant per network, `internal-001` for direct
 customers. A record has `keyModel: 'hd'` and `derivationIndex`; there are no per-account KMS keys
 any more, and a leftover record with only a `kmsKeyId` has nothing that can sign for it.
 `utils/hdWallet.ts` derives addresses and signs from a seed (pure code). `fn/hd-signer/handler.ts`
@@ -197,7 +198,7 @@ secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `all
 only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may); callers
 go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and
 otherwise the first time one of its accounts or masters needs one, so no script has to be run.
-The `loudibly` `PROFILE` row is created by each deploy if it is missing (`SystemMerchant` custom
+The `internal-001` `PROFILE` row is created by each deploy if it is missing (`SystemMerchant` custom
 resource in `backend.ts`). What a fresh environment still needs by hand is one
 `/merchants/masters/provision` call per token. Anything that signs
 goes through `utils/signing.ts`: `accountKeyRef(record)` (or `getMasterAccount(...).key`) names the

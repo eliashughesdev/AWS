@@ -31,6 +31,7 @@ import { auth } from './auth/resource'
 import { customMessageFn } from './auth/custom-message/resource'
 import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
+import { SYSTEM_MERCHANT_ID, SYSTEM_MERCHANT_NAME } from './utils/systemMerchant'
 
 
 const backend = defineBackend({
@@ -496,16 +497,15 @@ const v1MerchantTable = new dynamo.Table(apiStack, 'MerchantTable', {
 
 // The system merchant (the system's own direct customers, no API key) exists in
 // every environment: each deploy creates its profile unless it is already there.
-// `loudibly` must match SYSTEM_MERCHANT_ID in utils/merchant.ts.
 const ensureSystemMerchant: cr.AwsSdkCall = {
   service: 'DynamoDB',
   action: 'putItem',
   parameters: {
     TableName: v1MerchantTable.tableName,
     Item: {
-      id: { S: 'loudibly' },
+      id: { S: SYSTEM_MERCHANT_ID },
       sk: { S: 'PROFILE' },
-      name: { S: 'Loudibly' },
+      name: { S: SYSTEM_MERCHANT_NAME },
       status: { S: 'active' },
       accountingCurrency: { S: 'USD' },
       createdBy: { S: 'deploy' },
