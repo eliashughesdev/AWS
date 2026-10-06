@@ -8,6 +8,7 @@ import { discardProvisionedAccount, provisionCustodialAccount } from '../../../u
 import { getEmailProvider } from '../../../utils/EmailProvider'
 import { brandName } from '../../../utils/config'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
+import { canHoldCurrency } from '../../../utils/masterAccount'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
@@ -31,6 +32,12 @@ export default class AccountHandler {
     )
     if (!existingProfile.success) return processError(100003)
     const profile = existingProfile.res?.[0]
+    const merchantId = profile?.merchantId ?? SYSTEM_MERCHANT_ID
+
+    if (!(await canHoldCurrency(merchantId, chain))) {
+      console.error(`ERROR: Merchant ${merchantId} has no ${chain} master — account not created`)
+      return processError(100050, chain)
+    }
 
     const userProfileRecord: Record<string, any> = {
       id: userId,
@@ -50,7 +57,7 @@ export default class AccountHandler {
         chain,
         provider,
         accountingCurrency: event.body.accounting_currency,
-        merchantId: profile?.merchantId ?? SYSTEM_MERCHANT_ID,
+        merchantId,
       })
 
       const result = await transactWriteItems({

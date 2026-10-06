@@ -3,6 +3,7 @@ import { ProviderName } from '../providers/ledger/ProviderName'
 import { networkFor } from './currencies'
 import { queryItemFromIndex, queryRecord } from './db'
 import { allocateAddress } from './hdSigner'
+import { canHoldCurrency } from './masterAccount'
 
 // Queue handlers sign for the account these return. The key, address, merchant
 // and chain come from the stored record, never from the message.
@@ -73,8 +74,9 @@ export const discardProvisionedAccount = async (provider: ProviderName, account:
  * creation stays atomic with whatever else they are writing. A caller whose
  * write then fails must call discardProvisionedAccount.
  *
- * Throws on an unsupported `chain` or any provider failure, after undoing what
- * it had created, leaving nothing in the database.
+ * Throws on an unsupported `chain`, on a token whose merchant has no master
+ * for it, or on any provider failure, after undoing what it had created,
+ * leaving nothing in the database.
  */
 export const provisionCustodialAccount = async ({ userId, chain, provider, accountingCurrency, merchantId }: {
   userId: string
@@ -87,6 +89,9 @@ export const provisionCustodialAccount = async ({ userId, chain, provider, accou
   // subscription need the network it settles on.
   const network = networkFor(chain)
   if (!network) throw new Error(`Unsupported ledger currency: ${chain}`)
+
+  // Callers check this first to answer with 100050; this stops any that doesn't
+  if (!(await canHoldCurrency(merchantId, chain))) throw new Error(`Merchant ${merchantId} has no ${chain} master`)
 
   const accountNo = provider + crypto.randomUUID().replaceAll('-', '')
   const webhookUrl = process.env.TATUM_WEBHOOK_URL!

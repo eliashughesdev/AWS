@@ -1,3 +1,4 @@
+import { isNativeCurrency } from './currencies'
 import { queryRecord } from './db'
 import { SYSTEM_MERCHANT_ID } from './merchant'
 import type { KeyRef } from './signing'
@@ -28,3 +29,11 @@ export async function getMasterAccount(merchantId: string | undefined, currency:
   if (row.keyModel !== 'hd') return null
   return { depositAddress: row.depositAddress, key: owner, vAccountId: row.vAccountId }
 }
+
+/**
+ * Whether a merchant can hold accounts in a currency. A token account needs
+ * its merchant's master: its deposits are swept there and its withdrawals are
+ * signed by it. A native coin needs none.
+ */
+export const canHoldCurrency = async (merchantId: string | undefined, currency: string): Promise<boolean> =>
+  isNativeCurrency(currency) || !!(await getMasterAccount(merchantId, currency))

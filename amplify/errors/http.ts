@@ -29,6 +29,7 @@ const httpErrors: any = {
   100047: () => 'there are not enough approvers for this request',
   100048: () => 'invalid destination address',
   100049: () => 'this user is not an active member of this merchant',
+  100050: (params: any) => `this merchant is not set up for ${params} yet — its master must be provisioned first`,
 }
 
 export const processError = (code: any, params?: any) => {

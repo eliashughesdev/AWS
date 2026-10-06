@@ -643,6 +643,19 @@ from whoever owns PCI (see `pci-remediation-plan.md`).
     sweep messages still carry, the `keyModel` switch, the `CUSTODY_KEY_MODEL` setting and
     the API role's KMS statements (`backend.ts:53` and the B30 step 4 grant). Removing it
     earlier breaks withdrawals for every account still on KMS.
+- [x] **9. No token account without a master** (added 2026-10-05, after a deposit could not
+  be swept because its merchant had no master for the token). `/accounts/account` and
+  `/accounts/onboarding` answer `100050` before creating anything when the account's
+  merchant has no ready master for a token (`canHoldCurrency()` in `utils/masterAccount.ts`),
+  and `provisionCustodialAccount` refuses as well. Native coins need no master. Not yet
+  deployed.
+- [x] **10. A fresh environment needs no scripts** (added 2026-10-05). Each deploy creates the
+  `loudibly` `PROFILE` row if it is missing (`SystemMerchant` custom resource in
+  `backend.ts`), and `provisionCustodialAccount` creates a merchant's seed for a network on
+  its first account there. `backfill-merchants.sh` and `create-merchant-seeds.sh` are no
+  longer needed for a new environment. What still needs a person is one
+  `/merchants/masters/provision` call per token. Not yet deployed; the custom resource has
+  only been synthesized locally.
 - [ ] **Verified:** on the dev account, a new TRON, USDT (TRON) and SOL account under two
   different merchants creates no KMS key, and the two merchants' addresses come from
   different seeds. A new merchant's master is derived too. A testnet deposit, sweep and

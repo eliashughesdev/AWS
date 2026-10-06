@@ -9,6 +9,7 @@ import { sendClaimInvite } from '../../../utils/claimInvite'
 import { networkFor } from '../../../utils/currencies'
 import { discardProvisionedAccount, provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getMerchant } from '../../../utils/merchant'
+import { canHoldCurrency } from '../../../utils/masterAccount'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 type Event = {
@@ -79,6 +80,15 @@ export default class OnboardingHandler {
     let claim: ClaimToken | null = null
 
     const known = mapping.res?.[0]
+    // A new payer always gets an account. So does a known one who has none: a payer
+    // onboarded before this endpoint created accounts is healed on their next transaction.
+    const needsAccount = !known || !(await this.hasAccount(known.userId))
+    // Before anything is created for the payer
+    if (needsAccount && !(await canHoldCurrency(merchantId, chain))) {
+      console.error(`ONBOARDING: merchant ${merchantId} has no ${chain} master — payer not onboarded`)
+      return processError(100050, chain)
+    }
+
     if (known) {
       userId = known.userId
     } else {
@@ -89,9 +99,7 @@ export default class OnboardingHandler {
       isNew = true
     }
 
-    // A payer onboarded before this endpoint created accounts has none; provisioning
-    // on their next transaction heals that without a migration.
-    const account = (isNew || !(await this.hasAccount(userId)))
+    const account = needsAccount
       ? await provisionCustodialAccount({
           userId,
           chain,

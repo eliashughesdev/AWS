@@ -30,7 +30,7 @@ check('…its virtual account is deactivated', tatum.deactivated.length === 1)
 // 2. Accounts
 await createSeed('acme', 'TRON')
 await createSeed('beta', 'TRON')
-const first = await provision('acme', 'TUSDT_TRON')
+const first = await provision('acme')
 const second = await provision('acme')
 const other = await provision('beta')
 check('an account stores its model and index, and no KMS key',
@@ -75,5 +75,14 @@ check('its address is the one at its index', master.depositAddress === hdAddress
 check('its fee account is created', !!merchants.get('gamma|FEEVA#TUSDT_TRON')?.vAccountId)
 await provisionMerchantMaster('gamma', 'TUSDT_TRON', 'USD')
 check('provisioning it again changes nothing', merchants.get('gamma|SEED#TRON').nextIndex === 1 && accountKeys() === 0)
+
+// 7. A token account needs its merchant's master
+const untouched = { accounts: tatum.accounts.length, nextIndex: merchants.get('acme|SEED#TRON').nextIndex }
+check('a token account for a merchant with no master for it fails', await rejects(provision('acme', 'TUSDT_TRON')))
+check('…before anything is created or an index is used', tatum.accounts.length === untouched.accounts && merchants.get('acme|SEED#TRON').nextIndex === untouched.nextIndex)
+await provisionMerchantMaster('acme', 'TUSDT_TRON', 'USD')
+const token = await provision('acme', 'TUSDT_TRON')
+check('once the master exists, the token account is created', token.accountRecord.chain === 'TUSDT_TRON' && token.accountRecord.keyModel === 'hd')
+check('a native account never needed one', (await provision('beta')).accountRecord.chain === 'TRON' && merchants.get('beta|MASTER#TRON') === undefined)
 
 finish()

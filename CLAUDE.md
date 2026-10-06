@@ -194,11 +194,17 @@ is the only code that reads a seed: a recovery phrase kept as an SSM SecureStrin
 `v1MerchantTable` `SEED#<network>` rows hold the key id, parameter name and `nextIndex`, never
 secret material. Two Lambdas run that handler: `hdAddressFn` (`createSeed`, `allocateAddress`;
 only `mainApiFn` may invoke it) and `hdSignerFn` (`sign`; only the queue processor may); callers
-go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and by
-`scripts/setup/create-merchant-seeds.sh` for merchants registered before that. Anything that signs
+go through `utils/hdSigner.ts`. A merchant's seeds are created at `/merchants/register`, and
+otherwise the first time one of its accounts or masters needs one, so no script has to be run.
+The `loudibly` `PROFILE` row is created by each deploy if it is missing (`SystemMerchant` custom
+resource in `backend.ts`). What a fresh environment still needs by hand is one
+`/merchants/masters/provision` call per token. Anything that signs
 goes through `utils/signing.ts`: `accountKeyRef(record)` (or `getMasterAccount(...).key`) names the
 record, and `signTron` / `signSol` ask the signer, which reads the seed and index itself. Never
-build that reference from a queue message. Keep the split between the two Lambdas: the API must
+build that reference from a queue message. A token account needs its merchant's master (its
+deposits are swept there, its withdrawals are signed by it): routes call `canHoldCurrency()`
+(`utils/masterAccount.ts`) before creating anything and answer `100050` when there is none, and
+`provisionCustodialAccount` refuses too. Keep the split between the two Lambdas: the API must
 never be able to obtain a signature, and nothing outside the handler may read the seed path. A
 seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 

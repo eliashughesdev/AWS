@@ -95,8 +95,8 @@ await createSeed('acme', 'SOL')
 const hdTron = await open('TRON')
 const otherTron = await open('TRON')
 const hdSol = await open('SOL')
-const hdToken = await open('TUSDT_TRON')
 await provisionMerchantMaster('acme', 'TUSDT_TRON', 'USD')
+const hdToken = await open('TUSDT_TRON')
 const master = (await getMasterAccount('acme', 'TUSDT_TRON'))!
 
 // 1. Choosing the key from a stored record
