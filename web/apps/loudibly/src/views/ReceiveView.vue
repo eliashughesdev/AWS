@@ -6,23 +6,14 @@ import { useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import MainLayout from '../layouts/MainLayout.vue'
 import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
-import { listAccounts, createAccount as postAccount } from '@loudibly/core/api/accounts'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import type { Account } from '@loudibly/core/api/types'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
+const { cryptoAccounts: accounts, loading, load: loadAccounts, create: postAccount } = useAccounts()
 
-interface Account {
-  accountNo: string
-  chain: string
-  currency: string
-  depositAddress: string
-  status: string
-  balance: number
-}
-
-const accounts       = ref<Account[]>([])
-const loading        = ref(true)
 const creatingChain  = ref<string | null>(null)
 const createError    = ref('')
 const copiedAddress  = ref('')
@@ -46,11 +37,6 @@ function meta(chain: string) {
 const missingChains = computed(() =>
   ['TRON', 'SOL', USDT_TRON_CURRENCY].filter(c => !accounts.value.some(a => a.chain === c))
 )
-
-async function loadAccounts() {
-  const { data } = await listAccounts()
-  accounts.value = (data.accounts ?? []).filter((a: Account) => !!a.chain)
-}
 
 async function generateQr(address: string) {
   try {
@@ -87,12 +73,10 @@ async function createAccount(chain: string) {
   createError.value   = ''
   try {
     const { ok } = await postAccount({
-      account_name:        `${meta(chain).label} Account`,
+      accountName: `${meta(chain).label} Account`,
       chain,
-      provider:            'PCF0001',
-      accounting_currency: 'USD',
-      userId:              userId.value,
-      email:               userEmail.value,
+      userId:      userId.value,
+      email:       userEmail.value,
     })
     if (!ok) throw new Error('Failed to create account')
     await loadAccounts()
@@ -113,8 +97,6 @@ onMounted(async () => {
     await loadAccounts()
   } catch (e) {
     console.error('Failed to load accounts', e)
-  } finally {
-    loading.value = false
   }
 })
 

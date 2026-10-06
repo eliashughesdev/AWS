@@ -4,23 +4,13 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { listAccounts, transfer } from '@loudibly/core/api/accounts'
+import { transfer } from '@loudibly/core/api/accounts'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
 
 const router = useRouter()
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
-
-interface Account {
-  accountNo: string
-  chain: string
-  currency: string
-  depositAddress: string
-  status: string
-  balance: number
-}
-
-const accounts    = ref<Account[]>([])
-const loading     = ref(true)
+const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
 
 const selectedFrom = ref('')
 const selectedTo   = ref('')
@@ -41,16 +31,13 @@ onMounted(async () => {
   }
 
   try {
-    const { data } = await listAccounts()
-    accounts.value = (data.accounts ?? []).filter((a: Account) => !!a.chain)
+    await loadAccounts()
 
     if (accounts.value.length >= 1) {
       selectedFrom.value = accounts.value[0].accountNo
     }
   } catch (e) {
     console.error('Failed to load accounts', e)
-  } finally {
-    loading.value = false
   }
 })
 

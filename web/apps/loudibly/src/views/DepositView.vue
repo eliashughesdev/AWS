@@ -4,21 +4,15 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { listAccounts, deposit } from '@loudibly/core/api/accounts'
+import { deposit } from '@loudibly/core/api/accounts'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
 import { listPaymentMethods } from '@loudibly/core/api/payments'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
-
-interface Account {
-  accountNo: string
-  chain: string
-  currency: string
-  depositAddress: string
-  status: string
-}
+const { accounts, load: loadAccounts } = useAccounts()
 
 interface SavedCard {
   id: string
@@ -27,7 +21,6 @@ interface SavedCard {
   isRecurringReady: boolean
 }
 
-const accounts = ref<Account[]>([])
 const cards    = ref<SavedCard[]>([])
 const loading  = ref(true)
 
@@ -50,12 +43,11 @@ onMounted(async () => {
   }
 
   try {
-    const [accRes, cardsRes] = await Promise.all([
-      listAccounts(),
+    const [, cardsRes] = await Promise.all([
+      loadAccounts(),
       listPaymentMethods(userId.value),
     ])
-    accounts.value = accRes.data.accounts ?? []
-    cards.value    = cardsRes.data.res ?? []
+    cards.value = cardsRes.data.res ?? []
 
     if (accounts.value.length > 0) selectedAccount.value = accounts.value[0].accountNo
     if (cards.value.length > 0)    selectedCard.value    = cards.value[0].id

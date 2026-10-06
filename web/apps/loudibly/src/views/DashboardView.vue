@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
 import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
-import { listAccounts, listTransactions, createAccount as postAccount } from '@loudibly/core/api/accounts'
+import { listTransactions } from '@loudibly/core/api/accounts'
 import { getKycStatus, startDiditSession } from '@loudibly/core/api/kyc'
 
 const route  = useRoute()
@@ -15,30 +16,17 @@ const router = useRouter()
 const verifiedBanner = ref(route.query.verified === '1')
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
+const {
+  accounts,
+  loading: accountsLoading,
+  load:    loadAccounts,
+  refresh: refreshAccounts,
+  create:  postAccount,
+} = useAccounts({ pollWhileImporting: true })
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
 const accountLoading   = ref<string | null>(null)
-const accounts         = ref<any[]>([])
-const accountsLoading  = ref(true)
-
-// Imported accounts backfill asynchronously (SQS) — refresh in the background
-// until every account has left 'importing' so the "Syncing…" badge clears
-// without the user having to reload the page.
-let importPollTimer: ReturnType<typeof setTimeout> | null = null
-
-async function pollWhileImporting() {
-  if (!accounts.value.some(a => a.status === 'importing')) return
-  importPollTimer = setTimeout(async () => {
-    try {
-      const { data } = await listAccounts()
-      accounts.value = data.accounts ?? accounts.value
-    } catch (e) {
-      console.error('Failed to refresh accounts', e)
-    }
-    pollWhileImporting()
-  }, 5000)
-}
 
 onMounted(async () => {
   if (!(await loadUser())) {
@@ -48,10 +36,7 @@ onMounted(async () => {
 
   try {
     createBanner.value = true
-    const { data: accountsData } = await listAccounts()
-    accounts.value = accountsData.accounts ?? []
-    accountsLoading.value = false
-    pollWhileImporting()
+    await loadAccounts()
 
     if (accounts.value.length > 0) {
       const results = await Promise.all(
@@ -81,13 +66,8 @@ onMounted(async () => {
       kycBanner.value = 'failed'
     }
   } catch {
-    accountsLoading.value = false
     kycBanner.value = 'start'
   }
-})
-
-onUnmounted(() => {
-  if (importPollTimer) clearTimeout(importPollTimer)
 })
 
 async function startKyc() {
@@ -108,18 +88,13 @@ async function createAccount(chain: string) {
   accountLoading.value = chain
   try {
     const { data } = await postAccount({
-      account_name: displayName.value,
+      accountName: displayName.value,
       email: userEmail.value,
       chain,
-      provider: 'PCF0001',
-      accounting_currency: 'USD',
     })
     if (data.success) {
       createBanner.value = false
-      const { data: accountsData } = await listAccounts()
-      accounts.value = accountsData.accounts ?? accounts.value
-      if (importPollTimer) clearTimeout(importPollTimer)
-      pollWhileImporting()
+      await refreshAccounts()
     }
   } catch (e) {
     console.error('Failed to create account', e)

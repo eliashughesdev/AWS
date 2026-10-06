@@ -4,7 +4,8 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { listAccounts, withdraw } from '@loudibly/core/api/accounts'
+import { withdraw } from '@loudibly/core/api/accounts'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
 
 const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
@@ -12,18 +13,7 @@ const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
-
-interface Account {
-  accountNo: string
-  chain: string
-  currency: string
-  depositAddress: string
-  status: string
-  balance: number
-}
-
-const accounts = ref<Account[]>([])
-const loading  = ref(true)
+const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
 
 const selectedAccount    = ref('')
 const amount             = ref('')
@@ -92,9 +82,7 @@ onMounted(async () => {
   }
 
   try {
-    const { data } = await listAccounts()
-    const allAccounts: Account[] = data.accounts ?? []
-    accounts.value = allAccounts.filter(a => !!a.chain)
+    await loadAccounts()
 
     if (accounts.value.length > 0) {
       selectedAccount.value = accounts.value[0].accountNo
@@ -102,8 +90,6 @@ onMounted(async () => {
     }
   } catch (e) {
     console.error('Failed to load accounts', e)
-  } finally {
-    loading.value = false
   }
 })
 
