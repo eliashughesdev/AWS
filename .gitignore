@@ -9,6 +9,6 @@ amplify/service/routes/e2e/GetAccountUser.ts
 .devbox/
 devbox.json
 devbox.lock
-web/apps/loudibly/NODA_MONEY/
+web/apps/noda/brand-source/
 energy-test.env
 .wallets.nile.json
