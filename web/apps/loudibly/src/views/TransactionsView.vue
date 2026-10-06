@@ -2,17 +2,17 @@
 import { ref, watch, onMounted } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import { useTransactions } from '@loudibly/core/composables/useTransactions'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { listAccounts, listTransactions } from '@loudibly/core/api/accounts'
 
 const router = useRouter()
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
-const accounts          = ref<any[]>([])
+const { accounts, load: loadAccounts } = useAccounts()
+const { transactions, loading: transactionsLoading, load: loadTransactions } = useTransactions()
 const selectedAccount   = ref<string | null>(null)
-const transactions      = ref<any[]>([])
-const transactionsLoading = ref(true)
 const copied = ref('')
 
 async function copyHash(txId: string) {
@@ -21,24 +21,12 @@ async function copyHash(txId: string) {
   setTimeout(() => { copied.value = '' }, 2000)
 }
 
-async function fetchTransactions() {
-  transactionsLoading.value = true
-  try {
-    const targets = selectedAccount.value === null
+function fetchTransactions() {
+  return loadTransactions(
+    selectedAccount.value === null
       ? accounts.value
-      : accounts.value.filter(a => a.accountNumber === selectedAccount.value)
-
-    const results = await Promise.all(
-      targets.map((a: any) =>
-        listTransactions(a.accountNo).then(r => r.data).catch(() => ({ transactions: [] }))
-      )
-    )
-    transactions.value = results
-      .flatMap((r: any) => r.transactions ?? [])
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  } finally {
-    transactionsLoading.value = false
-  }
+      : accounts.value.filter(a => a.accountNo === selectedAccount.value)
+  )
 }
 
 onMounted(async () => {
@@ -47,19 +35,15 @@ onMounted(async () => {
     return
   }
 
-  try {
-    const { data } = await listAccounts()
-    accounts.value = data.accounts ?? []
-    await fetchTransactions()
-  } catch {
-    transactionsLoading.value = false
-  }
+  // With no accounts (or a failed request) this ends the loading state with an empty list.
+  await loadAccounts().catch(() => {})
+  await fetchTransactions()
 })
 
 watch(selectedAccount, fetchTransactions)
 
-function selectAccount(accountNumber: string | null) {
-  selectedAccount.value = accountNumber
+function selectAccount(accountNo: string | null) {
+  selectedAccount.value = accountNo
 }
 
 async function handleSignOut() {
@@ -96,7 +80,7 @@ function txToDisplay(tx: any) {
       : `-${tx.amount} ${tx.currency}`,
     amountClass: isTransferReceived ? 'text-amber-400' : isDeposit && !isFailed ? 'text-brand' : '',
     accountLabel: (() => {
-      const acct = accounts.value.find(a => a.accountNumber === tx.accountNumber)
+      const acct = accounts.value.find(a => a.accountNo === tx.accountNo)
       return acct?.chain ?? acct?.currency ?? '—'
     })(),
   }
@@ -126,13 +110,13 @@ const showAccountColumn = () => selectedAccount.value === null
         </button>
         <button
           v-for="acct in accounts"
-          :key="acct.accountNumber"
-          @click="selectAccount(acct.accountNumber)"
-          :class="selectedAccount === acct.accountNumber
+          :key="acct.accountNo"
+          @click="selectAccount(acct.accountNo)"
+          :class="selectedAccount === acct.accountNo
             ? 'bg-brand text-on-brand font-bold'
             : 'bg-surface-1 text-text-secondary border border-border-subtle hover:text-white hover:border-white/20'"
           class="font-['JetBrains_Mono'] text-xs px-4 py-2 rounded-full transition-all">
-          {{ acct.chain ?? acct.currency ?? acct.accountNumber }}
+          {{ acct.chain ?? acct.currency ?? acct.accountNo }}
         </button>
       </div>
 

@@ -3,11 +3,11 @@ import { ref, computed, onMounted } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import { useTransactions } from '@loudibly/core/composables/useTransactions'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
 import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
-import { listTransactions } from '@loudibly/core/api/accounts'
 import { getKycStatus, startDiditSession } from '@loudibly/core/api/kyc'
 
 const route  = useRoute()
@@ -23,6 +23,7 @@ const {
   refresh: refreshAccounts,
   create:  postAccount,
 } = useAccounts({ pollWhileImporting: true })
+const { transactions, loading: transactionsLoading, load: loadTransactions } = useTransactions()
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
 const kycLoading       = ref(false)
 const createBanner     = ref(false)
@@ -37,21 +38,8 @@ onMounted(async () => {
   try {
     createBanner.value = true
     await loadAccounts()
-
-    if (accounts.value.length > 0) {
-      const results = await Promise.all(
-        accounts.value.map((a: any) =>
-          listTransactions(a.accountNo).then(r => r.data).catch(() => ({ transactions: [] }))
-        )
-      )
-      transactions.value = results
-        .flatMap((r: any) => r.transactions ?? [])
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 10)
-      transactionsLoading.value = false
-      return
-    }
-    transactionsLoading.value = false
+    await loadTransactions(accounts.value, { limit: 10 })
+    if (accounts.value.length > 0) return
 
     const { data: kycData } = await getKycStatus()
     const kycStatus: string | undefined = kycData.kyc?.status
@@ -161,8 +149,6 @@ const assets = computed(() => {
   })
 })
 
-const transactions     = ref<any[]>([])
-const transactionsLoading = ref(true)
 const copied = ref('')
 
 async function copyHash(txId: string) {
