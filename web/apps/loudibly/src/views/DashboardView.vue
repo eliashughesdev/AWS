@@ -4,11 +4,11 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useTransactions } from '@loudibly/core/composables/useTransactions'
+import { useKyc } from '@loudibly/core/composables/useKyc'
 import { useRoute, useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { brand } from '../brands'
 import { USDT_TRON_CURRENCY } from '@loudibly/core/config'
-import { getKycStatus, startDiditSession } from '@loudibly/core/api/kyc'
 
 const route  = useRoute()
 const router = useRouter()
@@ -24,8 +24,8 @@ const {
   create:  postAccount,
 } = useAccounts({ pollWhileImporting: true })
 const { transactions, loading: transactionsLoading, load: loadTransactions } = useTransactions()
+const { status: kycStatus, starting: kycLoading, load: loadKyc, start: startKyc } = useKyc()
 const kycBanner        = ref<'hidden' | 'start' | 'pending' | 'failed'>('hidden')
-const kycLoading       = ref(false)
 const createBanner     = ref(false)
 const accountLoading   = ref<string | null>(null)
 
@@ -41,14 +41,13 @@ onMounted(async () => {
     await loadTransactions(accounts.value, { limit: 10 })
     if (accounts.value.length > 0) return
 
-    const { data: kycData } = await getKycStatus()
-    const kycStatus: string | undefined = kycData.kyc?.status
+    await loadKyc()
 
-    if (kycStatus === 'Approved') {
+    if (kycStatus.value === 'approved') {
       createBanner.value = true
-    } else if (kycStatus === 'In Progress') {
+    } else if (kycStatus.value === 'pending') {
       kycBanner.value = 'pending'
-    } else if (!kycStatus || kycStatus === 'Not Started') {
+    } else if (kycStatus.value === 'not-started') {
       kycBanner.value = 'start'
     } else {
       kycBanner.value = 'failed'
@@ -57,20 +56,6 @@ onMounted(async () => {
     kycBanner.value = 'start'
   }
 })
-
-async function startKyc() {
-  kycLoading.value = true
-  try {
-    const { data } = await startDiditSession()
-    if (data.verification_url) {
-      window.location.href = data.verification_url
-    }
-  } catch (e) {
-    console.error('Failed to start KYC session', e)
-  } finally {
-    kycLoading.value = false
-  }
-}
 
 async function createAccount(chain: string) {
   accountLoading.value = chain
