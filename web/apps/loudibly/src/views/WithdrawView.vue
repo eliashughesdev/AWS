@@ -1,29 +1,37 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { withdraw } from '@loudibly/core/api/accounts'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
-import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
-
-const BINANCE_SYMBOL_MAP: Record<string, string> = { TRON: 'TRX' }
+import { useExchangeRate } from '@loudibly/core/composables/useExchangeRate'
+import { useWithdraw } from '@loudibly/core/composables/useWithdraw'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
+const { rate: exchangeRate, loading: rateLoading, load: fetchExchangeRate } = useExchangeRate()
+const {
+  status: withdrawStatus,
+  error:  withdrawError,
+  txId:   withdrawTxId,
+  submitting,
+  send,
+  reset,
+} = useWithdraw({
+  rejected:   'Withdrawal request failed. Please try again.',
+  failed:     'Withdrawal failed. Please try again.',
+  timeout:    'No confirmation received. Your withdrawal may still be processing — check your balance later.',
+  unexpected: 'An unexpected error occurred.',
+})
 
 const selectedAccount    = ref('')
 const amount             = ref('')
 const destinationAddress = ref('')
 const formError          = ref('')
-const submitting         = ref(false)
 const withdrawMode       = ref<'usd' | 'crypto'>('usd')
-
-const exchangeRate = ref<number | null>(null)
-const rateLoading  = ref(false)
 
 const selectedAccountData = computed(() =>
   accounts.value.find(a => a.accountNo === selectedAccount.value)
@@ -39,33 +47,12 @@ const usdEquivalent = computed(() => {
   return (parseFloat(amount.value) * exchangeRate.value).toFixed(2)
 })
 
-type WithdrawStatus = 'idle' | 'processing' | 'success' | 'failed'
-const withdrawStatus = ref<WithdrawStatus>('idle')
-const withdrawError  = ref('')
-const withdrawTxId   = ref('')
-const copied         = ref('')
+const copied = ref('')
 
 async function copyTxId() {
   await navigator.clipboard.writeText(withdrawTxId.value)
   copied.value = withdrawTxId.value
   setTimeout(() => { copied.value = '' }, 2000)
-}
-
-let resultWatch: PaymentResultWatch | null = null
-
-async function fetchExchangeRate(chain: string) {
-  rateLoading.value  = true
-  exchangeRate.value = null
-  try {
-    const ticker = BINANCE_SYMBOL_MAP[chain] ?? chain
-    const res  = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${ticker}USDT`)
-    const data = await res.json()
-    if (data.price) exchangeRate.value = parseFloat(data.price)
-  } catch {
-    exchangeRate.value = null
-  } finally {
-    rateLoading.value = false
-  }
 }
 
 watch(selectedAccount, (accountNo) => {
@@ -93,24 +80,6 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => closeWs())
-
-function closeWs() {
-  resultWatch?.close()
-  resultWatch = null
-}
-
-function handleWithdrawResult(data: any) {
-  closeWs()
-  if (data.success && data.status === 'withdrawal_complete') {
-    withdrawStatus.value = 'success'
-    withdrawTxId.value   = data.txId ?? ''
-  } else {
-    withdrawStatus.value = 'failed'
-    withdrawError.value  = data.error ?? 'Withdrawal failed. Please try again.'
-  }
-}
-
 async function submit() {
   formError.value = ''
 
@@ -131,8 +100,7 @@ async function submit() {
 }
 
 async function submitCustodial(parsed: number) {
-  const transactionId  = crypto.randomUUID()
-  const isCryptoMode   = withdrawMode.value === 'crypto'
+  const isCryptoMode = withdrawMode.value === 'crypto'
 
   if (isCryptoMode) {
     if (parsed > (selectedAccountData.value?.balance ?? 0)) {
@@ -146,55 +114,24 @@ async function submitCustodial(parsed: number) {
     }
   }
 
-  resultWatch = watchPaymentResult(userId.value, transactionId, {
-    onResult: handleWithdrawResult,
-    onTimeout: () => {
-      if (withdrawStatus.value === 'processing') {
-        closeWs()
-        withdrawStatus.value = 'failed'
-        withdrawError.value  = 'No confirmation received. Your withdrawal may still be processing — check your balance later.'
-      }
-    },
+  await send({
+    accountNo:          selectedAccount.value,
+    chain:              selectedAccountData.value?.chain,
+    amount:             parsed,
+    unit:               withdrawMode.value,
+    userId:             userId.value,
+    destinationAddress: destinationAddress.value.trim(),
   })
-
-  withdrawStatus.value = 'processing'
-  submitting.value     = true
-
-  try {
-    const { ok, data } = await withdraw({
-      accountNumber:      selectedAccount.value,
-      currency:           isCryptoMode ? (selectedAccountData.value?.chain ?? 'TRON') : 'USD',
-      ...(isCryptoMode ? { cryptoAmount: parsed } : { amount: parsed }),
-      userId:             userId.value,
-      destinationAddress: destinationAddress.value.trim(),
-      transactionId,
-    })
-
-    if (!ok) {
-      closeWs()
-      withdrawStatus.value = 'failed'
-      withdrawError.value  = data.message ?? 'Withdrawal request failed. Please try again.'
-    }
-  } catch {
-    closeWs()
-    withdrawStatus.value = 'failed'
-    withdrawError.value  = 'An unexpected error occurred.'
-  } finally {
-    submitting.value = false
-  }
 }
 
 function resetForm() {
-  withdrawStatus.value     = 'idle'
-  withdrawError.value      = ''
-  withdrawTxId.value       = ''
+  reset()
   formError.value          = ''
   amount.value             = ''
   destinationAddress.value = ''
 }
 
 async function handleSignOut() {
-  closeWs()
   await signOut()
   router.push('/auth')
 }

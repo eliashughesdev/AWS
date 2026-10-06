@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { createAccount, listAccounts } from '../api/accounts'
+import { LEDGER_PROVIDER } from '../config'
 import type { Account } from '../api/types'
 
 const IMPORT_POLL_MS = 5000
@@ -67,7 +68,7 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
       account_name: accountName,
       email,
       chain,
-      provider: 'PCF0001',
+      provider: LEDGER_PROVIDER,
       accounting_currency: 'USD',
       userId,
     })

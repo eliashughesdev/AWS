@@ -4,23 +4,22 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { transfer } from '@loudibly/core/api/accounts'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import { useTransfer } from '@loudibly/core/composables/useTransfer'
 
 const router = useRouter()
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
 const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
+const { status: transferStatus, error: transferError, submitting, send, reset } = useTransfer({
+  rejected:   'Transfer failed. Please try again.',
+  unexpected: 'An unexpected error occurred.',
+})
 
 const selectedFrom = ref('')
 const selectedTo   = ref('')
 const amount       = ref('')
 const formError    = ref('')
-const submitting   = ref(false)
-
-type TransferStatus = 'idle' | 'processing' | 'success' | 'failed'
-const transferStatus = ref<TransferStatus>('idle')
-const transferError  = ref('')
 
 const fromAccount = computed(() => accounts.value.find(a => a.accountNo === selectedFrom.value))
 
@@ -64,36 +63,13 @@ async function submit() {
     return
   }
 
-  transferStatus.value = 'processing'
-  submitting.value     = true
-
-  try {
-    const { ok, data } = await transfer({
-      provider:               'PCF0001',
-      senderAccountNumber:    selectedFrom.value,
-      recipientAccountNumber: selectedTo.value,
-      amount:                 parsed.toString(),
-    })
-
-    if (ok && data.success) {
-      transferStatus.value = 'success'
-    } else {
-      transferStatus.value = 'failed'
-      transferError.value  = data.message ?? 'Transfer failed. Please try again.'
-    }
-  } catch {
-    transferStatus.value = 'failed'
-    transferError.value  = 'An unexpected error occurred.'
-  } finally {
-    submitting.value = false
-  }
+  await send({ from: selectedFrom.value, to: selectedTo.value, amount: parsed })
 }
 
 function resetForm() {
-  transferStatus.value = 'idle'
-  transferError.value  = ''
-  formError.value      = ''
-  amount.value         = ''
+  reset()
+  formError.value = ''
+  amount.value    = ''
 }
 
 async function handleSignOut() {

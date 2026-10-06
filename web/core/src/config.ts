@@ -17,3 +17,6 @@ export const RELAY_BASE = required('VITE_EVERVAULT_RELAY_BASE', import.meta.env.
 // USDT_TRON is a Tatum mainnet-only built-in; on testnet, Shasta's USDT contract is
 // registered in Tatum as TUSDT_TRON.
 export const USDT_TRON_CURRENCY = import.meta.env.VITE_TRON_NETWORK === 'mainnet' ? 'USDT_TRON' : 'TUSDT_TRON'
+
+// The backend's code for its ledger provider (ProviderName.Tatum).
+export const LEDGER_PROVIDER = 'PCF0001'

@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
-import { deposit } from '@loudibly/core/api/accounts'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
-import { watchPaymentResult, type PaymentResultWatch } from '@loudibly/core/realtime/socket'
+import { useDeposit } from '@loudibly/core/composables/useDeposit'
 import { listPaymentMethods } from '@loudibly/core/api/payments'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 const { accounts, load: loadAccounts } = useAccounts()
+const { status: depositStatus, error: depositError, submitting, send, reset } = useDeposit({
+  rejected:   'Deposit request failed. Please try again.',
+  failed:     'Payment declined. Please try again.',
+  timeout:    'No confirmation received. Your deposit may still be processing — check your balance later.',
+  unexpected: 'An unexpected error occurred.',
+})
 
 interface SavedCard {
   id: string
@@ -28,13 +33,6 @@ const selectedAccount = ref('')
 const selectedCard    = ref('')
 const amount          = ref('')
 const formError       = ref('')
-const submitting      = ref(false)
-
-type DepositStatus = 'idle' | 'processing' | 'success' | 'failed'
-const depositStatus = ref<DepositStatus>('idle')
-const depositError  = ref('')
-
-let resultWatch: PaymentResultWatch | null = null
 
 onMounted(async () => {
   if (!(await loadUser())) {
@@ -58,28 +56,6 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
-  closeWs()
-})
-
-function closeWs() {
-  resultWatch?.close()
-  resultWatch = null
-}
-
-function handlePaymentResult(data: any) {
-  closeWs()
-  if (data.success && data.status === 'succeeded') {
-    depositStatus.value = 'success'
-  } else if (data.status === 'requires_action' && data.authenticationUrl) {
-    window.open(data.authenticationUrl, '_blank')
-    // Leave overlay in 'processing' state — a second PAYMENT_RESULT will arrive after 3DS
-  } else {
-    depositStatus.value = 'failed'
-    depositError.value  = data.error ?? 'Payment declined. Please try again.'
-  }
-}
-
 async function submit() {
   formError.value = ''
 
@@ -91,61 +67,24 @@ async function submit() {
     return
   }
 
-  const transactionId = crypto.randomUUID()
-
-  // Open WebSocket before the HTTP call so we don't miss a fast response
-  resultWatch = watchPaymentResult(userId.value, transactionId, {
-    onResult: handlePaymentResult,
-    // No message in 60 seconds — surface a neutral message
-    onTimeout: () => {
-      if (depositStatus.value === 'processing') {
-        closeWs()
-        depositStatus.value = 'failed'
-        depositError.value  = 'No confirmation received. Your deposit may still be processing — check your balance later.'
-      }
-    },
-  })
-
   console.log('[Deposit] userEmail:', userEmail.value, '| userId:', userId.value)
 
-  depositStatus.value = 'processing'
-  submitting.value    = true
-
-  try {
-    const { ok, data } = await deposit({
-      accountNumber: selectedAccount.value,
-      currency:      'USD',
-      amount:        parsed,
-      paymentId:     selectedCard.value,
-      userId:        userId.value,
-      email:         'test@email.com',
-      transactionId,
-    })
-
-    if (!ok) {
-      closeWs()
-      depositStatus.value = 'failed'
-      depositError.value  = data.message ?? 'Deposit request failed. Please try again.'
-    }
-    // On success (status 'queued') we keep the overlay open and await the WS message
-  } catch {
-    closeWs()
-    depositStatus.value = 'failed'
-    depositError.value  = 'An unexpected error occurred.'
-  } finally {
-    submitting.value = false
-  }
+  await send({
+    accountNo: selectedAccount.value,
+    cardId:    selectedCard.value,
+    amount:    parsed,
+    userId:    userId.value,
+    email:     'test@email.com',
+  })
 }
 
 function resetForm() {
-  depositStatus.value = 'idle'
-  depositError.value  = ''
-  formError.value     = ''
-  amount.value        = ''
+  reset()
+  formError.value = ''
+  amount.value    = ''
 }
 
 async function handleSignOut() {
-  closeWs()
   await signOut()
   router.push('/auth')
 }
