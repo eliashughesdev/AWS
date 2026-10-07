@@ -26,6 +26,8 @@ import withdrawSm from './assets/icons/withdraw-sm.png'
 import convertSm from './assets/icons/convert-sm.png'
 import refreshSm from './assets/icons/refresh-sm.png'
 import eyeSm from './assets/icons/eye-sm.png'
+import starFilled from './assets/icons/star-filled.png'
+import copy from './assets/icons/copy.png'
 
 export const icons = {
   dashboard:      { src: dashboard,    w: 22, h: 19 },
@@ -50,6 +52,8 @@ export const icons = {
   shield:         { src: shield,       w: 18, h: 22 },
   star:           { src: star,         w: 18, h: 16 },
   trophy:         { src: trophy,       w: 26, h: 26 },
+  'star-filled':  { src: starFilled,   w: 16, h: 15.5 },
+  copy:           { src: copy,         w: 16, h: 16 },
   // Cut from the mobile design, where these are drawn with heavier strokes.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },

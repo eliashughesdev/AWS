@@ -14,6 +14,7 @@
   --color-card-line: #272831;
   --color-tile:      #091426;  /* quick-action tiles */
   --color-tile-line: #2B344A;
+  --color-chip:      #131819;
 
   /* Icon colours and the darker disc each one sits on */
   --color-green:       #34C759;
@@ -82,4 +83,21 @@ body {
 
 .bg-pill {
   background: linear-gradient(90deg, #215056, #142E36 50%, #050B14);
+}
+
+/* Accounts */
+.bg-account {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+}
+
+.bg-cta {
+  background: linear-gradient(82deg, #42E0E6, #0E2951);
+}
+
+.bg-address {
+  background: linear-gradient(90deg, #152F39, #142424);
+}
+
+.bg-copy {
+  background: linear-gradient(45deg, #262626 8%, #474747 38%, #282828 88%);
 }

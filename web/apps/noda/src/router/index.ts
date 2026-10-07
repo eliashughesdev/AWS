@@ -1,12 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { checkAccess, type AccessRules } from '@loudibly/core/auth/guards'
 import TopNavLayout from '../layouts/TopNavLayout.vue'
+import AccountsView from '../views/AccountsView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 import DashboardView from '../views/DashboardView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta extends AccessRules {
-    title?: string  // page heading, drawn by the layout
+    title?: string     // page heading, drawn by the layout
+    subtitle?: string  // the line under it
   }
 }
 
@@ -22,7 +24,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         { path: 'dashboard',    name: 'dashboard',    component: DashboardView,  meta: { title: 'Dashboard' } },
-        { path: 'accounts',     name: 'accounts',     component: ComingSoonView, meta: { title: 'Accounts' } },
+        { path: 'accounts',     name: 'accounts',     component: AccountsView,   meta: { title: 'Accounts', subtitle: 'Manage your crypto accounts and wallets' } },
         { path: 'deposit',      name: 'deposit',      component: ComingSoonView, meta: { title: 'Deposit' } },
         { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView, meta: { title: 'Withdraw' } },
         { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },

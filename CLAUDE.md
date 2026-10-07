@@ -28,9 +28,10 @@ There are three deployable pieces in this one repo:
     production (see `amplify.yml`).
   - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
     domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header, navigation
-    and footer (`TopNavLayout`, which also draws each page's heading from the route's
-    `meta.title`) and the Dashboard, whose content is all mockup data kept in
-    `src/placeholders/dashboard.ts`; the other seven tabs open one placeholder view. Its git-ignored
+    and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
+    route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
+    it in `PageAction`), the Dashboard and Accounts, whose content is all mockup data kept in
+    `src/placeholders/`; the other six tabs open one placeholder view. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
     1440px and a 320px page) — build only what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in

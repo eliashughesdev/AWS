@@ -79,21 +79,27 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   </nav>
 
   <div class="relative">
-    <div class="flex h-[61px] items-center px-[10px] pb-[12px] lg:h-[110px] lg:px-[30px] lg:pb-[27px] lg:pt-[47px]">
-      <h1 class="text-[20px] font-semibold max-lg:mb-[2px] lg:text-[30px] lg:leading-[36px]">{{ route.meta.title }}</h1>
+    <div class="flex min-h-[61px] items-start px-[10px] pt-[8.5px] lg:min-h-[110px] lg:px-[30px] lg:pt-[47px]">
+      <div>
+        <h1 class="text-[20px] leading-[30px] font-semibold lg:text-[30px] lg:leading-[36px]">{{ route.meta.title }}</h1>
+        <p v-if="route.meta.subtitle" class="mt-[4px] text-[12px] leading-none font-semibold text-muted lg:mt-[7.5px]">{{ route.meta.subtitle }}</p>
+      </div>
       <button
         type="button"
         aria-label="Menu"
         :aria-expanded="menuOpen"
-        class="ml-auto flex h-[44px] w-[40px] flex-col justify-center gap-[5px] lg:hidden"
+        class="-mt-[6px] ml-auto flex h-[44px] w-[40px] flex-col justify-center gap-[5px] lg:hidden"
         @click="menuOpen = !menuOpen"
       >
         <span v-for="n in 3" :key="n" class="h-px bg-muted" />
       </button>
     </div>
 
-    <!-- Not in Figma: the desktop tabs, stacked. -->
-    <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 top-[49px] z-10 lg:hidden">
+    <!-- Where a view's PageAction lands: under the heading on mobile, beside it on desktop. -->
+    <div id="page-action" class="px-[10px] lg:absolute lg:right-[30px] lg:top-[50px] lg:px-0" />
+
+    <!-- Not in Figma: the desktop tabs, stacked. Opens below the subtitle when the page has one. -->
+    <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 z-10 lg:hidden" :class="route.meta.subtitle ? 'top-[61px]' : 'top-[49px]'">
       <RouterLink
         v-for="tab in tabs"
         :key="tab.name"
