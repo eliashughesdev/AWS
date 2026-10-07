@@ -12,3 +12,6 @@ devbox.lock
 web/apps/loudibly/NODA_MONEY/
 energy-test.env
 .wallets.nile.json
+
+# Claude Code personal settings
+.claude/settings.local.json
