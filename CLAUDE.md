@@ -26,6 +26,27 @@ There are three deployable pieces in this one repo:
     wallet dashboard, send, receive, ledger, all read straight from the chain with an
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
     production (see `amplify.yml`).
+  - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
+    domain. Until it has one, `amplify.yml` builds it with `--base=/noda/` into `dist/noda`, so
+    it is served at `/noda/` beside `/v2/`. Nothing in the app names that prefix: the router
+    takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
+    and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
+    route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
+    it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
+    Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
+    content is all mockup data kept in `src/placeholders/`. Sign-in and sign-up at `/auth` are
+    real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
+    the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
+    in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
+    goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. A
+    table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
+    takes controls for its title line in a `tools` slot; `QrCode` draws a QR code as SVG. A
+    `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored
+    `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
+    1440px and a 320px page) — build only what an image there shows. The design has no SVG
+    icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
+    `src/icons.ts`, drawn by `AppIcon` in the text colour; its `mobile` prop names a second
+    cut for below the `lg` breakpoint).
   - `web/core/` (`@loudibly/core`) — the headless shared package imported by apps: backend API
     client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
     non-custodial chain code (`wallet/`: Solana, TRON, session keys). Consumed as source (no
@@ -74,6 +95,7 @@ cd web
 yarn install                          # one install for core + every app
 yarn workspace loudibly dev
 yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
+yarn workspace noda dev               # same scripts for the NODA app
 ```
 
 There is no unit/integration test runner (no jest/vitest config, no `test` script). Backend
@@ -232,7 +254,10 @@ add new codes there rather than inlining error responses in handlers.
   the non-custodial, client-key wallet screens — check which mode a view belongs to before
   wiring in Cognito-only or chain-only calls.
 - Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
-  the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`).
+  the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`). The NODA app
+  is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
+  rule in the Amplify console (`/noda/<*>` to `/noda/index.html`), or a reload on one of its
+  pages answers 404.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 

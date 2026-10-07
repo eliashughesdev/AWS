@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "./auth.css";
+
+/* Values measured from the Figma exports in brand-source/figma. */
+@theme {
+  --font-sans: "Inter", sans-serif;
+
+  --color-page:    #000000;
+  --color-accent:  #43E5EA;  /* active tab, toggle, moon */
+  --color-muted:   #ACACAC;  /* inactive tabs and header icons */
+  --color-line:    #303030;  /* divider under the header */
+  --color-outline: #454545;  /* border of the header controls */
+
+  --color-card:      #0F111A;
+  --color-card-line: #272831;
+  --color-tile:      #091426;  /* quick-action tiles */
+  --color-tile-line: #2B344A;
+  --color-chip:      #131819;
+  --color-field:     #040A1F;  /* text inputs */
+  --color-warn:      #1A160C;  /* fill of the yellow warning box */
+
+  /* Icon colours and the darker disc each one sits on */
+  --color-green:       #34C759;
+  --color-green-dim:   #10343B;
+  --color-blue:        #5168C5;
+  --color-blue-dim:    #15244B;
+  --color-yellow:      #FFCC00;
+  --color-yellow-dim:  #3F3824;
+  --color-accent-dim:  #152F39;
+  --color-red:         #FF383C;
+  --color-orange:      #FF8D28;
+  --color-brown:       #AC7F5E;
+}
+
+html, body {
+  min-height: 100dvh;
+  margin: 0;
+}
+
+#app {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+/* The design's text matches Inter's display cut (optical size 32) at every size. */
+body {
+  background: var(--color-page);
+  color: #FFFFFF;
+  font-variation-settings: "opsz" 32;
+}
+
+/* On every element, so the spacing follows each font size. */
+@layer base {
+  * {
+    letter-spacing: 0.01em;
+  }
+}
+
+.bg-tabbar {
+  background: linear-gradient(90deg, #0D0E0E, #13191A);
+}
+
+.bg-tab-active {
+  background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-avatar {
+  background: linear-gradient(90deg, #3CCCD6, #0E2952);
+}
+
+/* Cards with a teal-to-blue border: the fill sits on the padding box, the border gradient behind it. */
+.card-glow,
+.card-stat {
+  border: 1px solid transparent;
+}
+
+.card-glow {
+  background:
+    linear-gradient(180deg, #0B0F23, #020617) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+  box-shadow: 2px 3px 12px #0E3031;
+}
+
+.card-stat {
+  background:
+    linear-gradient(160deg, #0C1026, #050B25) padding-box,
+    linear-gradient(90deg, #1F7583, #0D294F) border-box;
+}
+
+.bg-shield {
+  background: linear-gradient(90deg, #42E0E6, #1D627D);
+}
+
+.bg-pill {
+  background: linear-gradient(90deg, #215056, #142E36 50%, #050B14);
+}
+
+/* Accounts */
+.bg-account {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+}
+
+.bg-cta {
+  background: linear-gradient(82deg, #42E0E6, #0E2951);
+}
+
+.bg-address {
+  background: linear-gradient(90deg, #152F39, #142424);
+}
+
+.bg-copy {
+  background: linear-gradient(45deg, #262626 8%, #474747 38%, #282828 88%);
+}
+
+/* A summary card's dot glows in its own colour. */
+.dot-glow {
+  background: currentColor;
+  box-shadow: 0 1px 5px color-mix(in srgb, currentColor 40%, transparent);
+}
+
+/* Scrolls without the browser's scrollbar (ScrollX draws the design's own). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Deposit */
+.tile-selected {
+  border-color: var(--color-accent);
+  background: linear-gradient(90deg, #03060F, #11272F);
+  box-shadow: 2.5px 2.5px 9px rgb(67 229 234 / 0.25);
+}
+
+/* Like .card-glow's border, half a pixel thick, on a flat fill. A utility, so it takes variants (lg:info-box). */
+@utility info-box {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(#040F19, #040F19) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+}
+
+/* Withdraw */
+.bg-toggle-active {
+  background: linear-gradient(180deg, #154144, #111B1C);
+}
+
+.currency-chip {
+  border: 0.5px solid var(--color-accent);
+  background: linear-gradient(180deg, #091A22, #040D19);
+  box-shadow: -2px 3px 5px rgb(0 229 212 / 0.21);
+}
+
+/* The selected currency and the filled part of the limit bar. */
+.bg-teal-rise,
+.currency-chip[aria-pressed="true"] {
+  background: linear-gradient(90deg, #184C6E, #3DCFD8);
+}
+
+/* The taller of the two desktop table styles (Withdraw History, Convert). */
+.table-tall {
+  --table-title: 22px;
+  --table-head-gap: 41px;
+  --table-rows-gap: 3px;
+  --table-row: 59.5px;
+  --table-foot: 15px;
+}
+
+/* Earn */
+.bg-tag {
+  background: linear-gradient(90deg, #24585D, #03050E);
+}
+
+/* A half-pixel teal border that fades to the right, on the card fill. */
+.button-outline {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}
