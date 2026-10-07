@@ -32,7 +32,11 @@ There are three deployable pieces in this one repo:
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
     Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
-    content is all mockup data kept in `src/placeholders/`. A
+    content is all mockup data kept in `src/placeholders/`. Sign-in and sign-up at `/auth` are
+    real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
+    the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
+    in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
+    goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot; `QrCode` draws a QR code as SVG. A
     `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored

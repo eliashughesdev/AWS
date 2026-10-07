@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { checkAccess, type AccessRules } from '@loudibly/core/auth/guards'
 import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
+import AuthView from '../views/AuthView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 import ConvertView from '../views/ConvertView.vue'
 import DashboardView from '../views/DashboardView.vue'
@@ -23,8 +24,7 @@ declare module 'vue-router' {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // Public, so a signed-out user has somewhere to land until the sign-in screen exists.
-    { path: '/auth', name: 'auth', component: ComingSoonView },
+    { path: '/auth', name: 'auth', component: AuthView },
     {
       path: '/',
       component: TopNavLayout,

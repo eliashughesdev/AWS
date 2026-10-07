@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./auth.css";
 
 /* Values measured from the Figma exports in brand-source/figma. */
 @theme {

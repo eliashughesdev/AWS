@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import AppIcon from '../components/AppIcon.vue'
 import type { IconName } from '../icons'
 import logoMark from '../assets/logo-mark.png'
@@ -19,8 +21,23 @@ const tabs: { name: string; label: string; icon: IconName }[] = [
 ]
 
 const route = useRoute()
+const router = useRouter()
 const menuOpen = ref(false)
-watch(() => route.fullPath, () => { menuOpen.value = false })
+const userMenuOpen = ref(false)
+watch(() => route.fullPath, () => { menuOpen.value = userMenuOpen.value = false })
+
+const { displayName, load: loadUser } = useCurrentUser()
+const initial = ref('')
+
+onMounted(async () => {
+  if (await loadUser()) initial.value = displayName.value.charAt(0).toUpperCase()
+  else router.push({ name: 'auth' })
+})
+
+async function handleSignOut() {
+  await signOut()
+  router.push({ name: 'auth' })
+}
 </script>
 
 <template>
@@ -61,7 +78,22 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         <AppIcon name="settings" />
       </RouterLink>
 
-      <span class="bg-avatar mb-[2px] ml-[15px] grid size-[25px] place-items-center rounded-full text-[12px] font-medium text-white lg:mb-px lg:ml-[29px] lg:size-[33px] lg:text-[18px]">S</span>
+      <div class="relative mb-[2px] ml-[15px] lg:mb-px lg:ml-[29px]" @keydown.esc="userMenuOpen = false">
+        <button
+          type="button"
+          aria-label="Account"
+          :aria-expanded="userMenuOpen"
+          class="bg-avatar grid size-[25px] place-items-center rounded-full text-[12px] font-medium text-white lg:size-[33px] lg:text-[18px]"
+          @click="userMenuOpen = !userMenuOpen"
+        >{{ initial }}</button>
+        <!-- Not in Figma: a menu drawn like the design's dropdown buttons. A click anywhere else closes it. -->
+        <template v-if="userMenuOpen">
+          <div class="fixed inset-0 z-10" @click="userMenuOpen = false" />
+          <div class="absolute right-0 top-full z-20 mt-[8px] rounded-[10px] border border-card-line bg-card">
+            <button type="button" class="flex h-[40px] items-center whitespace-nowrap px-[13px] text-[12px] font-semibold text-white lg:text-[14px]" @click="handleSignOut">Sign out</button>
+          </div>
+        </template>
+      </div>
     </div>
   </header>
 
