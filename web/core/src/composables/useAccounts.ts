@@ -9,6 +9,8 @@ const IMPORT_POLL_MS = 5000
 export function useAccounts({ pollWhileImporting = false } = {}) {
   const accounts = ref<Account[]>([])
   const loading  = ref(true)
+  // The server refused the first read, so the empty list is not the user's.
+  const failed   = ref(false)
   // An account without a chain is a cash balance.
   const cryptoAccounts = computed(() => accounts.value.filter(a => !!a.chain))
 
@@ -18,7 +20,8 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
   // First read. Throws when the request itself fails; what to show then is the view's call.
   async function load() {
     try {
-      const { data } = await listAccounts()
+      const { ok, data } = await listAccounts()
+      failed.value   = !ok
       accounts.value = data.accounts ?? []
     } finally {
       loading.value = false
@@ -74,5 +77,5 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
     })
   }
 
-  return { accounts, cryptoAccounts, loading, load, refresh, create }
+  return { accounts, cryptoAccounts, loading, failed, load, refresh, create }
 }

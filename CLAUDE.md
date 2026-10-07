@@ -32,9 +32,15 @@ There are three deployable pieces in this one repo:
     takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
-    it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
+    it in `PageAction`), the Dashboard, Transactions, Deposit (Crypto method only),
     Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
-    content is all mockup data kept in `src/placeholders/`. Sign-in and sign-up at `/auth` are
+    content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
+    user's accounts with their value in USD and opens new ones from the New Account dialog.
+    Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
+    number), because the backend stores none; storing one waits for the client. `src/coins.ts`
+    maps a backend `chain` to the symbol, name and image shown, and `src/format.ts` formats
+    money. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
+    loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
     the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
     in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
@@ -61,10 +67,13 @@ There are three deployable pieces in this one repo:
   `aws-amplify`: Cognito goes through `@loudibly/core/auth/cognito`, and route access through
   `checkAccess()` in `@loudibly/core/auth/guards`, which returns a reason that each app's router
   maps to its own routes. Views get their data and flows from `@loudibly/core/composables/*`
-  (user, accounts, transactions, KYC, transfer/deposit/withdraw, cards, wallet reads and sends,
+  (user, accounts, prices, transactions, KYC, transfer/deposit/withdraw, cards, wallet reads and sends,
   sign-up, the claim link; password sign-in is `auth/signIn`, key handling `wallet/keys`)
   instead of calling `api/*` themselves: a `load()` throws when the request itself fails and
-  the view decides what to show. Core holds no user-facing wording — a view passes its own text
+  the view decides what to show. It does not throw when the server refuses the read:
+  `useAccounts().failed` says so, and a view must check it before showing an empty list as the
+  user's. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
+  value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text
   for each kind of failure (`FailureMessages` in `composables/queuedOperation.ts`) — and no
   routing. Composables stop their own timers and sockets with `onScopeDispose`, so call them
   in `setup`.
@@ -256,8 +265,9 @@ add new codes there rather than inlining error responses in handlers.
 - Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
   the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`). The NODA app
   is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
-  rule in the Amplify console (`/noda/<*>` to `/noda/index.html`), or a reload on one of its
-  pages answers 404.
+  rule in the Amplify console, above the general rule that sends every address without a dot to
+  the root app (NODA's: `</^/noda(/[^.]*)?$/>` to `/noda/index.html`, type 200). Without it,
+  that app's addresses show the root app.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 
