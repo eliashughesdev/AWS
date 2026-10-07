@@ -19,7 +19,7 @@ const chip = 'flex h-[28px] items-center rounded-[10px] border border-line text-
     :columns="columns"
     :rows="withdrawals"
     :grid="grid"
-    class="mt-[20px] lg:mt-[15px] lg:[--table-foot:15px] lg:[--table-head-gap:41px] lg:[--table-row:59.5px] lg:[--table-rows-gap:3px] lg:[--table-title:22px]"
+    class="table-tall mt-[20px] lg:mt-[15px]"
   >
     <span role="cell" :class="cell">{{ index + 1 }}</span>
     <span role="cell">

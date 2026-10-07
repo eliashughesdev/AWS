@@ -3,6 +3,7 @@ import { checkAccess, type AccessRules } from '@loudibly/core/auth/guards'
 import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
+import ConvertView from '../views/ConvertView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import DepositView from '../views/DepositView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
@@ -40,7 +41,7 @@ const router = createRouter({
             { path: 'history', name: 'withdraw-history', component: WithdrawHistoryView },
           ],
         },
-        { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },
+        { path: 'convert',      name: 'convert',      component: ConvertView,    meta: { title: 'Convert', subtitle: 'Instantly convert between cryptocurrencies' } },
         { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
         { path: 'earn',         name: 'earn',         component: ComingSoonView, meta: { title: 'Earn' } },
         { path: 'transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Transactions', subtitle: 'View and manage all your transaction history' } },

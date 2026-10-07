@@ -134,8 +134,8 @@ body {
   box-shadow: 2.5px 2.5px 9px rgb(67 229 234 / 0.25);
 }
 
-/* Like .card-glow's border, half a pixel thick, on a flat fill. */
-.info-box {
+/* Like .card-glow's border, half a pixel thick, on a flat fill. A utility, so it takes variants (lg:info-box). */
+@utility info-box {
   border: 0.5px solid transparent;
   background:
     linear-gradient(#040F19, #040F19) padding-box,
@@ -157,4 +157,13 @@ body {
 .bg-teal-rise,
 .currency-chip[aria-pressed="true"] {
   background: linear-gradient(90deg, #184C6E, #3DCFD8);
+}
+
+/* The taller of the two desktop table styles (Withdraw History, Convert). */
+.table-tall {
+  --table-title: 22px;
+  --table-head-gap: 41px;
+  --table-rows-gap: 3px;
+  --table-row: 59.5px;
+  --table-foot: 15px;
 }

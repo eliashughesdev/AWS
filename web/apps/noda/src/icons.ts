@@ -41,6 +41,8 @@ import caretSm from './assets/icons/caret-sm.png'
 import card from './assets/icons/card.png'
 import bank from './assets/icons/bank.png'
 import info from './assets/icons/info.png'
+import swap from './assets/icons/swap.png'
+import refreshLight from './assets/icons/refresh-light.png'
 import walletSm from './assets/icons/wallet-sm.png'
 import cardSm from './assets/icons/card-sm.png'
 import bankSm from './assets/icons/bank-sm.png'
@@ -82,6 +84,8 @@ export const icons = {
   bank:           { src: bank,         w: 18, h: 18 },
   info:           { src: info,         w: 18, h: 18 },
   'copy-light':   { src: copyLight,    w: 18, h: 18 },
+  swap:           { src: swap,         w: 22, h: 20 },
+  'refresh-light': { src: refreshLight, w: 16.5, h: 17 },
   // Cut from the mobile design, where these are drawn with heavier strokes or at their own size.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },

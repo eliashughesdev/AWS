@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppIcon from '../components/AppIcon.vue'
+import CoinRow from '../components/CoinRow.vue'
 import { currencies, form, limits, wallets } from '../placeholders/withdraw'
 
 const card = 'rounded-[10px] border border-line bg-[#02040E]'
@@ -72,16 +73,7 @@ const line = 'flex items-center justify-between text-[12px] leading-none lg:text
       <section :class="card">
         <h2 :class="title">Your Wallets</h2>
         <ul class="space-y-[10px] px-[14px] pb-[19px] pt-[20px] lg:space-y-[20px] lg:px-[29px] lg:pb-[29px] lg:pt-[30px]">
-          <li v-for="wallet in wallets" :key="wallet.symbol" class="flex h-[65px] items-center rounded-[10px] border border-card-line bg-card pl-[11px] lg:h-[91px] lg:pl-[19px]">
-            <img :src="wallet.coin" alt="" class="size-[36px] lg:size-[51px]" />
-            <div class="ml-[9.5px] lg:ml-[11.5px]">
-              <p class="flex items-center gap-[6px] leading-none">
-                <span class="text-[12px] font-semibold lg:text-[18px]">{{ wallet.symbol }}</span>
-                <span class="text-[12px] font-semibold text-muted lg:-mt-[2px] lg:text-[14px]">{{ wallet.name }}</span>
-              </p>
-              <p class="mt-[7px] text-[12px] leading-none font-semibold [word-spacing:0.1em] text-muted lg:mt-[10px] lg:text-[14px]">{{ wallet.amount }}</p>
-            </div>
-          </li>
+          <CoinRow v-for="wallet in wallets" :key="wallet.symbol" :coin="wallet.coin" :symbol="wallet.symbol" :name="wallet.name" :detail="wallet.amount" />
         </ul>
       </section>
 
