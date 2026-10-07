@@ -22,7 +22,8 @@ declare module 'vue-router' {
 }
 
 const router = createRouter({
-  history: createWebHistory(),
+  // The base comes from the build: '/' by default, '/noda/' where amplify.yml builds it into a subfolder.
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/auth', name: 'auth', component: AuthView },
     {

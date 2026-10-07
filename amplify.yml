@@ -53,8 +53,10 @@ frontend:
     build:
       commands:
         - yarn run build
-        - cd web && yarn workspace loudibly build && cd ..
+        # NODA sits in a subfolder of this site for testing; on its own domain it builds without --base.
+        - cd web && yarn workspace loudibly build && yarn workspace noda build --base=/noda/ && cd ..
         - cp -r web/apps/loudibly/dist dist/v2
+        - cp -r web/apps/noda/dist dist/noda
   artifacts:
     baseDirectory: dist
     files:

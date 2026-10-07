@@ -27,7 +27,9 @@ There are three deployable pieces in this one repo:
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
     production (see `amplify.yml`).
   - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
-    domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header, navigation
+    domain. Until it has one, `amplify.yml` builds it with `--base=/noda/` into `dist/noda`, so
+    it is served at `/noda/` beside `/v2/`. Nothing in the app names that prefix: the router
+    takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
@@ -252,7 +254,10 @@ add new codes there rather than inlining error responses in handlers.
   the non-custodial, client-key wallet screens — check which mode a view belongs to before
   wiring in Cognito-only or chain-only calls.
 - Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
-  the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`).
+  the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`). The NODA app
+  is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
+  rule in the Amplify console (`/noda/<*>` to `/noda/index.html`), or a reload on one of its
+  pages answers 404.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 
