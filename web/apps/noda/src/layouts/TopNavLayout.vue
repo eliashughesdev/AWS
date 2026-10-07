@@ -80,9 +80,10 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
 
   <div class="relative">
     <div class="flex min-h-[61px] items-start px-[10px] pt-[8.5px] lg:min-h-[110px] lg:px-[30px] lg:pt-[47px]">
-      <div>
+      <!-- The mobile design draws the heading higher on pages with a subtitle. -->
+      <div :class="{ 'max-lg:-mt-[6.5px]': route.meta.subtitle }">
         <h1 class="text-[20px] leading-[30px] font-semibold lg:text-[30px] lg:leading-[36px]">{{ route.meta.title }}</h1>
-        <p v-if="route.meta.subtitle" class="mt-[4px] text-[12px] leading-none font-semibold text-muted lg:mt-[7.5px]">{{ route.meta.subtitle }}</p>
+        <p v-if="route.meta.subtitle" class="mt-[4px] text-[12px] leading-none font-semibold tracking-[0.004em] text-muted lg:mt-[7.5px]">{{ route.meta.subtitle }}</p>
       </div>
       <button
         type="button"
@@ -117,7 +118,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
     <RouterView />
   </main>
 
-  <footer class="px-[10px] py-[21px] text-[10px] leading-none font-medium text-muted lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
+  <footer class="px-[10px] py-[21px] text-[10px] leading-none font-semibold text-muted lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
     NodabaseStaging©2025
   </footer>
 </template>

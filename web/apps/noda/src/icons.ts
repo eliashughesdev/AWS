@@ -28,6 +28,16 @@ import refreshSm from './assets/icons/refresh-sm.png'
 import eyeSm from './assets/icons/eye-sm.png'
 import starFilled from './assets/icons/star-filled.png'
 import copy from './assets/icons/copy.png'
+import search from './assets/icons/search.png'
+import filter from './assets/icons/filter.png'
+import pulse from './assets/icons/pulse.png'
+import calendar from './assets/icons/calendar.png'
+import caret from './assets/icons/caret.png'
+import arrowRight from './assets/icons/arrow-right.png'
+import filterSm from './assets/icons/filter-sm.png'
+import pulseSm from './assets/icons/pulse-sm.png'
+import calendarSm from './assets/icons/calendar-sm.png'
+import caretSm from './assets/icons/caret-sm.png'
 
 export const icons = {
   dashboard:      { src: dashboard,    w: 22, h: 19 },
@@ -54,11 +64,21 @@ export const icons = {
   trophy:         { src: trophy,       w: 26, h: 26 },
   'star-filled':  { src: starFilled,   w: 16, h: 15.5 },
   copy:           { src: copy,         w: 16, h: 16 },
-  // Cut from the mobile design, where these are drawn with heavier strokes.
+  search:         { src: search,       w: 18, h: 18 },
+  filter:         { src: filter,       w: 21, h: 21 },
+  pulse:          { src: pulse,        w: 24, h: 16 },
+  calendar:       { src: calendar,     w: 20, h: 21 },
+  caret:          { src: caret,        w: 12.5, h: 6.5 },
+  'arrow-right':  { src: arrowRight,   w:  9, h: 8.5 },
+  // Cut from the mobile design, where these are drawn with heavier strokes or at their own size.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },
   'refresh-sm':   { src: refreshSm,    w: 17, h: 17 },
   'eye-sm':       { src: eyeSm,        w: 18, h: 15 },
+  'filter-sm':    { src: filterSm,     w: 15, h: 15 },
+  'pulse-sm':     { src: pulseSm,      w: 21, h: 14 },
+  'calendar-sm':  { src: calendarSm,   w: 16.5, h: 17 },
+  'caret-sm':     { src: caretSm,      w:  9, h:  5 },
 }
 
 export type IconName = keyof typeof icons

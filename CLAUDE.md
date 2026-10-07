@@ -30,8 +30,9 @@ There are three deployable pieces in this one repo:
     domain. Not deployed and not built by `amplify.yml` yet. Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
-    it in `PageAction`), the Dashboard and Accounts, whose content is all mockup data kept in
-    `src/placeholders/`; the other six tabs open one placeholder view. Its git-ignored
+    it in `PageAction`), the Dashboard, Accounts and Transactions, whose content is all mockup
+    data kept in `src/placeholders/`; the other five tabs open one placeholder view. A table goes
+    in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
     1440px and a 320px page) — build only what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in

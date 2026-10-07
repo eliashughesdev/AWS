@@ -12,7 +12,7 @@ const label = 'text-[12px] leading-none font-semibold text-muted lg:ml-[2.5px] l
     <div class="flex items-start">
       <h2 class="text-[18px] leading-none font-[450] max-lg:ml-[2.5px] lg:text-[22px] lg:font-semibold">{{ account.name }}</h2>
       <AppIcon v-if="account.main" name="star-filled" class="ml-[8.5px] mt-[1.5px] text-accent [--icon-scale:0.94] lg:ml-[5.5px] lg:mt-[5px] lg:[--icon-scale:1]" />
-      <p class="ml-auto mr-px flex items-center gap-[4px] text-[12.5px] leading-none font-medium text-muted max-lg:mt-[4.5px]">
+      <p class="ml-auto mr-px flex items-center gap-[4px] text-[12px] leading-none font-semibold text-muted max-lg:mt-[4.5px]">
         <span class="size-[7px] rounded-full bg-accent" />
         {{ account.status }}
       </p>

@@ -4,6 +4,7 @@ import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import TransactionsView from '../views/TransactionsView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta extends AccessRules {
@@ -30,7 +31,7 @@ const router = createRouter({
         { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },
         { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
         { path: 'earn',         name: 'earn',         component: ComingSoonView, meta: { title: 'Earn' } },
-        { path: 'transactions', name: 'transactions', component: ComingSoonView, meta: { title: 'Transactions' } },
+        { path: 'transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Transactions', subtitle: 'View and manage all your transaction history' } },
         // Where header controls with nothing behind them lead (language, theme, notifications, settings).
         { path: 'coming-soon',  name: 'coming-soon',  component: ComingSoonView, meta: { title: 'Coming soon' } },
       ],

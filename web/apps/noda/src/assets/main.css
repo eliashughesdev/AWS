@@ -25,6 +25,8 @@
   --color-yellow-dim:  #3F3824;
   --color-accent-dim:  #152F39;
   --color-red:         #FF383C;
+  --color-orange:      #FF8D28;
+  --color-brown:       #AC7F5E;
 }
 
 html, body {
@@ -100,4 +102,19 @@ body {
 
 .bg-copy {
   background: linear-gradient(45deg, #262626 8%, #474747 38%, #282828 88%);
+}
+
+/* A summary card's dot glows in its own colour. */
+.dot-glow {
+  background: currentColor;
+  box-shadow: 0 1px 5px color-mix(in srgb, currentColor 40%, transparent);
+}
+
+/* Scrolls without the browser's scrollbar (ScrollX draws the design's own). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

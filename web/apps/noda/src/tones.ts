@@ -7,3 +7,13 @@ export const tones = {
 }
 
 export type Tone = keyof typeof tones
+
+// The colour of a summary card's dot.
+export const dots = {
+  teal:   'text-accent',
+  yellow: 'text-yellow',
+  green:  'text-green',
+  orange: 'text-orange',
+}
+
+export type Dot = keyof typeof dots
