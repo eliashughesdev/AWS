@@ -14,6 +14,7 @@ export const dots = {
   yellow: 'text-yellow',
   green:  'text-green',
   orange: 'text-orange',
+  red:    'text-red',
 }
 
 export type Dot = keyof typeof dots

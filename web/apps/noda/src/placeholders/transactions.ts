@@ -5,7 +5,7 @@ export interface Summary {
   label: string
   value: string
   change: string
-  up: boolean
+  up?: boolean  // which way the arrow beside the change points; no arrow when left out
   dot: Dot
 }
 

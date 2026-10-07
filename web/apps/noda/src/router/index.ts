@@ -6,6 +6,7 @@ import ComingSoonView from '../views/ComingSoonView.vue'
 import ConvertView from '../views/ConvertView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import DepositView from '../views/DepositView.vue'
+import PaymentsView from '../views/PaymentsView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import WithdrawView from '../views/WithdrawView.vue'
 import WithdrawFormView from '../views/WithdrawFormView.vue'
@@ -42,7 +43,8 @@ const router = createRouter({
           ],
         },
         { path: 'convert',      name: 'convert',      component: ConvertView,    meta: { title: 'Convert', subtitle: 'Instantly convert between cryptocurrencies' } },
-        { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
+        // The line break is where the mobile design wraps this subtitle.
+        { path: 'payments',     name: 'payments',     component: PaymentsView,   meta: { title: 'Payments', subtitle: 'Manage your payments and\npayment methods' } },
         { path: 'earn',         name: 'earn',         component: ComingSoonView, meta: { title: 'Earn' } },
         { path: 'transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Transactions', subtitle: 'View and manage all your transaction history' } },
         // Where header controls with nothing behind them lead (language, theme, notifications, settings).

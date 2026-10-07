@@ -43,6 +43,9 @@ import bank from './assets/icons/bank.png'
 import info from './assets/icons/info.png'
 import swap from './assets/icons/swap.png'
 import refreshLight from './assets/icons/refresh-light.png'
+import bankLg from './assets/icons/bank-lg.png'
+import applePay from './assets/icons/apple-pay.png'
+import funnel from './assets/icons/funnel.png'
 import walletSm from './assets/icons/wallet-sm.png'
 import cardSm from './assets/icons/card-sm.png'
 import bankSm from './assets/icons/bank-sm.png'
@@ -86,6 +89,9 @@ export const icons = {
   'copy-light':   { src: copyLight,    w: 18, h: 18 },
   swap:           { src: swap,         w: 22, h: 20 },
   'refresh-light': { src: refreshLight, w: 16.5, h: 17 },
+  'bank-lg':      { src: bankLg,       w: 19, h: 19 },
+  'apple-pay':    { src: applePay,     w: 29, h: 12 },
+  funnel:         { src: funnel,       w: 17, h: 17 },
   // Cut from the mobile design, where these are drawn with heavier strokes or at their own size.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },

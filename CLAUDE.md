@@ -31,9 +31,11 @@ There are three deployable pieces in this one repo:
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
-    Withdraw (with its History view at `/withdraw/history`) and Convert, whose content is all
-    mockup data kept in `src/placeholders/`; the other two tabs open one placeholder view. A table goes in `DataTable`, which scrolls sideways inside `ScrollX` when
-    it does not fit; `QrCode` draws a QR code as SVG. Its git-ignored
+    Withdraw (with its History view at `/withdraw/history`), Convert and Payments, whose content
+    is all mockup data kept in `src/placeholders/`; the Earn tab opens a placeholder view. A
+    table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
+    takes controls for its title line in a `tools` slot; `QrCode` draws a QR code as SVG. A
+    `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
     1440px and a 320px page) — build only what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in

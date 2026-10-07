@@ -3,7 +3,8 @@ import AppIcon from './AppIcon.vue'
 import { dots } from '../tones'
 import type { Summary } from '../placeholders/transactions'
 
-defineProps<{ item: Summary }>()
+// `plain` draws the line under the value in grey instead of the colour of its direction.
+defineProps<{ item: Summary; plain?: boolean }>()
 </script>
 
 <template>
@@ -11,8 +12,8 @@ defineProps<{ item: Summary }>()
     <span class="dot-glow absolute right-[11px] top-[11px] size-[10px] rounded-full lg:right-[19px] lg:top-[19px] lg:size-[12px]" :class="dots[item.dot]" />
     <p class="text-[12px] leading-none font-semibold text-muted lg:text-[18px]">{{ item.label }}</p>
     <p class="mt-[15px] text-[22px] leading-none font-semibold lg:mt-[22.5px] lg:text-[25px]">{{ item.value }}</p>
-    <p class="mt-[13px] flex items-center gap-[2px] text-[12px] leading-none font-medium lg:mt-[20.5px]" :class="item.up ? 'text-accent' : 'text-red'">
-      <AppIcon name="arrow-up" class="[--icon-scale:0.58]" :class="{ 'rotate-180': !item.up }" />
+    <p class="mt-[13px] flex items-center gap-[2px] text-[12px] leading-none lg:mt-[20.5px]" :class="plain ? 'font-semibold text-muted' : ['font-medium', item.up ? 'text-accent' : 'text-red']">
+      <AppIcon v-if="item.up !== undefined" name="arrow-up" class="[--icon-scale:0.58]" :class="{ 'rotate-180': !item.up }" />
       {{ item.change }}
     </p>
   </div>

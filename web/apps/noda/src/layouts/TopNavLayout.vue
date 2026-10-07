@@ -79,11 +79,12 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
   </nav>
 
   <div class="relative">
-    <div class="flex min-h-[61px] items-start px-[10px] pt-[8.5px] lg:min-h-[110px] lg:px-[30px] lg:pt-[47px]">
+    <div class="relative flex min-h-[61px] items-start px-[10px] pt-[8.5px] lg:min-h-[110px] lg:px-[30px] lg:pt-[47px]">
       <!-- The mobile design draws the heading higher on pages with a subtitle. -->
       <div :class="{ 'max-lg:-mt-[6.5px]': route.meta.subtitle }">
         <h1 class="text-[20px] leading-[30px] font-semibold lg:text-[30px] lg:leading-[36px]">{{ route.meta.title }}</h1>
-        <p v-if="route.meta.subtitle" class="mt-[4px] text-[12px] leading-none font-semibold tracking-[0.004em] text-muted lg:mt-[7.5px]">{{ route.meta.subtitle }}</p>
+        <!-- A line break in the subtitle counts on mobile only. -->
+        <p v-if="route.meta.subtitle" class="mt-[3px] text-[12px] leading-[14px] font-semibold tracking-[0.004em] text-muted max-lg:whitespace-pre-line lg:mt-[7.5px] lg:leading-none">{{ route.meta.subtitle }}</p>
       </div>
       <button
         type="button"
@@ -94,24 +95,24 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
       >
         <span v-for="n in 3" :key="n" class="h-px bg-muted" />
       </button>
+
+      <!-- Not in Figma: the desktop tabs, stacked. Opens below the subtitle when the page has one, however many lines it takes. -->
+      <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 z-10 lg:hidden" :class="route.meta.subtitle ? 'top-full' : 'top-[49px]'">
+        <RouterLink
+          v-for="tab in tabs"
+          :key="tab.name"
+          :to="{ name: tab.name }"
+          class="flex h-[48px] items-center gap-[8px] border-b-2 border-transparent px-[10px] text-[16px] font-semibold text-muted"
+          active-class="bg-tab-active border-accent! text-accent!"
+        >
+          <span class="flex w-[22px] justify-center"><AppIcon :name="tab.icon" /></span>
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
     </div>
 
     <!-- Where a view's PageAction lands: under the heading on mobile, beside it on desktop. -->
     <div id="page-action" class="px-[10px] lg:absolute lg:right-[30px] lg:top-[50px] lg:px-0" />
-
-    <!-- Not in Figma: the desktop tabs, stacked. Opens below the subtitle when the page has one. -->
-    <nav v-if="menuOpen" class="bg-tabbar absolute inset-x-0 z-10 lg:hidden" :class="route.meta.subtitle ? 'top-[61px]' : 'top-[49px]'">
-      <RouterLink
-        v-for="tab in tabs"
-        :key="tab.name"
-        :to="{ name: tab.name }"
-        class="flex h-[48px] items-center gap-[8px] border-b-2 border-transparent px-[10px] text-[16px] font-semibold text-muted"
-        active-class="bg-tab-active border-accent! text-accent!"
-      >
-        <span class="flex w-[22px] justify-center"><AppIcon :name="tab.icon" /></span>
-        {{ tab.label }}
-      </RouterLink>
-    </nav>
   </div>
 
   <!-- Grows, so the footer sits at the bottom of the window on a short page. -->
