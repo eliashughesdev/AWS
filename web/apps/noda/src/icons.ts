@@ -46,6 +46,9 @@ import refreshLight from './assets/icons/refresh-light.png'
 import bankLg from './assets/icons/bank-lg.png'
 import applePay from './assets/icons/apple-pay.png'
 import funnel from './assets/icons/funnel.png'
+import check from './assets/icons/check.png'
+import lock from './assets/icons/lock.png'
+import percent from './assets/icons/percent.png'
 import walletSm from './assets/icons/wallet-sm.png'
 import cardSm from './assets/icons/card-sm.png'
 import bankSm from './assets/icons/bank-sm.png'
@@ -92,6 +95,9 @@ export const icons = {
   'bank-lg':      { src: bankLg,       w: 19, h: 19 },
   'apple-pay':    { src: applePay,     w: 29, h: 12 },
   funnel:         { src: funnel,       w: 17, h: 17 },
+  check:          { src: check,        w: 22, h: 22 },
+  lock:           { src: lock,         w: 12, h: 13 },
+  percent:        { src: percent,      w: 8.5, h: 9.5 },
   // Cut from the mobile design, where these are drawn with heavier strokes or at their own size.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },

@@ -167,3 +167,16 @@ body {
   --table-row: 59.5px;
   --table-foot: 15px;
 }
+
+/* Earn */
+.bg-tag {
+  background: linear-gradient(90deg, #24585D, #03050E);
+}
+
+/* A half-pixel teal border that fades to the right, on the card fill. */
+.button-outline {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}

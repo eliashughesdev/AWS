@@ -31,8 +31,8 @@ There are three deployable pieces in this one repo:
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`), the Dashboard, Accounts, Transactions, Deposit (Crypto method only),
-    Withdraw (with its History view at `/withdraw/history`), Convert and Payments, whose content
-    is all mockup data kept in `src/placeholders/`; the Earn tab opens a placeholder view. A
+    Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
+    content is all mockup data kept in `src/placeholders/`. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot; `QrCode` draws a QR code as SVG. A
     `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored
