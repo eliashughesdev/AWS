@@ -32,14 +32,19 @@ There are three deployable pieces in this one repo:
     takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
-    it in `PageAction`), the Dashboard, Transactions, Deposit (Crypto method only),
+    it in `PageAction`), Transactions, Deposit (Crypto method only),
     Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
     number), because the backend stores none; storing one waits for the client. `src/coins.ts`
     maps a backend `chain` to the symbol, name and image shown, and `src/format.ts` formats
-    money. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
+    money, coin amounts and relative times. The Dashboard is real where the backend has
+    something to show: the total in USD, one asset row per currency held, Recent Activity and
+    the "KYC Verified" row, which starts Didit. `src/activity.ts` says what each backend
+    transaction `type` shows as; a type it does not have, such as `FEE`, is not listed. The
+    Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
+    still mockup data (`placeholders/dashboard.ts`). A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
     the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
@@ -72,7 +77,9 @@ There are three deployable pieces in this one repo:
   instead of calling `api/*` themselves: a `load()` throws when the request itself fails and
   the view decides what to show. It does not throw when the server refuses the read:
   `useAccounts().failed` says so, and a view must check it before showing an empty list as the
-  user's. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
+  user's; `useTransactions().failed` and `useKyc().failed` say the same for theirs. Opening a
+  Didit session resets the stored KYC status, so a view offers `useKyc().start()` only when the
+  status was read and is not approved or pending. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
   value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text
   for each kind of failure (`FailureMessages` in `composables/queuedOperation.ts`) — and no
   routing. Composables stop their own timers and sockets with `onScopeDispose`, so call them

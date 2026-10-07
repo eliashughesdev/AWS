@@ -4,6 +4,9 @@ import type { IconName } from '../icons'
 import { tones, type Tone } from '../tones'
 import { portfolio } from '../placeholders/dashboard'
 
+defineProps<{ balance: string; refreshing: boolean }>()
+defineEmits<{ refresh: [] }>()
+
 const actions: { label: string; to: string; icon: IconName; mobileIcon?: IconName; tone: Tone }[] = [
   { label: 'Deposit',  to: 'deposit',  icon: 'deposit-lg', tone: 'green' },
   { label: 'Withdraw', to: 'withdraw', icon: 'withdraw',   mobileIcon: 'withdraw-sm', tone: 'blue' },
@@ -17,11 +20,22 @@ const actions: { label: string; to: string; icon: IconName; mobileIcon?: IconNam
     <div class="flex h-[14px] items-center lg:h-[20px]">
       <AppIcon name="wallet" class="text-accent [--icon-scale:0.68] lg:[--icon-scale:1]" />
       <span class="ml-[7px] text-[12px] font-medium lg:ml-[10px] lg:text-[18px]">Total Portfolio Balance</span>
-      <AppIcon name="refresh" mobile="refresh-sm" class="ml-auto text-muted" />
+      <!-- Not in Figma: the icon turns teal while the page reads its data again. The padding only widens the target. -->
+      <button
+        type="button"
+        aria-label="Refresh"
+        class="-m-[8px] ml-auto grid p-[8px]"
+        :class="refreshing ? 'text-accent' : 'text-muted'"
+        :disabled="refreshing"
+        @click="$emit('refresh')"
+      >
+        <AppIcon name="refresh" mobile="refresh-sm" />
+      </button>
     </div>
 
     <div class="mt-[13px] flex items-center lg:mt-[19px]">
-      <span class="text-[40px] leading-none font-medium max-lg:-ml-[2px] lg:text-[55px]">{{ portfolio.balance }}</span>
+      <span class="text-[40px] leading-none font-medium max-lg:-ml-[2px] lg:text-[55px]">{{ balance }}</span>
+      <!-- A placeholder: the design has no drawing of hidden amounts. -->
       <AppIcon name="eye" mobile="eye-sm" class="ml-[8px] text-muted lg:-mt-[3px] lg:ml-[22px]" />
     </div>
 
