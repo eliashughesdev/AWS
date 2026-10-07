@@ -9,7 +9,7 @@ import { summary, transactions, type TransactionType } from '../placeholders/tra
 const columns = ['ID', 'Type', 'Currency', 'Amount', 'From/To', 'Fee', 'Status', 'Date/Time']
 // Only the first three columns are drawn on mobile; the widths of the others are not from the design.
 // On desktop the columns share the width in the design's proportions, down to a width where they still fit.
-const grid = 'grid-cols-[148px_111px_70px_100px_120px_100px_124px_112px] lg:min-w-[1108px] lg:grid-cols-[144fr_163fr_190fr_182fr_184fr_154fr_172fr_160fr]'
+const grid = 'grid-cols-[148px_111px_70px_100px_120px_100px_91px_112px] lg:min-w-[1108px] lg:grid-cols-[144fr_163fr_190fr_182fr_184fr_154fr_172fr_160fr]'
 
 const badges: Record<TransactionType, string> = {
   Deposit:  'bg-green',

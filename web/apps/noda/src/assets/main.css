@@ -118,3 +118,18 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Deposit */
+.tile-selected {
+  border-color: var(--color-accent);
+  background: linear-gradient(90deg, #03060F, #11272F);
+  box-shadow: 2.5px 2.5px 9px rgb(67 229 234 / 0.25);
+}
+
+/* Like .card-glow's border, half a pixel thick, on a flat fill. */
+.info-box {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(#040F19, #040F19) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+}

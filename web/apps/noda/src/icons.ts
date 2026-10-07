@@ -38,6 +38,14 @@ import filterSm from './assets/icons/filter-sm.png'
 import pulseSm from './assets/icons/pulse-sm.png'
 import calendarSm from './assets/icons/calendar-sm.png'
 import caretSm from './assets/icons/caret-sm.png'
+import card from './assets/icons/card.png'
+import bank from './assets/icons/bank.png'
+import info from './assets/icons/info.png'
+import walletSm from './assets/icons/wallet-sm.png'
+import cardSm from './assets/icons/card-sm.png'
+import bankSm from './assets/icons/bank-sm.png'
+import copyLight from './assets/icons/copy-light.png'
+import copyLightSm from './assets/icons/copy-light-sm.png'
 
 export const icons = {
   dashboard:      { src: dashboard,    w: 22, h: 19 },
@@ -70,6 +78,10 @@ export const icons = {
   calendar:       { src: calendar,     w: 20, h: 21 },
   caret:          { src: caret,        w: 12.5, h: 6.5 },
   'arrow-right':  { src: arrowRight,   w:  9, h: 8.5 },
+  card:           { src: card,         w: 21, h: 17 },
+  bank:           { src: bank,         w: 18, h: 18 },
+  info:           { src: info,         w: 18, h: 18 },
+  'copy-light':   { src: copyLight,    w: 18, h: 18 },
   // Cut from the mobile design, where these are drawn with heavier strokes or at their own size.
   'withdraw-sm':  { src: withdrawSm,   w: 13, h: 12 },
   'convert-sm':   { src: convertSm,    w: 11, h: 11 },
@@ -79,6 +91,10 @@ export const icons = {
   'pulse-sm':     { src: pulseSm,      w: 21, h: 14 },
   'calendar-sm':  { src: calendarSm,   w: 16.5, h: 17 },
   'caret-sm':     { src: caretSm,      w:  9, h:  5 },
+  'wallet-sm':    { src: walletSm,     w: 16.5, h: 15 },
+  'card-sm':      { src: cardSm,       w: 16.5, h: 13.5 },
+  'bank-sm':      { src: bankSm,       w: 15, h: 15 },
+  'copy-light-sm': { src: copyLightSm, w: 16.5, h: 16 },
 }
 
 export type IconName = keyof typeof icons

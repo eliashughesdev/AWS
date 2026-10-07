@@ -4,6 +4,7 @@ import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import DepositView from '../views/DepositView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 
 declare module 'vue-router' {
@@ -26,7 +27,7 @@ const router = createRouter({
       children: [
         { path: 'dashboard',    name: 'dashboard',    component: DashboardView,  meta: { title: 'Dashboard' } },
         { path: 'accounts',     name: 'accounts',     component: AccountsView,   meta: { title: 'Accounts', subtitle: 'Manage your crypto accounts and wallets' } },
-        { path: 'deposit',      name: 'deposit',      component: ComingSoonView, meta: { title: 'Deposit' } },
+        { path: 'deposit',      name: 'deposit',      component: DepositView,    meta: { title: 'Deposit', subtitle: 'Add funds to your account via crypto or fiat' } },
         { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView, meta: { title: 'Withdraw' } },
         { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },
         { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
