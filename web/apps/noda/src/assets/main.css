@@ -15,6 +15,8 @@
   --color-tile:      #091426;  /* quick-action tiles */
   --color-tile-line: #2B344A;
   --color-chip:      #131819;
+  --color-field:     #040A1F;  /* text inputs */
+  --color-warn:      #1A160C;  /* fill of the yellow warning box */
 
   /* Icon colours and the darker disc each one sits on */
   --color-green:       #34C759;
@@ -32,6 +34,12 @@
 html, body {
   min-height: 100dvh;
   margin: 0;
+}
+
+#app {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
 }
 
 /* The design's text matches Inter's display cut (optical size 32) at every size. */
@@ -132,4 +140,21 @@ body {
   background:
     linear-gradient(#040F19, #040F19) padding-box,
     linear-gradient(90deg, #1F7583, #0D284E) border-box;
+}
+
+/* Withdraw */
+.bg-toggle-active {
+  background: linear-gradient(180deg, #154144, #111B1C);
+}
+
+.currency-chip {
+  border: 0.5px solid var(--color-accent);
+  background: linear-gradient(180deg, #091A22, #040D19);
+  box-shadow: -2px 3px 5px rgb(0 229 212 / 0.21);
+}
+
+/* The selected currency and the filled part of the limit bar. */
+.bg-teal-rise,
+.currency-chip[aria-pressed="true"] {
+  background: linear-gradient(90deg, #184C6E, #3DCFD8);
 }

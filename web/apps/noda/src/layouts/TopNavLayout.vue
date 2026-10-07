@@ -114,7 +114,8 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
     </nav>
   </div>
 
-  <main class="px-[10px] lg:px-[30px]">
+  <!-- Grows, so the footer sits at the bottom of the window on a short page. -->
+  <main class="flex-1 px-[10px] lg:px-[30px]">
     <RouterView />
   </main>
 

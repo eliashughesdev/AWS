@@ -6,6 +6,9 @@ import ComingSoonView from '../views/ComingSoonView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import DepositView from '../views/DepositView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
+import WithdrawView from '../views/WithdrawView.vue'
+import WithdrawFormView from '../views/WithdrawFormView.vue'
+import WithdrawHistoryView from '../views/WithdrawHistoryView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta extends AccessRules {
@@ -28,7 +31,15 @@ const router = createRouter({
         { path: 'dashboard',    name: 'dashboard',    component: DashboardView,  meta: { title: 'Dashboard' } },
         { path: 'accounts',     name: 'accounts',     component: AccountsView,   meta: { title: 'Accounts', subtitle: 'Manage your crypto accounts and wallets' } },
         { path: 'deposit',      name: 'deposit',      component: DepositView,    meta: { title: 'Deposit', subtitle: 'Add funds to your account via crypto or fiat' } },
-        { path: 'withdraw',     name: 'withdraw',     component: ComingSoonView, meta: { title: 'Withdraw' } },
+        {
+          path: 'withdraw',
+          component: WithdrawView,
+          meta: { title: 'Withdraw', subtitle: 'Transfer your crypto to external wallets' },
+          children: [
+            { path: '',        name: 'withdraw',         component: WithdrawFormView },
+            { path: 'history', name: 'withdraw-history', component: WithdrawHistoryView },
+          ],
+        },
         { path: 'convert',      name: 'convert',      component: ComingSoonView, meta: { title: 'Convert' } },
         { path: 'payments',     name: 'payments',     component: ComingSoonView, meta: { title: 'Payments' } },
         { path: 'earn',         name: 'earn',         component: ComingSoonView, meta: { title: 'Earn' } },
