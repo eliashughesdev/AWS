@@ -3,7 +3,8 @@ import ScrollX from './ScrollX.vue'
 
 // A titled card with a table that scrolls sideways when it does not fit.
 // `grid` is the grid-cols classes (and any min-width) the header and every row share; the slot draws one row's cells.
-// The `tools` slot holds controls for the right end of the title's line.
+// The `tools` slot holds controls for the right end of the title's line. The `after` slot holds what
+// follows the rows or stands in for them (a list state, a button for more); it does not scroll sideways.
 // On desktop the designs space each table a little differently. A view can set --table-title (font size),
 // --table-head-gap (space above the header row), --table-rows-gap (space under its line), --table-row
 // (row height) and --table-foot (space under the last row).
@@ -30,5 +31,6 @@ defineProps<{ title: string; columns: string[]; rows: Row[]; grid: string }>()
         </div>
       </div>
     </ScrollX>
+    <slot name="after" />
   </section>
 </template>

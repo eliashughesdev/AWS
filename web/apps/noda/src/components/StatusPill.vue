@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { Status } from '../placeholders/transactions'
+import type { ActivityStatus } from '../activity'
 
-defineProps<{ status: Status }>()
+defineProps<{ status: ActivityStatus }>()
 
+// "Failed" is not from the design: ActivityItem's colours.
 const looks = {
   Completed: 'border-accent bg-accent-dim text-accent',
   Pending:   'border-yellow bg-yellow-dim text-yellow',
+  Failed:    'border-red bg-red-dim text-red',
 }
 </script>
 

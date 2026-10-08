@@ -22,3 +22,16 @@ export function timeAgo(iso: string) {
   if (minutes < 60 * 24 * 30) return relative.format(-Math.floor(minutes / (60 * 24)), 'day')
   return date.format(then)
 }
+
+const two = (value: number) => String(value).padStart(2, '0')
+
+// "2026-10-07 14:32", in the browser's time zone.
+export function dateTime(iso: string) {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return ''
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}`
+}
+
+// "92d2be…d2fb": the two ends of a transaction id or an address.
+export const shorten = (text: string, head = 6, tail = 4) =>
+  text.length <= head + tail + 1 ? text : `${text.slice(0, head)}…${text.slice(-tail)}`

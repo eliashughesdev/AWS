@@ -1,70 +1,283 @@
 <script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import { usePrices } from '@loudibly/core/composables/usePrices'
+import { useTransactions } from '@loudibly/core/composables/useTransactions'
 import AppIcon from '../components/AppIcon.vue'
 import SummaryCard from '../components/SummaryCard.vue'
 import FilterButton from '../components/FilterButton.vue'
 import DataTable from '../components/DataTable.vue'
+import ListState from '../components/ListState.vue'
 import StatusPill from '../components/StatusPill.vue'
-import { summary, transactions, type TransactionType } from '../placeholders/transactions'
+import { activityKind } from '../activity'
+import { coinFor } from '../coins'
+import { coinAmount, dateTime, shorten, usd } from '../format'
+import { placeholderName } from '../placeholders/accountNames'
+import { fees, summary } from '../placeholders/transactions'
 
 const columns = ['ID', 'Type', 'Currency', 'Amount', 'From/To', 'Fee', 'Status', 'Date/Time']
 // Only the first three columns are drawn on mobile; the widths of the others are not from the design.
 // On desktop the columns share the width in the design's proportions, down to a width where they still fit.
 const grid = 'grid-cols-[148px_111px_70px_100px_120px_100px_91px_112px] lg:min-w-[1108px] lg:grid-cols-[144fr_163fr_190fr_182fr_184fr_154fr_172fr_160fr]'
 
-const badges: Record<TransactionType, string> = {
+// Deposit and Withdraw are drawn. Not in Figma: Transfer, in the colour of the design's Payment badge.
+const badges: Record<string, string> = {
   Deposit:  'bg-green',
   Withdraw: 'bg-blue',
-  Convert:  'bg-accent',
-  Earn:     'bg-yellow',
-  Payment:  'bg-orange',
-  Reward:   'bg-brown',
+  Transfer: 'bg-orange',
 }
+
+const PAGE_ROWS = 50
+const DAY_MS = 86_400_000
+
+const { cryptoAccounts, failed: accountsFailed, load: loadAccounts } = useAccounts()
+const { prices, load: loadPrices } = usePrices()
+const { transactions, failed: rowsFailed, load: loadTransactions } = useTransactions()
+
+const state = ref<'loading' | 'failed' | 'ready'>('loading')
+
+async function read() {
+  state.value = 'loading'
+  try {
+    await loadAccounts()
+  } catch {
+    state.value = 'failed'
+    return
+  }
+  if (accountsFailed.value) {
+    state.value = 'failed'
+    return
+  }
+  loadPrices(cryptoAccounts.value.map(account => account.chain))
+  await loadTransactions(cryptoAccounts.value)
+  // Missing rows would make the totals wrong, so a list read in part counts as not read.
+  state.value = rowsFailed.value ? 'failed' : 'ready'
+}
+
+onMounted(read)
+
+// A value in USD: undefined until the prices are read, null when the coin has no price.
+type Value = number | null | undefined
+
+function valueOf(amount: number, chain: string): Value {
+  // Nothing is worth nothing at any price.
+  if (amount === 0) return 0
+  const price = prices.value[chain]
+  return typeof price === 'number' ? amount * price : price
+}
+
+// A value not read yet leaves its line empty, at its height.
+const BLANK = ' '
+const priced = (value: Value) => value === undefined ? BLANK : usd(value)
+
+// Every transaction the page lists, newest first. A FEE and a type activity.ts does not know are left out.
+const rows = computed(() => {
+  const chainOf = new Map(cryptoAccounts.value.map(account => [account.accountNo, account.chain]))
+  // The user's own accounts under their made-up names, by number (a transfer) and by address.
+  const names = new Map(cryptoAccounts.value.flatMap(({ accountNo, depositAddress }): [string, string][] => {
+    const name = placeholderName(accountNo)
+    return [[accountNo, name], [depositAddress, name]]
+  }))
+  const party = (value: unknown) => {
+    const text = String(value ?? '')
+    return text ? names.get(text) ?? shorten(text) : '—'
+  }
+
+  return transactions.value.flatMap(tx => {
+    const kind = activityKind(tx.type)
+    if (!kind) return []
+    const chain = chainOf.get(tx.accountNo) ?? String(tx.currency ?? '')
+    const coin = coinFor(chain)
+    const amount = Number(tx.amount)
+    const known = Number.isFinite(amount)
+    // A withdrawal that failed or is uncertain has no chain transaction, only its request's id.
+    const id = String(tx.txId ?? tx.reference ?? '')
+    // The user's side is the account, whichever address signed (a token leaves from the master's).
+    const own = placeholderName(tx.accountNo)
+    const other = party(kind.incoming ? tx.from : tx.to)
+    return [{
+      key:      `${tx.accountNo}:${tx.type}:${id || tx.createdAt}`,
+      id,
+      kind:     kind.label,
+      status:   kind.status,
+      incoming: kind.incoming,
+      currency: coin.symbol,
+      amount:   known ? `${kind.incoming ? '+' : '-'}${coinAmount(amount)}` : '',
+      // At today's price: the price at the time is not kept anywhere.
+      value:    known ? valueOf(amount, chain) : null,
+      from:     kind.incoming ? other : own,
+      to:       kind.incoming ? own : other,
+      fee:      `${fees[kind.label]} ${coin.symbol}`,
+      date:     dateTime(tx.createdAt),
+      at:       new Date(tx.createdAt).getTime(),
+      search:   [id, tx.reference, tx.from, tx.to, own, other, coin.symbol, coin.name, kind.label, kind.status].join(' ').toLowerCase(),
+    }]
+  })
+})
+
+// Not in Figma: what each dropdown offers. The first of each is the label the design draws.
+const types = [
+  { value: 'all', label: 'All Types' },
+  ...Object.keys(badges).map(kind => ({ value: kind, label: kind })),
+]
+const statuses = [
+  { value: 'all', label: 'All Status' },
+  ...['Completed', 'Pending', 'Failed'].map(name => ({ value: name, label: name })),
+]
+const ranges = [
+  { value: '7',   label: 'Last 7 days' },
+  { value: '30',  label: 'Last 30 days' },
+  { value: '90',  label: 'Last 90 days' },
+  { value: 'all', label: 'All time' },
+]
+
+const query  = ref('')
+const type   = ref('all')
+const status = ref('all')
+const range  = ref('30')
+
+const rangeLabel = computed(() => ranges.find(option => option.value === range.value)!.label)
+
+// The cards add up the period; the search and the other two filters only narrow the table.
+const inRange = computed(() => {
+  if (range.value === 'all') return rows.value
+  const since = Date.now() - Number(range.value) * DAY_MS
+  return rows.value.filter(row => row.at >= since)
+})
+
+const matching = computed(() => {
+  const text = query.value.trim().toLowerCase()
+  return inRange.value.filter(row =>
+    (type.value === 'all' || row.kind === type.value) &&
+    (status.value === 'all' || row.status === status.value) &&
+    row.search.includes(text))
+})
+
+function clearFilters() {
+  query.value = ''
+  type.value = status.value = 'all'
+}
+
+const tableState = computed(() => {
+  if (state.value !== 'ready') return state.value
+  if (!rows.value.length) return 'empty'
+  if (!inRange.value.length) return 'none-in-range'
+  return matching.value.length ? 'rows' : 'no-match'
+})
+
+// Not in Figma: the table grows a page at a time, since the backend sends every row at once.
+const shown = ref(PAGE_ROWS)
+watch([query, type, status, range], () => { shown.value = PAGE_ROWS })
+const visible = computed(() => tableState.value === 'rows' ? matching.value.slice(0, shown.value) : [])
+
+// Unknown as soon as one of the values cannot be priced.
+function sum(values: Value[]): Value {
+  let total = 0
+  for (const value of values) {
+    if (typeof value !== 'number') return value
+    total += value
+  }
+  return total
+}
+
+const cards = computed(() => {
+  // Only what moved: a failed withdrawal went back, and an uncertain one may not have left.
+  const moved = inRange.value.filter(row => row.status === 'Completed')
+  const incoming = sum(moved.filter(row => row.incoming).map(row => row.value))
+  const outgoing = sum(moved.filter(row => !row.incoming).map(row => row.value))
+  const values = [sum([incoming, outgoing]), incoming, outgoing].map(priced)
+  values.push(inRange.value.length.toLocaleString('en-US'))
+  return summary.map((card, index) => ({
+    ...card,
+    value: state.value === 'loading' ? BLANK : state.value === 'failed' ? '—' : values[index],
+  }))
+})
+
+// Not in Figma: a click on an id copies all of it, and its icon turns teal for two seconds.
+const copied = ref('')
+
+async function copyId(key: string, id: string) {
+  try {
+    await navigator.clipboard.writeText(id)
+  } catch {
+    return
+  }
+  copied.value = key
+  setTimeout(() => { if (copied.value === key) copied.value = '' }, 2000)
+}
+
+const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font-semibold lg:text-[14px]'
 </script>
 
 <template>
   <div class="mt-[19px] grid grid-cols-1 gap-[15px] sm:grid-cols-2 lg:-mr-px lg:mt-[24px] lg:grid-cols-4">
-    <SummaryCard v-for="item in summary" :key="item.label" :item="item" />
+    <SummaryCard v-for="card in cards" :key="card.label" :item="card" />
   </div>
 
-  <div class="mt-[20px] lg:-ml-px lg:mt-[30px] lg:flex lg:gap-[15px]">
+  <!-- Positioned while a filter is open, so that on mobile its list hangs under the whole block. -->
+  <div class="mt-[20px] has-[[aria-expanded=true]]:relative lg:-ml-px lg:mt-[30px] lg:flex lg:gap-[15px]">
     <label class="flex h-[40px] items-center rounded-[10px] border border-card-line bg-card pl-[9px] pr-[10px] text-muted [--icon-scale:0.78] lg:h-[50px] lg:max-w-[684px] lg:flex-1 lg:pl-[14px] lg:[--icon-scale:1]">
       <AppIcon name="search" />
-      <input type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-white placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
+      <input v-model="query" type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-white placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
     </label>
     <!-- On mobile the buttons run past the screen's edge and scroll sideways. -->
     <div class="no-scrollbar -mr-[10px] mt-[10px] flex gap-[10px] overflow-x-auto pr-[10px] lg:m-0 lg:gap-[15px] lg:overflow-visible lg:p-0">
-      <FilterButton icon="filter" mobile-icon="filter-sm" label="All Types" />
-      <FilterButton icon="pulse" mobile-icon="pulse-sm" label="All Status" />
-      <FilterButton icon="calendar" mobile-icon="calendar-sm" label="Last 30 days" />
+      <FilterButton v-model="type" icon="filter" mobile-icon="filter-sm" :options="types" />
+      <FilterButton v-model="status" icon="pulse" mobile-icon="pulse-sm" :options="statuses" />
+      <FilterButton v-model="range" icon="calendar" mobile-icon="calendar-sm" :options="ranges" />
     </div>
   </div>
 
   <DataTable
-    v-slot="{ row }"
     title="Payment History"
     :columns="columns"
-    :rows="transactions"
+    :rows="visible"
     :grid="grid"
     class="mb-[6px] mt-[15px] lg:-mb-[10px] lg:-ml-px lg:mr-px lg:mt-[30px]"
   >
-    <span role="cell" class="text-[12px] font-semibold">{{ row.id }}</span>
-    <span role="cell">
-      <span class="grid h-[23px] w-[72px] place-items-center rounded-[10px] pb-[2px] text-[10px] leading-none font-semibold" :class="badges[row.type]">{{ row.type }}</span>
-    </span>
-    <span role="cell" class="text-[14px] font-medium">{{ row.currency }}</span>
-    <div role="cell">
-      <p class="flex items-center gap-px text-[14px] leading-none font-medium" :class="row.up ? 'text-accent' : 'text-red'">
-        <AppIcon name="arrow-up" class="[--icon-scale:0.8]" :class="{ 'rotate-180': !row.up }" />
-        {{ row.amount }}
-      </p>
-      <p class="mt-[3.5px] text-[10px] leading-none font-medium text-muted">{{ row.usd }}</p>
-    </div>
-    <div role="cell" class="pb-[2px] pl-[2.5px] text-[12px] leading-[14px] font-semibold">
-      <p>{{ row.from }}</p>
-      <p class="flex items-center gap-[3px] pl-[2px]"><AppIcon name="arrow-right" />{{ row.to }}</p>
-    </div>
-    <span role="cell" class="text-[14px] font-medium">{{ row.fee }}</span>
-    <span role="cell"><StatusPill :status="row.status" /></span>
-    <span role="cell" class="text-[14px] font-medium">{{ row.date }}</span>
+    <template #default="{ row }">
+      <span role="cell">
+        <button v-if="row.id" type="button" :title="row.id" class="flex items-center gap-[6px] text-[12px] font-semibold text-muted [--icon-scale:0.667]" @click="copyId(row.key, row.id)">
+          <span class="text-white">{{ shorten(row.id) }}</span>
+          <AppIcon name="copy-light" :class="{ 'text-accent': copied === row.key }" />
+        </button>
+      </span>
+      <span role="cell">
+        <span class="grid h-[23px] w-[72px] place-items-center rounded-[10px] pb-[2px] text-[10px] leading-none font-semibold" :class="badges[row.kind]">{{ row.kind }}</span>
+      </span>
+      <span role="cell" class="text-[14px] font-medium">{{ row.currency }}</span>
+      <div role="cell">
+        <p class="flex items-center gap-px text-[14px] leading-none font-medium" :class="row.incoming ? 'text-accent' : 'text-red'">
+          <AppIcon name="arrow-up" class="[--icon-scale:0.8]" :class="{ 'rotate-180': !row.incoming }" />
+          {{ row.amount }}
+        </p>
+        <p class="mt-[3.5px] text-[10px] leading-none font-medium text-muted">{{ priced(row.value) }}</p>
+      </div>
+      <div role="cell" class="min-w-0 pb-[2px] pl-[2.5px] pr-[8px] text-[12px] leading-[14px] font-semibold">
+        <p class="truncate">{{ row.from }}</p>
+        <p class="flex items-center gap-[3px] pl-[2px]"><AppIcon name="arrow-right" /><span class="truncate">{{ row.to }}</span></p>
+      </div>
+      <span role="cell" class="text-[14px] font-medium">{{ row.fee }}</span>
+      <span role="cell"><StatusPill :status="row.status" /></span>
+      <span role="cell" class="text-[14px] font-medium">{{ row.date }}</span>
+    </template>
+
+    <!-- Not in Figma: the five states and the button for more rows. -->
+    <template #after>
+      <ListState v-if="tableState === 'loading'" kind="loading" title="Loading your transactions…" />
+      <ListState v-else-if="tableState === 'failed'" kind="error" title="Your transactions could not be loaded" text="Try again in a moment.">
+        <button type="button" :class="action" @click="read">Try again</button>
+      </ListState>
+      <ListState v-else-if="tableState === 'empty'" title="No transactions yet" text="Your deposits and withdrawals will show here." />
+      <ListState v-else-if="tableState === 'none-in-range'" :title="`No transactions in the ${rangeLabel.toLowerCase()}`" text="Older ones are still in your history.">
+        <button type="button" :class="action" @click="range = 'all'">Show all time</button>
+      </ListState>
+      <ListState v-else-if="tableState === 'no-match'" title="No transactions match" text="Try another search or filter.">
+        <button type="button" :class="action" @click="clearFilters">Clear filters</button>
+      </ListState>
+      <div v-else-if="matching.length > visible.length" class="mt-[24px] flex justify-center">
+        <button type="button" :class="action" @click="shown += PAGE_ROWS">Show more</button>
+      </div>
+    </template>
   </DataTable>
 </template>

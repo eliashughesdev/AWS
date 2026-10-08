@@ -32,26 +32,35 @@ There are three deployable pieces in this one repo:
     takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
-    it in `PageAction`), Transactions, Deposit (Crypto method only),
+    it in `PageAction`), Deposit (Crypto method only),
     Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
     number), because the backend stores none; storing one waits for the client. `src/coins.ts`
     maps a backend `chain` to the symbol, name and image shown, and `src/format.ts` formats
-    money, coin amounts and relative times. The Dashboard is real where the backend has
+    money, coin amounts, dates and relative times, and cuts an id or an address short. The Dashboard is real where the backend has
     something to show: the total in USD, one asset row per currency held, Recent Activity and
     the "KYC Verified" row, which starts Didit. `src/activity.ts` says what each backend
     transaction `type` shows as; a type it does not have, such as `FEE`, is not listed. The
     Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
-    still mockup data (`placeholders/dashboard.ts`). A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
+    still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
+    the user's crypto accounts, a search, three filters, and four totals that cover the chosen
+    date range. The user's side of From/To is the account's made-up name. Its Fee column and
+    the % line under each total are still mockup data (`placeholders/transactions.ts`); the
+    real fee waits for a backend change (`fee` on the withdrawal rows of
+    `/accounts/transactions`). A dropdown is `FilterButton` (`options`, `v-model`); on mobile
+    its list is placed by an ancestor that is positioned only while it is open, because an
+    always-`relative` one moved pixels of the drawn page. `StatusPill` draws Completed, Pending
+    and Failed. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
     the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
     in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
     goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
-    takes controls for its title line in a `tools` slot; `QrCode` draws a QR code as SVG. A
+    takes controls for its title line in a `tools` slot and a list state or a button under its
+    rows in an `after` slot; `QrCode` draws a QR code as SVG. A
     `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
     1440px and a 320px page) — build only what an image there shows. The design has no SVG
