@@ -49,7 +49,7 @@ const router = createRouter({
         { path: 'payments',     name: 'payments',     component: PaymentsView,   meta: { title: 'Payments', subtitle: 'Manage your payments and\npayment methods' } },
         { path: 'earn',         name: 'earn',         component: EarnView,       meta: { title: 'Earn', subtitle: 'Stake your crypto and earn passive income' } },
         { path: 'transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Transactions', subtitle: 'View and manage all your transaction history' } },
-        // Where header controls with nothing behind them lead (language, theme, notifications, settings).
+        // Where header controls with nothing behind them lead (language, notifications, settings).
         { path: 'coming-soon',  name: 'coming-soon',  component: ComingSoonView, meta: { title: 'Coming soon' } },
       ],
     },

@@ -82,13 +82,24 @@ There are three deployable pieces in this one repo:
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
     the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
     in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
-    goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. A
+    goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
+    sun and moon switch beside it flips the theme (`src/theme.ts`): dark is `main.css` as it
+    stands, and light is `<html data-theme="light">`, whose values are all in
+    `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
+    first paint. Light is built one view at a time (`docs/noda-light-theme-plan.md` says which
+    are done; so far the header, tab bar, heading and footer), and a view not yet done shows
+    dark boxes with black text in light. A colour that differs between the themes is a token
+    with a value in both files, never a literal in a view. `text-white` is for text on a
+    coloured fill; text that follows the theme is `text-ink` or inherits. What a colour cannot
+    say takes the `light:` variant. A card is the `card` class, which also carries its light
+    shadow. The sign-in screen is dark in both themes. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A
     `\n` in `meta.subtitle` breaks the line on mobile only. Its git-ignored
     `brand-source/` holds the brand book and, in `figma/`, the screen designs (2x exports of a
-    1440px and a 320px page) — build only what an image there shows. The design has no SVG
+    1440px and a 320px page; `figma/lightTheme/` has the light ones, desktop only) — build only
+    what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
     `src/icons.ts`, drawn by `AppIcon` in the text colour; its `mobile` prop names a second
     cut for below the `lg` breakpoint).

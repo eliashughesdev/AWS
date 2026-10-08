@@ -1,0 +1,35 @@
+/* The light theme: what changes under <html data-theme="light"> (src/theme.ts). Dark is main.css.
+   Values measured from the Figma exports in brand-source/figma/lightTheme. */
+:root[data-theme="light"] {
+  --color-page:    #FFFFFF;
+  --color-ink:     #000000;
+  --color-accent:  #3BB8C6;
+  --color-muted:   #7F7F7F;
+  --color-line:    #FFFFFF;  /* the header has no divider */
+  --color-outline: #E0E0E0;
+  --color-control: #F3F4F6;
+
+  --color-card:      #F3F9F9;
+  --color-card-line: #F3F9F9;  /* a card's edge is its shadow */
+  --color-tile:      #F3F9F9;
+  --color-tile-line: #F3F9F9;
+  --color-chip:      #E3F2F2;
+  --color-field:     #E3F2F2;
+  --color-warn:      #F2EBD0;
+
+  --color-green-dim:  #E4F9EA;
+  --color-blue-dim:   #BDC7E3;
+  --color-yellow-dim: #F2EBD0;
+  --color-accent-dim: #B3EBEE;
+
+  --shadow-card: 0 4px 4px rgb(0 0 0 / 0.1);
+}
+
+:root[data-theme="light"] .bg-tabbar {
+  background: #F3F4F6;
+}
+
+/* The colours of .bg-cta. */
+:root[data-theme="light"] .bg-tab-active {
+  background: linear-gradient(84deg, #42E0E6 3%, #0E2951);
+}
