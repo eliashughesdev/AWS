@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { usePrices } from '@loudibly/core/composables/usePrices'
 import { useTransactions } from '@loudibly/core/composables/useTransactions'
@@ -11,7 +12,7 @@ import ListState from '../components/ListState.vue'
 import StatusPill from '../components/StatusPill.vue'
 import { activityKind } from '../activity'
 import { coinFor } from '../coins'
-import { coinAmount, dateTime, shorten, usd } from '../format'
+import { BLANK, coinAmount, dateTime, priced, shorten, usdSum, usdValue } from '../format'
 import { placeholderName } from '../placeholders/accountNames'
 import { fees, summary } from '../placeholders/transactions'
 
@@ -56,19 +57,7 @@ async function read() {
 
 onMounted(read)
 
-// A value in USD: undefined until the prices are read, null when the coin has no price.
-type Value = number | null | undefined
-
-function valueOf(amount: number, chain: string): Value {
-  // Nothing is worth nothing at any price.
-  if (amount === 0) return 0
-  const price = prices.value[chain]
-  return typeof price === 'number' ? amount * price : price
-}
-
-// A value not read yet leaves its line empty, at its height.
-const BLANK = ' '
-const priced = (value: Value) => value === undefined ? BLANK : usd(value)
+const valueOf = (amount: number, chain: string) => usdValue(amount, prices.value[chain])
 
 // Every transaction the page lists, newest first. A FEE and a type activity.ts does not know are left out.
 const rows = computed(() => {
@@ -131,10 +120,17 @@ const ranges = [
   { value: 'all', label: 'All time' },
 ]
 
+// A link can open the page on a type and a range: Deposit's "View All" does.
+const route = useRoute()
+function asked(name: string, options: { value: string }[], otherwise: string) {
+  const value = route.query[name]
+  return options.some(option => option.value === value) ? String(value) : otherwise
+}
+
 const query  = ref('')
-const type   = ref('all')
+const type   = ref(asked('type', types, 'all'))
 const status = ref('all')
-const range  = ref('30')
+const range  = ref(asked('range', ranges, '30'))
 
 const rangeLabel = computed(() => ranges.find(option => option.value === range.value)!.label)
 
@@ -170,22 +166,12 @@ const shown = ref(PAGE_ROWS)
 watch([query, type, status, range], () => { shown.value = PAGE_ROWS })
 const visible = computed(() => tableState.value === 'rows' ? matching.value.slice(0, shown.value) : [])
 
-// Unknown as soon as one of the values cannot be priced.
-function sum(values: Value[]): Value {
-  let total = 0
-  for (const value of values) {
-    if (typeof value !== 'number') return value
-    total += value
-  }
-  return total
-}
-
 const cards = computed(() => {
   // Only what moved: a failed withdrawal went back, and an uncertain one may not have left.
   const moved = inRange.value.filter(row => row.status === 'Completed')
-  const incoming = sum(moved.filter(row => row.incoming).map(row => row.value))
-  const outgoing = sum(moved.filter(row => !row.incoming).map(row => row.value))
-  const values = [sum([incoming, outgoing]), incoming, outgoing].map(priced)
+  const incoming = usdSum(moved.filter(row => row.incoming).map(row => row.value))
+  const outgoing = usdSum(moved.filter(row => !row.incoming).map(row => row.value))
+  const values = [usdSum([incoming, outgoing]), incoming, outgoing].map(priced)
   values.push(inRange.value.length.toLocaleString('en-US'))
   return summary.map((card, index) => ({
     ...card,

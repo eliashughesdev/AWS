@@ -3,6 +3,30 @@ const dollars = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'U
 // "$12,580.50". An amount that cannot be priced is a dash, never a wrong number.
 export const usd = (value: number | null) => value === null ? '—' : dollars.format(value)
 
+// A value in USD: undefined until the prices are read, null when the coin has no price.
+export type UsdValue = number | null | undefined
+
+// `price` is the coin's entry in usePrices().prices.
+export function usdValue(amount: number, price: number | null | undefined): UsdValue {
+  // Nothing is worth nothing at any price.
+  if (amount === 0) return 0
+  return typeof price === 'number' ? amount * price : price
+}
+
+// Unknown as soon as one of the values is.
+export function usdSum(values: UsdValue[]): UsdValue {
+  let total = 0
+  for (const value of values) {
+    if (typeof value !== 'number') return value
+    total += value
+  }
+  return total
+}
+
+// A value not read yet leaves its line empty, at its height.
+export const BLANK = '\u00a0'
+export const priced = (value: UsdValue) => value === undefined ? BLANK : usd(value)
+
 const units = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 
 // "1,284.5321": an amount in a coin's own units.

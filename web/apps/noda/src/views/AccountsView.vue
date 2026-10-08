@@ -10,7 +10,7 @@ import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
 import ListState from '../components/ListState.vue'
 import { coinFor, newAccountChains } from '../coins'
-import { usd } from '../format'
+import { priced, usdValue } from '../format'
 import { placeholderName } from '../placeholders/accountNames'
 
 const router = useRouter()
@@ -36,20 +36,11 @@ async function read() {
 
 onMounted(read)
 
-function balanceOf(account: { chain: string; balance: number }) {
-  // Nothing is worth nothing at any price.
-  if (account.balance === 0) return usd(0)
-  const price = prices.value[account.chain]
-  // Not read yet: the line stays empty and keeps its height.
-  if (price === undefined) return ' '
-  return usd(price === null ? null : account.balance * price)
-}
-
 const cards = computed(() => cryptoAccounts.value.map(account => ({
   accountNo: account.accountNo,
   name:      placeholderName(account.accountNo),
   status:    account.status,
-  balance:   balanceOf(account),
+  balance:   priced(usdValue(account.balance, prices.value[account.chain])),
   address:   account.depositAddress,
   // The backend keeps one currency per account.
   holdings:  [coinFor(account.chain).symbol],

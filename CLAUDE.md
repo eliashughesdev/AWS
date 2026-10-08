@@ -32,26 +32,37 @@ There are three deployable pieces in this one repo:
     takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
-    it in `PageAction`), Deposit (Crypto method only),
+    it in `PageAction`),
     Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
     number), because the backend stores none; storing one waits for the client. `src/coins.ts`
-    maps a backend `chain` to the symbol, name and image shown, and `src/format.ts` formats
-    money, coin amounts, dates and relative times, and cuts an id or an address short. The Dashboard is real where the backend has
+    maps a backend `chain` to the symbol, name and image shown, and names its network
+    (`networkName()`, the test network's name unless the build is for mainnet). `src/format.ts` formats
+    money, coin amounts, dates and relative times, and cuts an id or an address short; a value in
+    USD that may have no price, or not be read yet, goes through its `usdValue()`, `usdSum()` and
+    `priced()`. The Dashboard is real where the backend has
     something to show: the total in USD, one asset row per currency held, Recent Activity and
     the "KYC Verified" row, which starts Didit. `src/activity.ts` says what each backend
     transaction `type` shows as; a type it does not have, such as `FEE`, is not listed. The
     Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
     still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
     the user's crypto accounts, a search, three filters, and four totals that cover the chosen
-    date range. The user's side of From/To is the account's made-up name. Its Fee column and
+    date range. It opens on the type and range given in the address
+    (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's made-up name. Its Fee column and
     the % line under each total are still mockup data (`placeholders/transactions.ts`); the
     real fee waits for a backend change (`fee` on the withdrawal rows of
-    `/accounts/transactions`). A dropdown is `FilterButton` (`options`, `v-model`); on mobile
+    `/accounts/transactions`). Deposit is real for the Crypto method: a dropdown with one line
+    per account (two accounts can share a coin), the chosen account's network, address and QR
+    code, and Recent Deposits, the four newest `DEPOSIT` rows of every account. Nothing tells
+    the browser that a deposit arrived, so while the page is in view it reads `/accounts/list`
+    every 15 seconds, and reads the rows again only when a balance changed. Its Card and Bank
+    tiles, the minimum deposit and the confirmations line are still mockup data
+    (`placeholders/deposit.ts`). A dropdown is `FilterButton` (`options`, `v-model`); on mobile
     its list is placed by an ancestor that is positioned only while it is open, because an
-    always-`relative` one moved pixels of the drawn page. `StatusPill` draws Completed, Pending
+    always-`relative` one moved pixels of the drawn page. The open list itself is `DropdownList`,
+    which any button can hang under a positioned wrapper (Deposit's does). `StatusPill` draws Completed, Pending
     and Failed. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until

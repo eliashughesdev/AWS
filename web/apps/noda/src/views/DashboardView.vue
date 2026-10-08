@@ -13,7 +13,7 @@ import ActivityItem from '../components/ActivityItem.vue'
 import ListState from '../components/ListState.vue'
 import { activityKind } from '../activity'
 import { coinFor } from '../coins'
-import { coinAmount, timeAgo, usd } from '../format'
+import { BLANK, coinAmount, priced, timeAgo, usdSum, usdValue, type UsdValue } from '../format'
 import type { IconName } from '../icons'
 import type { Tone } from '../tones'
 import { changes, stats } from '../placeholders/dashboard'
@@ -68,19 +68,7 @@ async function refresh() {
   refreshing.value = false
 }
 
-// A value in USD: undefined until the prices are read, null when the coin has no price.
-type Value = number | null | undefined
-
-function valueOf(amount: number, chain: string): Value {
-  // Nothing is worth nothing at any price.
-  if (amount === 0) return 0
-  const price = prices.value[chain]
-  return typeof price === 'number' ? amount * price : price
-}
-
-// A value not read yet leaves its line empty, at its height.
-const BLANK = ' '
-const priced = (value: Value) => value === undefined ? BLANK : usd(value)
+const valueOf = (amount: number, chain: string) => usdValue(amount, prices.value[chain])
 
 // One per currency: two accounts in the same one are added up.
 const holdings = computed(() => {
@@ -90,18 +78,13 @@ const holdings = computed(() => {
 })
 
 // The sum of the rows under it, so unknown as soon as one of them cannot be priced.
-const total = computed<Value>(() => {
+const total = computed<UsdValue>(() => {
   if (state.value === 'loading') return undefined
   if (state.value === 'failed') return null
-  let sum = 0
-  for (const { value } of holdings.value) {
-    if (typeof value !== 'number') return value
-    sum += value
-  }
-  return sum
+  return usdSum(holdings.value.map(holding => holding.value))
 })
 
-function shareOf(value: Value, sum: Value): Value {
+function shareOf(value: UsdValue, sum: UsdValue): UsdValue {
   if (typeof value === 'number' && typeof sum === 'number') return sum === 0 ? 0 : value / sum * 100
   // A share of an unknown total is unknown too.
   return sum === undefined ? undefined : null

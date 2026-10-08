@@ -23,5 +23,20 @@ const coins: Record<string, Coin> = {
 // A currency the catalogue does not know shows its own code and no image.
 export const coinFor = (chain: string): Coin => coins[chain] ?? { symbol: chain, name: chain, image: '' }
 
+// The network a currency is sent over, as Deposit names it. The build says whether that is the test
+// network, in the variables core reads for the same thing. Not in Figma: the test networks' names
+// and the token standard.
+const tron   = import.meta.env.VITE_TRON_NETWORK === 'mainnet' ? 'TRON Network' : 'TRON Shasta Testnet'
+const solana = import.meta.env.VITE_SOLANA_NETWORK === 'mainnet' ? 'Solana Network' : 'Solana Devnet'
+
+const networks: Record<string, string> = {
+  TRON:       tron,
+  SOL:        solana,
+  USDT_TRON:  `${tron} (TRC-20)`,
+  TUSDT_TRON: `${tron} (TRC-20)`,
+}
+
+export const networkName = (chain: string) => networks[chain] ?? '—'
+
 // The currencies a new account can be opened in.
 export const newAccountChains = ['TRON', 'SOL', USDT_TRON_CURRENCY]
