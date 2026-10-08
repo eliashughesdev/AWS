@@ -6,6 +6,7 @@
   --color-accent:  #3BB8C6;
   --color-muted:   #7F7F7F;
   --color-line:    #FFFFFF;  /* the header has no divider */
+  --color-rule:    #E0E0E0;
   --color-outline: #E0E0E0;
   --color-control: #F3F4F6;
 
@@ -20,6 +21,7 @@
   --color-chip:      #E3F2F2;
   --color-field:     #E3F2F2;
   --color-warn:      #F2EBD0;
+  --color-warn-ink:  #D8A944;
   --color-track:     #D2DFDF;
 
   --color-star:         #B3EBEE;
@@ -68,4 +70,39 @@
     linear-gradient(var(--color-accent), var(--color-accent)) padding-box,
     linear-gradient(90deg, #42E1E7, #1E6381) border-box;
   color: #FFFFFF;
+}
+
+/* Not in Figma: beside a dialog's main button it stays an outline, drawn like .bg-address. */
+:root[data-theme="light"] dialog .button-outline {
+  border-width: 1px;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+  color: var(--color-ink);
+}
+
+/* Accounts */
+:root[data-theme="light"] .bg-account {
+  background: var(--color-card);
+}
+
+/* The outline button's border, a pixel thick. */
+:root[data-theme="light"] .bg-address {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-card-inset), var(--color-card-inset)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}
+
+/* The colours of .bg-teal-rise, to the edge. */
+:root[data-theme="light"] .bg-copy {
+  border-color: transparent;
+  background: linear-gradient(88deg, #184C6E, #3DCFD8) border-box;
+}
+
+/* Deposit draws the chosen method like the others: its disc tells them apart. */
+:root[data-theme="light"] .tile-selected {
+  border-color: var(--color-card-line);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
 }

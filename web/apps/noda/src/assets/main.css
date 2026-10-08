@@ -14,6 +14,7 @@
   --color-accent:  #43E5EA;
   --color-muted:   #ACACAC;  /* inactive tabs and header icons */
   --color-line:    #303030;  /* divider under the header */
+  --color-rule:    #303030;  /* line under a title, inside a panel */
   --color-outline: #454545;  /* border of the header controls */
   --color-control: transparent;  /* their fill */
 
@@ -33,6 +34,7 @@
   --color-chip:      #131819;
   --color-field:     #040A1F;  /* text inputs */
   --color-warn:      #1A160C;  /* fill of the yellow warning box */
+  --color-warn-ink:  #FFCC00;  /* its text and icon */
   --color-track:     #204E54;  /* the empty part of a bar */
 
   /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
@@ -113,6 +115,13 @@ body {
 @utility tile {
   border: 1px solid var(--color-tile-line);
   background: var(--color-tile);
+  box-shadow: var(--shadow-card);
+}
+
+/* A small box inside a card. */
+@utility chip {
+  border: 1px solid var(--color-card-inset-line);
+  background: var(--color-chip);
   box-shadow: var(--shadow-card);
 }
 

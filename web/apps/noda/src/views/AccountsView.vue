@@ -48,7 +48,7 @@ const cards = computed(() => cryptoAccounts.value.map(account => ({
 })))
 
 // New Account. Not in Figma: the whole dialog, put together from Deposit's tiles and Withdraw's
-// warning box and button.
+// warning box and button. Light draws a chosen tile like the others, so here it keeps its border.
 const options = newAccountChains.map(chain => ({ chain, ...coinFor(chain) }))
 const dialogOpen = ref(false)
 const chain = ref(newAccountChains[0])
@@ -101,8 +101,8 @@ async function createAccount() {
   else problem.value = problems[outcome]
 }
 
-const frame = 'bg-account mt-[20px] rounded-[10px] border border-card-line lg:-ml-px lg:-mr-[2px] lg:mt-[24px]'
-const newAccount = 'bg-cta h-[32px] w-[100px] rounded-[7.5px] text-[10px] font-semibold lg:h-[40px] lg:w-[128px] lg:rounded-[10px] lg:text-[14px] lg:font-medium'
+const frame = 'card bg-account mt-[20px] rounded-[10px] lg:-ml-px lg:-mr-[2px] lg:mt-[24px]'
+const newAccount = 'bg-cta h-[32px] w-[100px] rounded-[7.5px] text-[10px] font-semibold text-white lg:h-[40px] lg:w-[128px] lg:rounded-[10px] lg:text-[14px] lg:font-medium'
 const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:opacity-60 lg:h-[50px] lg:text-[16px] lg:font-medium'
 </script>
 
@@ -149,7 +149,7 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
           :aria-pressed="option.chain === chain"
           :disabled="creating"
           class="flex h-[65px] w-full items-center rounded-[10px] border pl-[11px] text-left lg:h-[91px] lg:pl-[17px]"
-          :class="option.chain === chain ? 'tile-selected' : 'border-card-line bg-card'"
+          :class="option.chain === chain ? 'tile-selected light:border-accent!' : 'card'"
           @click="chain = option.chain"
         >
           <CoinImage v-if="option.image" :coin="option.image" class="size-[40px] lg:size-[53px]" />
@@ -160,14 +160,14 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
         </button>
       </div>
 
-      <div v-if="problem" role="alert" class="mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-yellow [--icon-scale:0.78] lg:mt-[20px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]">
+      <div v-if="problem" role="alert" class="mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-warn-ink [--icon-scale:0.78] lg:mt-[20px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]">
         <AppIcon name="info" />
         <p class="ml-[9px] text-[12px] leading-[14px] lg:ml-[9.5px] lg:text-[14px] lg:leading-[18px]">{{ problem }}</p>
       </div>
 
       <div class="mt-[20px] grid grid-cols-2 gap-[15px] lg:mt-[28.5px]">
         <button type="button" class="button-outline" :class="dialogButton" :disabled="creating" @click="dialogOpen = false">Cancel</button>
-        <button type="submit" class="bg-cta border-[0.5px] border-card-line" :class="dialogButton" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
+        <button type="submit" class="bg-cta border-[0.5px] border-card-line text-white" :class="dialogButton" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
       </div>
     </form>
   </AppDialog>

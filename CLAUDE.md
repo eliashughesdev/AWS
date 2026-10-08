@@ -88,15 +88,18 @@ There are three deployable pieces in this one repo:
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
     first paint. Light is built one view at a time (`docs/noda-light-theme-plan.md` says which
-    are done; so far the header, tab bar, heading, footer and the Dashboard), and a view not yet
+    are done; so far the header, tab bar, heading, footer, the Dashboard and Accounts), and a view not yet
     done shows dark boxes with black text in light. A colour that differs between the themes is a token
     with a value in both files, never a literal in a view. `text-white` is for text on a
     coloured fill; text that follows the theme is `text-ink` or inherits. What a colour cannot
     say takes the `light:` variant. A card is the `card` class, which also carries its light
     shadow. A section box is `panel` (`lg:panel` when only desktop draws it): a `card` inside one
     takes the inset colours, which differ from a card's own in light only. A quick-action tile is
-    `tile`. A class with literal gradient stops in `main.css` gets its light look in `light.css`
-    (`:root[data-theme="light"] .card-glow`). The sign-in screen is dark in both themes. A
+    `tile`, and a small box inside a card is `chip`. `AppDialog` is a `panel`. The line under a
+    title inside a panel is `border-rule`, and a warning's text and icon are `text-warn-ink` (its
+    border stays `border-yellow`). A class with literal gradient stops in `main.css` gets its light look in `light.css`
+    (`:root[data-theme="light"] .card-glow`). `.button-outline` is solid in light, except inside a
+    dialog, where it stays an outline beside the main button. The sign-in screen is dark in both themes. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A

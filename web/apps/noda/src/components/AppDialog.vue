@@ -23,11 +23,11 @@ function askToClose() {
   <dialog
     ref="dialog"
     :aria-labelledby="titleId"
-    class="m-auto w-[calc(100%-20px)] max-w-none rounded-[10px] border border-line bg-[#02040E] text-white outline-none backdrop:bg-black/70 lg:w-[450px]"
+    class="m-auto w-[calc(100%-20px)] max-w-none panel rounded-[10px] text-ink outline-none backdrop:bg-black/70 lg:w-[450px]"
     @cancel.prevent="askToClose"
     @click.self="askToClose"
   >
-    <h2 :id="titleId" class="border-b border-line pb-[20.5px] pl-[14px] pt-[19.5px] text-[18px] leading-none font-medium lg:pb-[31px] lg:pl-[29px] lg:pt-[29px] lg:text-[22px] lg:font-semibold">{{ title }}</h2>
+    <h2 :id="titleId" class="border-b border-rule pb-[20.5px] pl-[14px] pt-[19.5px] text-[18px] leading-none font-medium lg:pb-[31px] lg:pl-[29px] lg:pt-[29px] lg:text-[22px] lg:font-semibold">{{ title }}</h2>
     <div class="px-[14px] pb-[20px] pt-[20.5px] lg:px-[29px] lg:pb-[29px] lg:pt-[28.5px]">
       <slot />
     </div>
