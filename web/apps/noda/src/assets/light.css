@@ -23,6 +23,8 @@
   --color-warn:      #F2EBD0;
   --color-warn-ink:  #D8A944;
   --color-track:     #D2DFDF;
+  --color-disc:      #F3F9F9;
+  --color-thumb:     #7F7F7F;  /* not from the design */
 
   --color-star:         #B3EBEE;
   --color-star-off:     #DADADA;
@@ -49,7 +51,8 @@
 }
 
 /* The gradient border and the glow go: the fill runs to the edge. */
-:root[data-theme="light"] .card-glow {
+:root[data-theme="light"] .card-glow,
+:root[data-theme="light"] .info-box {
   background: linear-gradient(to bottom right, #F3F9F9 7%, #ACE7E5) border-box;
   box-shadow: var(--shadow-card);
 }
@@ -98,6 +101,14 @@
 :root[data-theme="light"] .bg-copy {
   border-color: transparent;
   background: linear-gradient(88deg, #184C6E, #3DCFD8) border-box;
+}
+
+/* The outline button's border, in place of the hairline. */
+:root[data-theme="light"] .value-box {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
 }
 
 /* Deposit draws the chosen method like the others: its disc tells them apart. */

@@ -36,8 +36,8 @@ onBeforeUnmount(() => observer.disconnect())
       <slot />
     </div>
     <!-- The design draws its own scrollbar. It shows only while the content does not fit. -->
-    <div v-if="shown < 1" class="absolute inset-x-0 top-full mt-[2.5px] h-[12px] touch-none rounded-full bg-muted p-[2px]" @pointerdown="drag" @pointermove="drag">
-      <div class="h-full rounded-full bg-[#E0E0E0]" :style="{ width: `${shown * 100}%`, marginLeft: `${offset * 100}%` }" />
+    <div v-if="shown < 1" class="absolute inset-x-0 top-full mt-[2.5px] h-[12px] touch-none rounded-full bg-faint p-[2px] light:bg-outline" @pointerdown="drag" @pointermove="drag">
+      <div class="h-full rounded-full bg-thumb" :style="{ width: `${shown * 100}%`, marginLeft: `${offset * 100}%` }" />
     </div>
   </div>
 </template>

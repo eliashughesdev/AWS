@@ -108,7 +108,7 @@ const notes = computed(() => {
   return [`Send only ${symbol} to this address`, `Minimum deposit: ${rules.minimum} ${symbol}`, rules.confirmations].map(note => `– ${note}`)
 })
 
-// Not in Figma: the copy icon turns teal for two seconds once the address is on the clipboard.
+// Not in Figma: the copy icon turns teal (in light, the text colour) for two seconds once the address is on the clipboard.
 const copied = ref(false)
 watch(chosen, () => { copied.value = false })
 
@@ -144,7 +144,6 @@ const deposits = computed(() => {
 })
 const rows = computed(() => depositsState.value === 'ready' ? deposits.value.slice(0, RECENT_ROWS) : [])
 
-const card = 'rounded-[10px] border border-line bg-[#02040E]'
 const heading = 'text-[18px] leading-none font-medium lg:font-semibold'
 const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[14px]'
 const cell = 'text-[12px] font-semibold lg:text-[16px] lg:font-medium'
@@ -155,7 +154,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
   <div class="mt-[9px] lg:-mr-px lg:mt-[16px] lg:grid lg:grid-cols-[450px_1fr] lg:gap-[15px]">
     <!-- A card on desktop; on mobile the three tiles stand alone. The space under the tiles shows
          only when the other card is the shorter one, which the design does not draw. -->
-    <section class="lg:rounded-[10px] lg:border lg:border-line lg:bg-[#02040E] lg:px-[29px] lg:pb-[29px] lg:pt-[28.5px]">
+    <section class="lg:panel lg:rounded-[10px] lg:px-[29px] lg:pb-[29px] lg:pt-[28.5px]">
       <h2 class="max-lg:hidden" :class="heading">Deposit Method</h2>
       <div class="space-y-[15px] lg:mt-[25.5px]">
         <button
@@ -165,11 +164,12 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
           :aria-pressed="!!method.selected"
           :disabled="!method.selected"
           class="flex h-[65px] w-full items-center rounded-[10px] border pl-[11px] text-left lg:h-[91px] lg:pl-[17px]"
-          :class="method.selected ? 'tile-selected' : 'border-card-line bg-card'"
+          :class="method.selected ? 'tile-selected' : 'card'"
         >
+          <!-- "in oklab" is how Tailwind's gradient classes blended this disc before it took bg-cta. The design's blend is plain. -->
           <span
             class="grid size-[40px] shrink-0 place-items-center rounded-full lg:size-[53px]"
-            :class="method.selected ? 'bg-linear-90 from-[#42E0E6] to-[#0E2951] text-white' : 'bg-card-line text-muted'"
+            :class="method.selected ? 'bg-cta text-white [--cta-angle:90deg_in_oklab]' : 'bg-disc text-faint light:border light:border-outline'"
           >
             <AppIcon :name="method.icon" :mobile="method.mobileIcon" />
           </span>
@@ -181,7 +181,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
       </div>
     </section>
 
-    <section class="mt-[30px] px-[14px] pb-[30.5px] pt-[24.5px] lg:mt-0 lg:px-[29px] lg:pb-[45.5px] lg:pt-[28.5px]" :class="card">
+    <section class="panel mt-[30px] rounded-[10px] px-[14px] pb-[30.5px] pt-[24.5px] lg:mt-0 lg:px-[29px] lg:pb-[45.5px] lg:pt-[28.5px]">
       <h2 :class="heading">Crypto Deposit</h2>
 
       <!-- Not in Figma: these two states, and the box for an account with no address. -->
@@ -189,7 +189,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
         <button type="button" :class="tryAgain" @click="read">Try again</button>
       </ListState>
       <ListState v-else-if="state === 'ready' && !account" title="No accounts yet" text="Open an account to get an address you can receive crypto at.">
-        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
+        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold text-white lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
       </ListState>
 
       <template v-else>
@@ -200,13 +200,13 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
             aria-haspopup="listbox"
             :aria-expanded="open"
             :disabled="!account"
-            class="flex h-[35px] w-full items-center justify-between rounded-[5px] border-[0.5px] border-card-line bg-card pl-[9px] pr-[12.5px] text-[12px] font-semibold text-muted lg:pl-[14px] lg:pr-[11.5px] lg:text-[14px]"
+            class="value-box flex h-[35px] w-full items-center justify-between rounded-[5px] pl-[9px] pr-[12.5px] text-[12px] font-semibold text-muted lg:pl-[14px] lg:pr-[11.5px] lg:text-[14px]"
             @click="open = !open"
           >
-            <span v-if="account" class="mr-[8px] min-w-0 truncate"><span class="text-white">{{ account.title }}</span> · {{ account.name }}</span>
+            <span v-if="account" class="mr-[8px] min-w-0 truncate"><span class="text-ink">{{ account.title }}</span> · {{ account.name }}</span>
             <!-- Shown after ListState's delay: a read that answers at once never says "loading". -->
             <span v-else class="list-state-loading">Loading your accounts…</span>
-            <AppIcon name="caret-sm" />
+            <AppIcon name="caret-sm" class="light:text-ink" />
           </button>
           <DropdownList v-if="open" v-model="chosen" :options="options" @close="open = false">
             <template #default="{ option }">
@@ -227,14 +227,14 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
         </div>
 
         <!-- A heading on desktop, a field label on mobile. -->
-        <h2 class="mt-[20.5px] text-[12px] leading-none font-semibold text-muted lg:mt-[24.5px] lg:text-[18px] lg:text-white">Deposit Address</h2>
-        <div v-if="account && !account.address" role="alert" class="mt-[11.5px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-yellow [--icon-scale:0.78] lg:mt-[20.5px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]">
+        <h2 class="mt-[20.5px] text-[12px] leading-none font-semibold text-muted lg:mt-[24.5px] lg:text-[18px] lg:text-ink">Deposit Address</h2>
+        <div v-if="account && !account.address" role="alert" class="mt-[11.5px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-warn-ink [--icon-scale:0.78] lg:mt-[20.5px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]">
           <AppIcon name="info" />
           <p class="ml-[9px] text-[12px] leading-[14px] lg:ml-[9.5px] lg:text-[14px] lg:leading-[18px]">This account has no deposit address yet.</p>
         </div>
         <template v-else>
           <div class="mt-[11.5px] flex gap-[10px] lg:mt-[20.5px]">
-            <p class="flex h-[35px] min-w-0 flex-1 items-center rounded-[5px] border-[0.5px] border-card-line bg-card pl-[10px] pr-[8px] text-[12px] font-semibold lg:h-[40px] lg:pl-[15px] lg:text-[14px]">
+            <p class="value-box flex h-[35px] min-w-0 flex-1 items-center rounded-[5px] pl-[10px] pr-[8px] text-[12px] font-semibold lg:h-[40px] lg:pl-[15px] lg:text-[14px]">
               <span class="truncate tracking-[0.004em]">{{ account?.address }}</span>
             </p>
             <button
@@ -242,7 +242,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
               :aria-label="copied ? 'Address copied' : 'Copy address'"
               :disabled="!account"
               class="bg-copy grid size-[35px] place-items-center rounded-[5px] lg:size-[40px]"
-              :class="{ 'text-accent': copied }"
+              :class="copied ? 'text-accent light:text-ink' : 'text-white'"
               @click="copyAddress"
             >
               <AppIcon name="copy-light" mobile="copy-light-sm" />

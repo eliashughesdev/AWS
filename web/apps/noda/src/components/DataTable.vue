@@ -12,7 +12,7 @@ defineProps<{ title: string; columns: string[]; rows: Row[]; grid: string }>()
 </script>
 
 <template>
-  <section class="rounded-[10px] border border-line bg-[#02040E] pb-[23.5px] pt-[29.5px] lg:pb-[var(--table-foot,20px)] lg:pt-[28.5px]">
+  <section class="panel rounded-[10px] pb-[23.5px] pt-[29.5px] lg:pb-[var(--table-foot,20px)] lg:pt-[28.5px]">
     <div class="relative">
       <h2 class="pl-[14px] text-[18px] leading-none font-medium lg:pl-[29px] lg:text-[length:var(--table-title,18px)] lg:font-semibold">{{ title }}</h2>
       <!-- They take no room, so the table keeps its height. -->
@@ -21,7 +21,7 @@ defineProps<{ title: string; columns: string[]; rows: Row[]; grid: string }>()
 
     <ScrollX class="mt-[26.5px] lg:mt-[var(--table-head-gap,56px)]">
       <div role="table" class="w-max min-w-full">
-        <div role="row" class="grid border-line px-[14px] text-[12px] leading-none font-semibold text-muted lg:border-b lg:pb-[13.5px] lg:pl-[29px] lg:pr-0 lg:text-[14px]" :class="grid">
+        <div role="row" class="grid border-rule px-[14px] text-[12px] leading-none font-semibold text-muted lg:border-b lg:pb-[13.5px] lg:pl-[29px] lg:pr-0 lg:text-[14px]" :class="grid">
           <span v-for="column in columns" :key="column" role="columnheader">{{ column }}</span>
         </div>
         <div role="rowgroup" class="mt-[7px] lg:mt-[var(--table-rows-gap,7px)]">

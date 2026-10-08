@@ -22,6 +22,7 @@
   --color-accent-bright: #43E5EA;  /* line under the active tab, the toggle's lit side */
   --color-faint:         #ACACAC;  /* the toggle's other side, the footer */
   --color-pending:       #E1C65A;  /* fill of the Pending pill in light */
+  --color-qr:            #121214;  /* a QR code's squares, on white */
 
   --color-card:      #0F111A;
   --color-card-line: #272831;
@@ -36,6 +37,8 @@
   --color-warn:      #1A160C;  /* fill of the yellow warning box */
   --color-warn-ink:  #FFCC00;  /* its text and icon */
   --color-track:     #204E54;  /* the empty part of a bar */
+  --color-disc:      #272831;  /* an icon's disc with no colour of its own */
+  --color-thumb:     #E0E0E0;  /* the thumb of ScrollX's bar */
 
   /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
   --color-star:         #12384B;
@@ -157,8 +160,9 @@ body {
   background: linear-gradient(to top right, #0D0D0D, #151F1F);
 }
 
+/* An element can turn it with --cta-angle. */
 .bg-cta {
-  background: linear-gradient(82deg, #42E0E6, #0E2951);
+  background: linear-gradient(var(--cta-angle, 82deg), #42E0E6, #0E2951);
 }
 
 .bg-address {
@@ -197,6 +201,12 @@ body {
   background:
     linear-gradient(#040F19, #040F19) padding-box,
     linear-gradient(90deg, #1F7583, #0D284E) border-box;
+}
+
+/* A value in a box (the chosen account, its address): a hairline on the card fill. */
+.value-box {
+  border: 0.5px solid var(--color-card-line);
+  background: var(--color-card);
 }
 
 /* Withdraw */

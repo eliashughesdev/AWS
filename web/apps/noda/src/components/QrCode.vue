@@ -17,6 +17,6 @@ const code = computed(() => {
 
 <template>
   <svg :viewBox="`0 0 ${code.size} ${code.size}`" shape-rendering="crispEdges" role="img" aria-label="QR code">
-    <path :d="code.path" fill="#121214" />
+    <path :d="code.path" class="fill-qr" />
   </svg>
 </template>

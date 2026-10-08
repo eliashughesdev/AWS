@@ -100,7 +100,7 @@ const chip = 'flex h-[28px] items-center rounded-[10px] border border-line text-
       <span role="cell" class="text-[12px] font-semibold lg:pl-[2.5px] lg:text-[14px] lg:font-medium">{{ row.date }}</span>
       <span role="cell">
         <button v-if="row.hash" type="button" :title="row.hash" :aria-label="copied === index ? 'Transaction hash copied' : 'Copy transaction hash'" class="w-[100px] justify-between pl-[9px] pr-[7px] text-muted [--icon-scale:0.667] lg:w-[120px] lg:pl-[13.5px] lg:pr-[8.5px]" :class="chip" @click="copyHash(index, row.hash)">
-          <span class="min-w-0 truncate text-white"><span class="lg:hidden">{{ shorten(row.hash, 4, 4) }}</span><span class="max-lg:hidden">{{ shorten(row.hash, 5, 4) }}</span></span>
+          <span class="min-w-0 truncate text-ink"><span class="lg:hidden">{{ shorten(row.hash, 4, 4) }}</span><span class="max-lg:hidden">{{ shorten(row.hash, 5, 4) }}</span></span>
           <AppIcon name="copy-light" :class="{ 'text-accent': copied === index }" />
         </button>
         <!-- Not in Figma: a withdrawal that failed, or whose outcome is not known, has no hash. -->

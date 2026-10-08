@@ -224,7 +224,7 @@ const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font
     <template #default="{ row }">
       <span role="cell">
         <button v-if="row.id" type="button" :title="row.id" class="flex items-center gap-[6px] text-[12px] font-semibold text-muted [--icon-scale:0.667]" @click="copyId(row.key, row.id)">
-          <span class="text-white">{{ shorten(row.id) }}</span>
+          <span class="text-ink">{{ shorten(row.id) }}</span>
           <AppIcon name="copy-light" :class="{ 'text-accent': copied === row.key }" />
         </button>
       </span>
