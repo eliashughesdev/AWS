@@ -12,11 +12,17 @@ export interface FailureMessages {
   unexpected: string  // the request itself failed
 }
 
+export type FailureKind = keyof FailureMessages
+
 // An operation the API only queues: the HTTP call starts it and the outcome arrives
 // later as a PAYMENT_RESULT push.
 export function useQueuedOperation(messages: FailureMessages) {
   const status     = ref<OperationStatus>('idle')
   const error      = ref('')
+  // Which way it failed, and the API's error_code when it refused. No result in time is not a
+  // result: the operation may still complete.
+  const failure    = ref<FailureKind | ''>('')
+  const errorCode  = ref<number>()
   const submitting = ref(false)
 
   let resultWatch: PaymentResultWatch | null = null
@@ -27,9 +33,10 @@ export function useQueuedOperation(messages: FailureMessages) {
   }
   onScopeDispose(stopWaiting)
 
-  function fail(message: string) {
-    status.value = 'failed'
-    error.value  = message
+  function fail(message: string, kind: FailureKind = 'failed') {
+    status.value  = 'failed'
+    error.value   = message
+    failure.value = kind
   }
 
   async function run(
@@ -48,33 +55,38 @@ export function useQueuedOperation(messages: FailureMessages) {
       onTimeout: () => {
         if (status.value === 'processing') {
           stopWaiting()
-          fail(messages.timeout)
+          fail(messages.timeout, 'timeout')
         }
       },
     })
 
     status.value     = 'processing'
+    failure.value    = ''
+    errorCode.value  = undefined
     submitting.value = true
 
     try {
       const { ok, data } = await request(transactionId)
       if (!ok) {
         stopWaiting()
-        fail(data.message ?? messages.rejected)
+        errorCode.value = data.error_code
+        fail(data.message ?? messages.rejected, 'rejected')
       }
       // Accepted (queued): the status stays 'processing' until the push arrives.
     } catch {
       stopWaiting()
-      fail(messages.unexpected)
+      fail(messages.unexpected, 'unexpected')
     } finally {
       submitting.value = false
     }
   }
 
   function reset() {
-    status.value = 'idle'
-    error.value  = ''
+    status.value    = 'idle'
+    error.value     = ''
+    failure.value   = ''
+    errorCode.value = undefined
   }
 
-  return { status, error, submitting, run, fail, reset }
+  return { status, error, failure, errorCode, submitting, run, fail, reset }
 }

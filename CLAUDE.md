@@ -33,7 +33,7 @@ There are three deployable pieces in this one repo:
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`),
-    Withdraw (with its History view at `/withdraw/history`), Convert, Payments and Earn, whose
+    Convert, Payments and Earn, whose
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
@@ -59,7 +59,21 @@ There are three deployable pieces in this one repo:
     the browser that a deposit arrived, so while the page is in view it reads `/accounts/list`
     every 15 seconds, and reads the rows again only when a balance changed. Its Card and Bank
     tiles, the minimum deposit and the confirmations line are still mockup data
-    (`placeholders/deposit.ts`). A dropdown is `FilterButton` (`options`, `v-model`); on mobile
+    (`placeholders/deposit.ts`). Withdraw is real: a chip per coin the user holds, a dropdown of
+    accounts under the chips only when the chosen coin has several, the available amount
+    (`availableBalance`, the number the backend checks), Max, the destination address, and
+    "Withdraw now" with its result dialog, which cannot be closed while the withdrawal is
+    processed and never says "failed" when no result arrived (it may still go through). Max and
+    the form leave what the backend sets aside for the fee of TRX and SOL
+    (`withdrawalFeeReserve()` in core), and the address must have the shape of its network's
+    (`looksLikeAddress()`). The dialog words each outcome itself from `useWithdraw().failure` and
+    `errorCode`, never from the server's message. Your Wallets lists every account with its
+    balance. History at `/withdraw/history` is the ten newest withdrawals of every account (sent,
+    failed, and uncertain as Pending) and reads when it is opened. The network fee and the
+    Withdraw Limits card are still mockup data (`placeholders/withdraw.ts`), shown in the chosen
+    coin. `src/accountChoices.ts` turns the accounts into the sorted list Deposit and Withdraw
+    choose from, and `useReread()` in `src/reread.ts` is the 15-second re-read both pages use.
+    A dropdown is `FilterButton` (`options`, `v-model`); on mobile
     its list is placed by an ancestor that is positioned only while it is open, because an
     always-`relative` one moved pixels of the drawn page. The open list itself is `DropdownList`,
     which any button can hang under a positioned wrapper (Deposit's does). `StatusPill` draws Completed, Pending
@@ -102,7 +116,10 @@ There are three deployable pieces in this one repo:
   status was read and is not approved or pending. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
   value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text
   for each kind of failure (`FailureMessages` in `composables/queuedOperation.ts`) — and no
-  routing. Composables stop their own timers and sockets with `onScopeDispose`, so call them
+  routing. An operation the API only queues (`useWithdraw`, `useDeposit`) also says which kind
+  of failure it was (`failure`: `rejected`, `failed`, `timeout`, `unexpected`) and the API's
+  `errorCode` when it refused; a `timeout` is not a failed operation, so a view must not offer
+  to send it again. Composables stop their own timers and sockets with `onScopeDispose`, so call them
   in `setup`.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and

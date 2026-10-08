@@ -1,11 +1,13 @@
 <script setup lang="ts">
 // A coin with its symbol, name and one line under them. The slot sits at the row's right end.
+// Not in Figma: a coin with no image keeps its place as a plain disc.
 defineProps<{ coin: string; symbol: string; name: string; detail: string }>()
 </script>
 
 <template>
   <li class="flex h-[65px] items-center rounded-[10px] border border-card-line bg-card pl-[11px] pr-[20px] lg:h-[91px] lg:pl-[19px]">
-    <img :src="coin" alt="" class="size-[36px] lg:size-[51px]" />
+    <img v-if="coin" :src="coin" alt="" class="size-[36px] lg:size-[51px]" />
+    <span v-else class="size-[36px] shrink-0 rounded-full bg-card-line lg:size-[51px]" />
     <div class="ml-[9.5px] lg:ml-[11.5px]">
       <p class="flex items-center gap-[6px] leading-none">
         <span class="text-[12px] font-semibold lg:text-[18px]">{{ symbol }}</span>

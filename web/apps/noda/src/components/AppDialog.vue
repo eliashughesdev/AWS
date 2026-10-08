@@ -2,7 +2,8 @@
 import { onBeforeUnmount, onMounted, useId, useTemplateRef } from 'vue'
 
 // Not in Figma: a card over the dimmed page, put together from the design's card and its title line.
-// Render it with v-if. Escape or a click outside asks to close, unless `locked`.
+// Render it with v-if. Escape or a click outside asks to close, unless `locked`. With nothing inside
+// to focus, the focus is on the dialog itself, which draws no ring for it.
 const props = defineProps<{ title: string; locked?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
@@ -22,7 +23,7 @@ function askToClose() {
   <dialog
     ref="dialog"
     :aria-labelledby="titleId"
-    class="m-auto w-[calc(100%-20px)] max-w-none rounded-[10px] border border-line bg-[#02040E] text-white backdrop:bg-black/70 lg:w-[450px]"
+    class="m-auto w-[calc(100%-20px)] max-w-none rounded-[10px] border border-line bg-[#02040E] text-white outline-none backdrop:bg-black/70 lg:w-[450px]"
     @cancel.prevent="askToClose"
     @click.self="askToClose"
   >

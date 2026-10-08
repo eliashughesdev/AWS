@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { usePrices } from '@loudibly/core/composables/usePrices'
 import { useTransactions, type AccountTransaction } from '@loudibly/core/composables/useTransactions'
@@ -9,12 +9,13 @@ import DataTable from '../components/DataTable.vue'
 import DropdownList from '../components/DropdownList.vue'
 import ListState from '../components/ListState.vue'
 import StatusPill from '../components/StatusPill.vue'
+import { accountChoices } from '../accountChoices'
 import { activityKind } from '../activity'
-import { coinFor, networkName, newAccountChains } from '../coins'
+import { coinFor } from '../coins'
 import { BLANK, coinAmount, priced, timeAgo, usdValue } from '../format'
 import type { IconName } from '../icons'
-import { placeholderName } from '../placeholders/accountNames'
 import { rules } from '../placeholders/deposit'
+import { useReread } from '../reread'
 
 // Only the Crypto method is drawn, so the other two cannot be chosen yet.
 const methods: { title: string; note: string; icon: IconName; mobileIcon: IconName; selected?: boolean }[] = [
@@ -29,7 +30,6 @@ const grid = 'grid-cols-[87px_80px_93px_91px_90px] lg:min-w-[880px] lg:grid-cols
 
 // As many rows as the design draws.
 const RECENT_ROWS = 4
-const REREAD_MS = 15_000
 
 const { cryptoAccounts, failed: accountsFailed, load: loadAccounts, refresh: rereadAccounts } = useAccounts()
 const { prices, load: loadPrices } = usePrices()
@@ -71,53 +71,24 @@ async function read() {
   depositsState.value = await readDeposits() ? 'ready' : 'failed'
 }
 
-// Not in Figma: nothing tells the browser that a deposit arrived, so the page asks while it is in
-// view. One request, for the balances: a deposit's row is written before its balance moves, so the
-// rows are read again only when a balance did. A read that fails leaves the screen as it is.
+// The page asks again while it is in view. One request, for the balances: a deposit's row is written
+// before its balance moves, so the rows are read again only when a balance did. A read that fails
+// leaves the screen as it is.
 let rereading = false
 
 async function reread() {
-  if (rereading || document.hidden || state.value !== 'ready') return
+  if (rereading || state.value !== 'ready') return
   rereading = true
   await rereadAccounts().catch(() => {})
   if (balances() !== readWith && await readDeposits()) depositsState.value = 'ready'
   rereading = false
 }
 
-let timer: ReturnType<typeof setInterval>
-onMounted(() => {
-  read()
-  timer = setInterval(reread, REREAD_MS)
-  document.addEventListener('visibilitychange', reread)
-})
-onUnmounted(() => {
-  clearInterval(timer)
-  document.removeEventListener('visibilitychange', reread)
-})
+onMounted(read)
+useReread(reread)
 
-// Not in Figma: the dropdown lists accounts, since a user can hold two in one coin. An entry is the
-// coin as the design writes it, then the account's name. Coins go in the New Account dialog's order.
-const coinOrder = newAccountChains.map(chain => coinFor(chain).symbol)
-const rank = (symbol: string) => (coinOrder.indexOf(symbol) + 1) || coinOrder.length + 1
-
-const options = computed(() => cryptoAccounts.value
-  .map(account => {
-    const coin = coinFor(account.chain)
-    const name = placeholderName(account.accountNo)
-    const title = coin.name === coin.symbol ? coin.symbol : `${coin.name} (${coin.symbol})`
-    return {
-      value:   account.accountNo,
-      label:   `${title} · ${name}`,
-      title,
-      // An account still being imported, in the Accounts page's word.
-      name:    account.status === 'importing' ? `${name} · Syncing` : name,
-      symbol:  coin.symbol,
-      network: networkName(account.chain),
-      // Every account opened today has one; a record from before may not.
-      address: account.depositAddress || '',
-    }
-  })
-  .sort((a, b) => rank(a.symbol) - rank(b.symbol) || a.name.localeCompare(b.name) || a.value.localeCompare(b.value)))
+// The dropdown lists accounts, where the design lists currencies.
+const options = computed(() => accountChoices(cryptoAccounts.value))
 
 // The first account that can receive until another is picked, and again if the picked one is gone.
 const picked = ref('')

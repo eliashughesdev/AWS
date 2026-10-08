@@ -8,6 +8,8 @@ export interface Account {
   depositAddress: string
   status: string
   balance: number
+  // What a withdrawal is checked against.
+  availableBalance: number
 }
 
 export interface Transaction {
