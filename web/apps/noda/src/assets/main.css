@@ -20,14 +20,25 @@
   /* The same in both themes */
   --color-accent-bright: #43E5EA;  /* line under the active tab, the toggle's lit side */
   --color-faint:         #ACACAC;  /* the toggle's other side, the footer */
+  --color-pending:       #E1C65A;  /* fill of the Pending pill in light */
 
   --color-card:      #0F111A;
   --color-card-line: #272831;
+  --color-panel:      #02040E;  /* the big section boxes */
+  --color-panel-line: #303030;
+  --color-card-inset:      #0F111A;  /* a card inside a panel */
+  --color-card-inset-line: #272831;
   --color-tile:      #091426;  /* quick-action tiles */
   --color-tile-line: #2B344A;
   --color-chip:      #131819;
   --color-field:     #040A1F;  /* text inputs */
   --color-warn:      #1A160C;  /* fill of the yellow warning box */
+  --color-track:     #204E54;  /* the empty part of a bar */
+
+  /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
+  --color-star:         #12384B;
+  --color-star-off:     #3C3C3C;
+  --color-star-off-ink: #272829;
 
   /* Icon colours and the darker disc each one sits on */
   --color-green:       #34C759;
@@ -40,6 +51,8 @@
   --color-red:         #FF383C;
   --color-red-dim:     #3C1417;  /* not from the design: the TRX coin's disc */
   --color-orange:      #FF8D28;
+  --color-orange-dim:  #39210D;  /* the SOL coin's disc */
+  --color-usdt-dim:    #243F2B;  /* the USDT coin's disc, a different green from the icons' */
   --color-brown:       #AC7F5E;
 
   --shadow-card: none;  /* light draws a card's edge with it */
@@ -85,6 +98,21 @@ body {
 @utility card {
   border: 1px solid var(--color-card-line);
   background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* A card inside a panel takes the inset colours: a card's own in dark, one step darker in light. */
+@utility panel {
+  border: 1px solid var(--color-panel-line);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-card);
+  --color-card: var(--color-card-inset);
+  --color-card-line: var(--color-card-inset-line);
+}
+
+@utility tile {
+  border: 1px solid var(--color-tile-line);
+  background: var(--color-tile);
   box-shadow: var(--shadow-card);
 }
 

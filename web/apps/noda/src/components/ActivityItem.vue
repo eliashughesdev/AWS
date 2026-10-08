@@ -2,7 +2,7 @@
 import AppIcon from './AppIcon.vue'
 import type { ActivityStatus } from '../activity'
 import type { IconName } from '../icons'
-import { tones, type Tone } from '../tones'
+import { pills, tones, type Tone } from '../tones'
 
 defineProps<{
   kind: string
@@ -15,17 +15,10 @@ defineProps<{
   mobileIcon?: IconName
   tone: Tone
 }>()
-
-// Only "Completed" is drawn here. "Pending" takes the colours of the Transactions pill; "Failed" is not from the design.
-const pills = {
-  Completed: 'border-accent bg-accent-dim text-accent',
-  Pending:   'border-yellow bg-yellow-dim text-yellow',
-  Failed:    'border-red bg-red-dim text-red',
-}
 </script>
 
 <template>
-  <div class="flex h-[65px] items-center rounded-[10px] border border-card-line bg-card pl-[11px] pr-[9px] lg:h-[100px] lg:pl-[22px] lg:pr-[29px]">
+  <div class="card flex h-[65px] items-center rounded-[10px] pl-[11px] pr-[9px] lg:h-[100px] lg:pl-[22px] lg:pr-[29px]">
     <span
       class="grid size-[36px] shrink-0 place-items-center rounded-full lg:size-[60px]"
       :class="tones[tone]"

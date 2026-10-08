@@ -4,9 +4,9 @@ import { security } from '../placeholders/dashboard'
 </script>
 
 <template>
-  <section class="rounded-[10px] border border-card-line bg-card px-[14px] pb-[21px] pt-[19px] lg:px-[19px] lg:pb-[20px]">
+  <section class="card rounded-[10px] px-[14px] pb-[21px] pt-[19px] lg:px-[19px] lg:pb-[20px]">
     <div class="flex items-center gap-[12px] lg:gap-[10px]">
-      <span class="bg-shield grid size-[45px] place-items-center rounded-full [--icon-scale:0.78] lg:size-[58px] lg:[--icon-scale:1]">
+      <span class="bg-shield grid size-[45px] place-items-center rounded-full text-white [--icon-scale:0.78] lg:size-[58px] lg:[--icon-scale:1]">
         <AppIcon name="shield" />
       </span>
       <div class="mt-[2px] lg:-mt-[2px]">

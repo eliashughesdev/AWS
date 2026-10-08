@@ -11,16 +11,28 @@
 
   --color-card:      #F3F9F9;
   --color-card-line: #F3F9F9;  /* a card's edge is its shadow */
+  --color-panel:      #F3F9F9;
+  --color-panel-line: #F3F9F9;
+  --color-card-inset:      #E3F2F2;
+  --color-card-inset-line: #E3F2F2;
   --color-tile:      #F3F9F9;
   --color-tile-line: #F3F9F9;
   --color-chip:      #E3F2F2;
   --color-field:     #E3F2F2;
   --color-warn:      #F2EBD0;
+  --color-track:     #D2DFDF;
+
+  --color-star:         #B3EBEE;
+  --color-star-off:     #DADADA;
+  --color-star-off-ink: #B2B2B2;
 
   --color-green-dim:  #E4F9EA;
   --color-blue-dim:   #BDC7E3;
   --color-yellow-dim: #F2EBD0;
   --color-accent-dim: #B3EBEE;
+  --color-red-dim:    #F2BBBC;  /* not from the design: red, as pale as the orange disc */
+  --color-orange-dim: #F2D5BB;
+  --color-usdt-dim:   #E4F9EA;
 
   --shadow-card: 0 4px 4px rgb(0 0 0 / 0.1);
 }
@@ -32,4 +44,28 @@
 /* The colours of .bg-cta. */
 :root[data-theme="light"] .bg-tab-active {
   background: linear-gradient(84deg, #42E0E6 3%, #0E2951);
+}
+
+/* The gradient border and the glow go: the fill runs to the edge. */
+:root[data-theme="light"] .card-glow {
+  background: linear-gradient(to bottom right, #F3F9F9 7%, #ACE7E5) border-box;
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .card-stat {
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .bg-pill {
+  border-color: transparent;
+  background: #C9EFEE;
+}
+
+/* Solid, inside the same border. */
+:root[data-theme="light"] .button-outline {
+  background:
+    linear-gradient(var(--color-accent), var(--color-accent)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+  color: #FFFFFF;
 }

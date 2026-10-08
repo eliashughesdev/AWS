@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import AppIcon from './AppIcon.vue'
+import CoinImage from './CoinImage.vue'
+import type { CoinArt } from '../coins'
 import type { Change } from '../placeholders/dashboard'
 
 defineProps<{
   symbol: string
   name: string
-  image: string
+  image?: CoinArt
   amount: string
   value: string
   change?: Change
@@ -15,8 +17,8 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex h-[65px] items-center rounded-[10px] border border-card-line bg-card pl-[11px] pr-[14px] lg:h-[100px] lg:pl-[23px] lg:pr-[24px]">
-    <img v-if="image" :src="image" alt="" class="size-[36px] lg:size-[60px]" />
+  <div class="card flex h-[65px] items-center rounded-[10px] pl-[11px] pr-[14px] lg:h-[100px] lg:pl-[23px] lg:pr-[24px]">
+    <CoinImage v-if="image" :coin="image" class="size-[36px] lg:size-[60px]" />
     <span v-else class="size-[36px] shrink-0 rounded-full bg-chip lg:size-[60px]" />
 
     <!-- 92px wide in the mobile design. It grows with a longer amount, which stays clear of the value. -->
@@ -45,7 +47,7 @@ defineProps<{
 
     <div class="lg:ml-[96px] lg:w-[94px]">
       <p class="text-right text-[10px] leading-none font-medium text-muted lg:text-[17px] lg:font-semibold">{{ share }}</p>
-      <div class="mt-[9px] h-[5px] rounded-full bg-[#204E54] max-lg:hidden">
+      <div class="mt-[9px] h-[5px] rounded-full bg-track max-lg:hidden">
         <div class="h-full rounded-full bg-accent" :style="{ width: `${fill}%` }" />
       </div>
     </div>

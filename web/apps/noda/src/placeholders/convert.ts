@@ -1,9 +1,5 @@
 // The Convert screen's content as the Figma mockup shows it. None of it is real data yet.
-import btc from '../assets/coins/btc.png'
-import eth from '../assets/coins/eth.png'
-import usdt from '../assets/coins/usdt.png'
-import noda from '../assets/coins/noda.png'
-import sol from '../assets/coins/sol.png'
+import { btc, eth, noda, sol, usdt } from '../coins'
 
 // The mockup shows the BTC balance under both amounts.
 export const sides = [

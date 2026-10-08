@@ -188,7 +188,7 @@ onMounted(() => {
 onUnmounted(() => window.removeEventListener('pageshow', onPageShow))
 
 // Not in Figma: the box a list's loading, empty and failed states sit in, drawn like one of its rows.
-const box = 'rounded-[10px] border border-card-line bg-card'
+const box = 'card rounded-[10px]'
 const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font-semibold lg:text-[14px]'
 </script>
 
@@ -220,7 +220,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
     </div>
     <div v-else-if="!assets.length" :class="box">
       <ListState title="No assets yet" text="Open an account to get an address you can receive crypto at.">
-        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
+        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold text-white lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
       </ListState>
     </div>
     <template v-else>
@@ -243,7 +243,7 @@ const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] fo
     <StatCard v-for="stat in stats" :key="stat.label" :stat="stat" />
   </div>
 
-  <section class="mt-[31px] lg:mt-[30px] lg:rounded-[10px] lg:border lg:border-line lg:bg-[#02040E] lg:px-[28px] lg:pb-[29px] lg:pt-[39px]">
+  <section class="mt-[31px] lg:panel lg:mt-[30px] lg:rounded-[10px] lg:px-[28px] lg:pb-[29px] lg:pt-[39px]">
     <div class="flex items-center justify-between">
       <h2 class="text-[18px] leading-none font-medium lg:text-[22px] lg:font-[550]">Recent Activity</h2>
       <RouterLink :to="{ name: 'transactions' }" class="text-[12px] leading-none font-medium text-muted max-lg:mt-[5px] lg:text-[18px]">View All</RouterLink>

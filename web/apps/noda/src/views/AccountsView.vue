@@ -8,6 +8,7 @@ import PageAction from '../components/PageAction.vue'
 import AccountCard from '../components/AccountCard.vue'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
+import CoinImage from '../components/CoinImage.vue'
 import ListState from '../components/ListState.vue'
 import { coinFor, newAccountChains } from '../coins'
 import { priced, usdValue } from '../format'
@@ -151,7 +152,7 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
           :class="option.chain === chain ? 'tile-selected' : 'border-card-line bg-card'"
           @click="chain = option.chain"
         >
-          <img :src="option.image" alt="" class="size-[40px] shrink-0 lg:size-[53px]" />
+          <CoinImage v-if="option.image" :coin="option.image" class="size-[40px] lg:size-[53px]" />
           <span class="ml-[15px] mt-[1.5px] lg:-mt-[2px] lg:ml-[12px]">
             <span class="block text-[16px] leading-none font-medium lg:text-[18px] lg:font-semibold">{{ option.symbol }}</span>
             <span class="mt-[7px] block text-[12px] leading-none font-semibold text-muted lg:mt-[5px] lg:text-[14px]">{{ option.network ? `${option.name}, on ${option.network}` : option.name }}</span>

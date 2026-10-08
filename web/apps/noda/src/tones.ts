@@ -8,6 +8,14 @@ export const tones = {
 
 export type Tone = keyof typeof tones
 
+// A status pill: a hairline, a dim fill and coloured text; in light a solid fill and white text.
+// "Failed" is not from the design.
+export const pills = {
+  Completed: 'border-accent bg-accent-dim text-accent light:bg-accent light:text-white',
+  Pending:   'border-yellow bg-yellow-dim text-yellow light:border-pending light:bg-pending light:text-white',
+  Failed:    'border-red bg-red-dim text-red light:bg-red light:text-white',
+}
+
 // The colour of a summary card's dot.
 export const dots = {
   teal:   'text-accent',

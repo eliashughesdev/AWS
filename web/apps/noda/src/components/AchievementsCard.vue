@@ -10,8 +10,8 @@ export type KycRow = 'approved' | 'not-started' | 'starting' | 'pending' | 'fail
 const props = defineProps<{ kyc: KycRow }>()
 defineEmits<{ verify: [] }>()
 
-const done = 'bg-[#12384B] text-accent'
-const notDone = 'bg-[#3C3C3C] text-[#272829]'
+const done = 'bg-star text-accent'
+const notDone = 'bg-star-off text-star-off-ink'
 
 // Not in Figma: the words at the right of the row, the yellow star, and the row being a button.
 // The design draws the done and not-done stars only.
@@ -33,7 +33,7 @@ const label = 'text-[14px] leading-none font-medium'
 </script>
 
 <template>
-  <section class="rounded-[10px] border border-card-line bg-card px-[11px] pb-[19px] pt-[21px] lg:px-[19px] lg:py-[28px]">
+  <section class="card rounded-[10px] px-[11px] pb-[19px] pt-[21px] lg:px-[19px] lg:py-[28px]">
     <div class="flex items-center gap-[10px] lg:gap-[18px]">
       <span class="flex w-[23px] justify-center lg:w-[32px]">
         <AppIcon name="trophy" class="text-accent [--icon-scale:0.65] lg:[--icon-scale:1]" />

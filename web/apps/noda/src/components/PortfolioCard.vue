@@ -36,7 +36,7 @@ const actions: { label: string; to: string; icon: IconName; mobileIcon?: IconNam
     <div class="mt-[13px] flex items-center lg:mt-[19px]">
       <span class="text-[40px] leading-none font-medium max-lg:-ml-[2px] lg:text-[55px]">{{ balance }}</span>
       <!-- A placeholder: the design has no drawing of hidden amounts. -->
-      <AppIcon name="eye" mobile="eye-sm" class="ml-[8px] text-muted lg:-mt-[3px] lg:ml-[22px]" />
+      <AppIcon name="eye" mobile="eye-sm" class="ml-[8px] text-faint lg:-mt-[3px] lg:ml-[22px]" />
     </div>
 
     <div class="mt-[9px] flex items-center text-[12px] leading-none font-medium text-muted lg:mt-[17px] lg:text-[18px]">
@@ -51,7 +51,7 @@ const actions: { label: string; to: string; icon: IconName; mobileIcon?: IconNam
         v-for="action in actions"
         :key="action.to"
         :to="{ name: action.to }"
-        class="flex h-[119px] flex-col items-center rounded-[10px] border border-tile-line bg-tile pt-[28px] lg:h-[202px] lg:pt-[47px]"
+        class="tile flex h-[119px] flex-col items-center rounded-[10px] pt-[28px] lg:h-[202px] lg:pt-[47px]"
       >
         <span
           class="grid size-[39px] place-items-center rounded-full lg:size-[66px]"

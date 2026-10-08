@@ -1,7 +1,5 @@
 // The Earn screen's content as the Figma mockup shows it. None of it is real data yet.
-import btc from '../assets/coins/btc.png'
-import eth from '../assets/coins/eth.png'
-import usdt from '../assets/coins/usdt.png'
+import { btc, eth, usdt, type CoinArt } from '../coins'
 import type { Summary } from './transactions'
 
 export const summary: Summary[] = [
@@ -31,7 +29,7 @@ export const plans: Plan[] = [
 ]
 
 export interface Stake {
-  coin: string
+  coin: CoinArt
   amount: string
   usd: string
   apy: string

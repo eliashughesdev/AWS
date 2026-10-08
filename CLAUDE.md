@@ -38,7 +38,7 @@ There are three deployable pieces in this one repo:
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
     number), because the backend stores none; storing one waits for the client. `src/coins.ts`
-    maps a backend `chain` to the symbol, name and image shown, and names its network
+    maps a backend `chain` to the symbol, name and coin art shown, and names its network
     (`networkName()`, the test network's name unless the build is for mainnet). `src/format.ts` formats
     money, coin amounts, dates and relative times, and cuts an id or an address short; a value in
     USD that may have no price, or not be read yet, goes through its `usdValue()`, `usdSum()` and
@@ -77,7 +77,8 @@ There are three deployable pieces in this one repo:
     its list is placed by an ancestor that is positioned only while it is open, because an
     always-`relative` one moved pixels of the drawn page. The open list itself is `DropdownList`,
     which any button can hang under a positioned wrapper (Deposit's does). `StatusPill` draws Completed, Pending
-    and Failed. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
+    and Failed; its colours are `pills` in `src/tones.ts`, which the Dashboard's `ActivityItem`
+    uses too. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
     the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
@@ -87,12 +88,15 @@ There are three deployable pieces in this one repo:
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
     first paint. Light is built one view at a time (`docs/noda-light-theme-plan.md` says which
-    are done; so far the header, tab bar, heading and footer), and a view not yet done shows
-    dark boxes with black text in light. A colour that differs between the themes is a token
+    are done; so far the header, tab bar, heading, footer and the Dashboard), and a view not yet
+    done shows dark boxes with black text in light. A colour that differs between the themes is a token
     with a value in both files, never a literal in a view. `text-white` is for text on a
     coloured fill; text that follows the theme is `text-ink` or inherits. What a colour cannot
     say takes the `light:` variant. A card is the `card` class, which also carries its light
-    shadow. The sign-in screen is dark in both themes. A
+    shadow. A section box is `panel` (`lg:panel` when only desktop draws it): a `card` inside one
+    takes the inset colours, which differ from a card's own in light only. A quick-action tile is
+    `tile`. A class with literal gradient stops in `main.css` gets its light look in `light.css`
+    (`:root[data-theme="light"] .card-glow`). The sign-in screen is dark in both themes. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A
@@ -102,7 +106,10 @@ There are three deployable pieces in this one repo:
     what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
     `src/icons.ts`, drawn by `AppIcon` in the text colour; its `mobile` prop names a second
-    cut for below the `lg` breakpoint).
+    cut for below the `lg` breakpoint). The coins are masks too (`src/assets/coins/`, cut by
+    `brand-source/tools/coin-masks.cjs`): each is one ink on a flat disc, so `src/coins.ts` gives
+    a coin its mask and a tone (disc colour and ink), and `CoinImage` draws the disc, the mark
+    and a 1px ring that light does not have.
   - `web/core/` (`@loudibly/core`) — the headless shared package imported by apps: backend API
     client (`api/`), Cognito auth (`auth/`), composables, realtime/WebSocket helpers, and the
     non-custodial chain code (`wallet/`: Solana, TRON, session keys). Consumed as source (no
