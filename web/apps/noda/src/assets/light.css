@@ -25,6 +25,9 @@
   --color-track:     #D2DFDF;
   --color-disc:      #F3F9F9;
   --color-thumb:     #7F7F7F;  /* not from the design */
+  --color-slot:      #FFFFFF;
+  --color-slot-line: #E0E0E0;
+  --color-select:    #F3F9F9;
 
   --color-star:         #B3EBEE;
   --color-star-off:     #DADADA;
@@ -134,4 +137,15 @@
 
 :root[data-theme="light"] .currency-chip[aria-pressed="true"] {
   background: linear-gradient(90deg, #184C6E, #3DCFD8) border-box;
+}
+
+/* Convert: the swap button is flat; the quote box is a card, not Deposit's info box. */
+:root[data-theme="light"] .bg-swap {
+  background: var(--color-accent);
+}
+
+:root[data-theme="light"] .quote-box {
+  border-color: var(--color-card-line);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
 }

@@ -89,7 +89,7 @@ There are three deployable pieces in this one repo:
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
     first paint. Light is built one view at a time (`docs/noda-light-theme-plan.md` says which
     are done; so far the header, tab bar, heading, footer, the Dashboard, Accounts, Deposit, Withdraw and its
-    History), and a view not yet done shows dark boxes with black text in light. A colour that differs between the themes is a token
+    History, Convert), and a view not yet done shows dark boxes with black text in light. A colour that differs between the themes is a token
     with a value in both files, never a literal in a view. `text-white` is for text on a
     coloured fill; text that follows the theme is `text-ink` or inherits. What a colour cannot
     say takes the `light:` variant. A card is the `card` class, which also carries its light
@@ -97,7 +97,8 @@ There are three deployable pieces in this one repo:
     takes the inset colours, which differ from a card's own in light only. A quick-action tile is
     `tile`, and a small box inside a card is `chip`. A value shown in a box with a hairline
     (Deposit's chosen account, its address) is `value-box`. A text input is `bg-field` inside a
-    `card-line` hairline, with `light:shadow-(--shadow-card)`: light draws it flat with a card's shadow.
+    `card-line` hairline, with `light:shadow-(--shadow-card)`: light draws it flat with a card's shadow. Convert's inputs and dropdown buttons are `slot` and `select`
+    (white and `#F3F9F9` in light), and its swap button is `bg-swap`.
     A `bg-cta` button says `text-white`, and `light:border-0` when dark gives it a hairline. `AppDialog` and `DataTable` are
     `panel`s, and an open `DropdownList` is a `card`. The line under a
     title inside a panel is `border-rule`, and a warning's text and icon are `text-warn-ink` (its

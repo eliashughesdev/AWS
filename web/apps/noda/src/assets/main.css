@@ -38,6 +38,9 @@
   --color-warn-ink:  #FFCC00;  /* its text and icon */
   --color-track:     #204E54;  /* the empty part of a bar */
   --color-disc:      #272831;  /* an icon's disc with no colour of its own */
+  --color-slot:      #1B1D26;  /* a text input's fill, and its hairline */
+  --color-slot-line: #32343C;
+  --color-select:    #1B1D26;  /* a dropdown button's fill, which light draws apart from the input */
   --color-thumb:     #E0E0E0;  /* the thumb of ScrollX's bar */
 
   /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
@@ -93,6 +96,10 @@ body {
 }
 
 .bg-tab-active {
+  background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-swap {
   background: linear-gradient(180deg, #143336, #11191A);
 }
 
