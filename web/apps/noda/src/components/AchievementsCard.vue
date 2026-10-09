@@ -19,7 +19,7 @@ const rows: Record<KycRow, { star: string; note?: string; noteClass?: string; ac
   approved:       { star: done },
   'not-started':  { star: notDone, action: 'Verify now' },
   starting:       { star: notDone, note: 'Starting…' },
-  pending:        { star: tones.yellow, note: 'In progress', noteClass: 'text-warn-ink' },
+  pending:        { star: `${tones.yellow} light:text-warn-ink`, note: 'In progress', noteClass: 'text-warn-ink' },
   failed:         { star: notDone, note: 'Not approved', action: 'Try again' },
   'start-failed': { star: notDone, note: 'Could not start', action: 'Try again' },
   unknown:        { star: notDone },

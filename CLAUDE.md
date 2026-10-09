@@ -87,9 +87,7 @@ There are three deployable pieces in this one repo:
     sun and moon switch beside it flips the theme (`src/theme.ts`): dark is `main.css` as it
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
-    first paint. Light is built one view at a time (`docs/noda-light-theme-plan.md` says which
-    are done; so far the header, tab bar, heading, footer, the Dashboard, Accounts, Deposit, Withdraw and its
-    History, Convert, Payments, Earn, Transactions), and a view not yet done shows dark boxes with black text in light. A colour that differs between the themes is a token
+    first paint. Light is done for every view and the shell (`docs/noda-light-theme-plan.md` has the measurements and the choices; mobile has no design and uses the desktop tokens), so a new view must be built in both themes. A colour that differs between the themes is a token
     with a value in both files, never a literal in a view. `text-white` is for text on a
     coloured fill; text that follows the theme is `text-ink` or inherits. What a colour cannot
     say takes the `light:` variant. A card is the `card` class, which also carries its light

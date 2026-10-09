@@ -167,7 +167,7 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
 
       <div class="mt-[20px] grid grid-cols-2 gap-[15px] lg:mt-[28.5px]">
         <button type="button" class="button-outline" :class="dialogButton" :disabled="creating" @click="dialogOpen = false">Cancel</button>
-        <button type="submit" class="bg-cta border-[0.5px] border-card-line text-white" :class="dialogButton" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
+        <button type="submit" class="bg-cta border-[0.5px] border-card-line text-white light:border-0" :class="dialogButton" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
       </div>
     </form>
   </AppDialog>
