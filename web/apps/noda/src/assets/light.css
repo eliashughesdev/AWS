@@ -98,7 +98,8 @@
 }
 
 /* The colours of .bg-teal-rise, to the edge. */
-:root[data-theme="light"] .bg-copy {
+:root[data-theme="light"] .bg-copy,
+:root[data-theme="light"] .bg-toggle-active {
   border-color: transparent;
   background: linear-gradient(88deg, #184C6E, #3DCFD8) border-box;
 }
@@ -116,4 +117,21 @@
   border-color: var(--color-card-line);
   background: var(--color-card);
   box-shadow: var(--shadow-card);
+}
+
+/* Withdraw: the switch is a chip with no ring. */
+:root[data-theme="light"] .bg-toggle {
+  background: var(--color-chip);
+  box-shadow: var(--shadow-card);
+}
+
+/* The border and the glow go. The chosen chip keeps its fill, which runs to the edge. */
+:root[data-theme="light"] .currency-chip {
+  border-color: transparent;
+  background: var(--color-chip);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .currency-chip[aria-pressed="true"] {
+  background: linear-gradient(90deg, #184C6E, #3DCFD8) border-box;
 }

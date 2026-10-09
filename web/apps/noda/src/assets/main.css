@@ -210,6 +210,12 @@ body {
 }
 
 /* Withdraw */
+/* The Withdraw / History switch: the account card's fill inside a ring. */
+.bg-toggle {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+  box-shadow: inset 0 0 0 1px var(--color-card-line);
+}
+
 .bg-toggle-active {
   background: linear-gradient(180deg, #154144, #111B1C);
 }

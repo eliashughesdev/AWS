@@ -215,11 +215,11 @@ useReread(reread)
 // Still the mockup's numbers, in the chosen account's coin.
 const inCoinUnits = (value: string) => state.value === 'loading' ? BLANK : account.value ? `${value} ${account.value.symbol}` : '—'
 
-const card = 'rounded-[10px] border border-line bg-[#02040E]'
-const title = 'border-b border-line pb-[20.5px] pl-[14px] pt-[19.5px] text-[18px] leading-none font-medium lg:pb-[31px] lg:pl-[29px] lg:pt-[29px] lg:text-[22px] lg:font-semibold'
-const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[16px] lg:font-medium lg:text-white'
-const input = 'flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field pl-[9px] pr-[10.5px] text-[12px] font-medium text-muted lg:h-[50px] lg:pl-[17px] lg:pr-[19px] lg:text-[14px]'
-const field = 'min-w-0 flex-1 bg-transparent text-white placeholder:text-muted'
+const card = 'panel rounded-[10px]'
+const title = 'border-b border-rule pb-[20.5px] pl-[14px] pt-[19.5px] text-[18px] leading-none font-medium lg:pb-[31px] lg:pl-[29px] lg:pt-[29px] lg:text-[22px] lg:font-semibold'
+const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[16px] lg:font-medium lg:text-ink light:text-muted'
+const input = 'flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field pl-[9px] pr-[10.5px] text-[12px] font-medium text-muted light:shadow-(--shadow-card) lg:h-[50px] lg:pl-[17px] lg:pr-[19px] lg:text-[14px]'
+const field = 'min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted light:placeholder:text-ink'
 const line = 'flex items-center justify-between text-[12px] leading-none lg:text-[16px]'
 const problem = 'mt-[8px] text-[10px] leading-[14px] font-medium text-red lg:mt-[10px] lg:text-[14px] lg:leading-[18px]'
 const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font-semibold lg:text-[14px]'
@@ -236,7 +236,7 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
         <button type="button" :class="tryAgain" @click="read">Try again</button>
       </ListState>
       <ListState v-else-if="state === 'ready' && !account" title="No accounts yet" text="Open an account and deposit to it before you withdraw.">
-        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
+        <RouterLink :to="{ name: 'accounts' }" class="bg-cta grid h-[32px] place-items-center rounded-[7.5px] px-[16px] text-[10px] font-semibold text-white lg:h-[40px] lg:rounded-[10px] lg:px-[20px] lg:text-[14px] lg:font-medium">Go to Accounts</RouterLink>
       </ListState>
 
       <form v-else novalidate class="px-[14px] pb-[29px] pt-[20.5px] lg:px-[29px] lg:pt-[32px]" @submit.prevent="withdraw">
@@ -255,8 +255,8 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
 
         <div v-if="inCoin.length > 1" class="relative mt-[10px] lg:mt-[15px]" @keydown.esc="open = false">
           <button type="button" aria-haspopup="listbox" :aria-expanded="open" aria-label="Account" class="w-full justify-between" :class="input" @click="open = !open">
-            <span class="mr-[8px] min-w-0 truncate"><span class="text-white">{{ account.name }}</span> · {{ coinAmount(cut(account.available)) }} {{ account.symbol }}</span>
-            <AppIcon name="caret-sm" />
+            <span class="mr-[8px] min-w-0 truncate"><span class="text-ink">{{ account.name }}</span> · {{ coinAmount(cut(account.available)) }} {{ account.symbol }}</span>
+            <AppIcon name="caret-sm" class="light:text-ink" />
           </button>
           <DropdownList v-if="open" v-model="chosenAccount" :options="inCoin" @close="open = false">
             <template #default="{ option }">
@@ -282,7 +282,7 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
         </label>
         <p v-if="addressProblem" role="alert" :class="problem">{{ addressProblem }}</p>
 
-        <div class="mt-[15px] space-y-[12px] rounded-[10px] border border-card-line bg-card px-[8.5px] pb-[16px] pt-[14px] lg:-ml-px lg:mt-[30px] lg:space-y-[22px] lg:px-[18.5px] lg:py-[25px]">
+        <div class="card mt-[15px] space-y-[12px] rounded-[10px] px-[8.5px] pb-[16px] pt-[14px] lg:-ml-px lg:mt-[30px] lg:space-y-[22px] lg:px-[18.5px] lg:py-[25px]">
           <p class="font-semibold lg:font-medium" :class="line">
             Network fee
             <span class="lg:text-[18px] lg:font-[450]">{{ account ? `${fee} ${account.symbol}` : BLANK }}</span>
@@ -293,7 +293,7 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
           </p>
         </div>
 
-        <div class="mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn pb-[15px] pl-[11px] pt-[16.5px] text-yellow [--icon-scale:0.78] lg:-ml-px lg:border lg:pb-[20.5px] lg:pl-[21px] lg:pt-[22.5px] lg:[--icon-scale:1]">
+        <div class="mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn pb-[15px] pl-[11px] pt-[16.5px] text-warn-ink [--icon-scale:0.78] lg:-ml-px lg:border lg:pb-[20.5px] lg:pl-[21px] lg:pt-[22.5px] lg:[--icon-scale:1]">
           <AppIcon name="info" class="-mt-[0.5px] lg:-mt-[1.5px]" />
           <div class="ml-[9px] text-[12px] lg:ml-[9.5px] lg:text-[14px]">
             <p class="leading-none font-semibold">important:</p>
@@ -303,7 +303,7 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
           </div>
         </div>
 
-        <button type="submit" :disabled="!account || starting" class="bg-cta mt-[15px] h-[45px] w-full rounded-[5px] border-[0.5px] border-card-line text-[12px] font-semibold lg:mt-[20px] lg:h-[50px] lg:text-[16px] lg:font-medium">Withdraw now</button>
+        <button type="submit" :disabled="!account || starting" class="bg-cta mt-[15px] h-[45px] w-full rounded-[5px] border-[0.5px] border-card-line text-[12px] font-semibold text-white light:border-0 lg:mt-[20px] lg:h-[50px] lg:text-[16px] lg:font-medium">Withdraw now</button>
       </form>
     </section>
 
@@ -325,17 +325,17 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
         <h2 :class="title">Withdraw Limits</h2>
         <div class="px-[14px] pb-[21px] pt-[19.5px] lg:px-[29px] lg:pb-[31.5px] lg:pt-[34.5px]">
           <p class="flex items-start justify-between leading-none">
-            <span class="text-[12px] font-semibold text-muted lg:mt-px lg:text-[16px] lg:font-medium">Daily Limit</span>
+            <span class="text-[12px] font-semibold text-muted light:text-ink lg:mt-px lg:text-[16px] lg:font-medium">Daily Limit</span>
             <span class="text-[14px] font-semibold lg:text-[22px]">{{ inCoinUnits(limits.daily) }}</span>
           </p>
-          <div class="mt-[15.5px] h-[10px] rounded-full bg-card lg:mt-[12.5px]">
+          <div class="mt-[15.5px] h-[10px] rounded-full bg-card light:bg-track lg:mt-[12.5px]">
             <div v-if="account" class="bg-teal-rise h-full rounded-full" :style="{ width: `${limits.usedShare}%` }" />
           </div>
-          <p class="mt-[10.5px] text-[12px] leading-none font-semibold text-muted lg:mt-[17px] lg:text-[16px] lg:font-medium">{{ account ? `${limits.used} ${account.symbol} used today` : BLANK }}</p>
+          <p class="mt-[10.5px] text-[12px] leading-none font-semibold text-muted light:text-ink lg:mt-[17px] lg:text-[16px] lg:font-medium">{{ account ? `${limits.used} ${account.symbol} used today` : BLANK }}</p>
 
-          <div class="mt-[30.5px] space-y-[22px] border-t border-line pt-[20px] font-semibold text-muted lg:mt-[31px] lg:space-y-[24px] lg:pt-[31.5px] lg:font-medium">
-            <p :class="line">Minimum withdrawal <span class="font-medium text-white lg:-mr-px">{{ inCoinUnits(limits.minimum) }}</span></p>
-            <p :class="line">Processing time <span class="font-medium text-white lg:-mr-px">{{ limits.processing }}</span></p>
+          <div class="mt-[30.5px] space-y-[22px] border-t border-rule pt-[20px] font-semibold text-muted lg:mt-[31px] lg:space-y-[24px] lg:pt-[31.5px] lg:font-medium">
+            <p :class="line">Minimum withdrawal <span class="font-medium text-ink lg:-mr-px">{{ inCoinUnits(limits.minimum) }}</span></p>
+            <p :class="line">Processing time <span class="font-medium text-ink lg:-mr-px">{{ limits.processing }}</span></p>
           </div>
         </div>
       </section>
@@ -349,10 +349,10 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
     <template v-if="status === 'success' && txId">
       <p class="mt-[20px] text-[12px] leading-none font-semibold text-muted lg:mt-[24px] lg:text-[14px]">Transaction ID</p>
       <div class="mt-[11.5px] flex gap-[10px] lg:mt-[13.5px]">
-        <p class="flex h-[35px] min-w-0 flex-1 items-center rounded-[5px] border-[0.5px] border-card-line bg-card pl-[10px] pr-[8px] text-[12px] font-semibold lg:h-[40px] lg:pl-[15px] lg:text-[14px]">
+        <p class="value-box flex h-[35px] min-w-0 flex-1 items-center rounded-[5px] pl-[10px] pr-[8px] text-[12px] font-semibold lg:h-[40px] lg:pl-[15px] lg:text-[14px]">
           <span class="truncate">{{ txId }}</span>
         </p>
-        <button type="button" :aria-label="copied ? 'Transaction ID copied' : 'Copy transaction ID'" class="bg-copy grid size-[35px] place-items-center rounded-[5px] lg:size-[40px]" :class="{ 'text-accent': copied }" @click="copyTxId">
+        <button type="button" :aria-label="copied ? 'Transaction ID copied' : 'Copy transaction ID'" class="bg-copy grid size-[35px] place-items-center rounded-[5px] lg:size-[40px]" :class="copied ? 'text-accent light:text-ink' : 'text-white'" @click="copyTxId">
           <AppIcon name="copy-light" mobile="copy-light-sm" />
         </button>
       </div>
@@ -360,7 +360,7 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
 
     <div v-if="status !== 'processing'" class="mt-[20px] grid gap-[15px] lg:mt-[28.5px]" :class="{ 'grid-cols-2': outcome.history }">
       <RouterLink v-if="outcome.history" :to="{ name: 'withdraw-history' }" class="button-outline" :class="dialogButton">View History</RouterLink>
-      <button type="button" class="bg-cta border-[0.5px] border-card-line" :class="dialogButton" @click="closeDialog">{{ status === 'success' ? 'Done' : 'Close' }}</button>
+      <button type="button" class="bg-cta border-[0.5px] border-card-line text-white light:border-0" :class="dialogButton" @click="closeDialog">{{ status === 'success' ? 'Done' : 'Close' }}</button>
     </div>
   </AppDialog>
 </template>

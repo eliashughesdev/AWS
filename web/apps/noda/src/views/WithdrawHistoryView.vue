@@ -62,7 +62,7 @@ const withdrawals = computed(() => {
 })
 const rows = computed(() => state.value === 'ready' ? withdrawals.value.slice(0, RECENT_ROWS) : [])
 
-// Not in Figma: the copy icon turns teal for two seconds once the hash is on the clipboard.
+// Not in Figma: the copy icon turns teal (in light, the text colour) for two seconds once the hash is on the clipboard.
 const copied = ref(-1)
 
 async function copyHash(index: number, hash: string) {
@@ -77,7 +77,7 @@ async function copyHash(index: number, hash: string) {
 
 // The chips are narrower on mobile, so an address and a hash are cut shorter there.
 const cell = 'text-[12px] font-semibold lg:text-[16px] lg:font-medium'
-const chip = 'flex h-[28px] items-center rounded-[10px] border border-line text-[12px] font-semibold lg:h-[29px] lg:font-medium'
+const chip = 'flex h-[28px] items-center rounded-[10px] border border-line text-[12px] font-semibold light:border-muted light:text-muted lg:h-[29px] lg:font-medium'
 </script>
 
 <template>
@@ -99,9 +99,9 @@ const chip = 'flex h-[28px] items-center rounded-[10px] border border-line text-
       <span role="cell"><StatusPill :status="row.status" /></span>
       <span role="cell" class="text-[12px] font-semibold lg:pl-[2.5px] lg:text-[14px] lg:font-medium">{{ row.date }}</span>
       <span role="cell">
-        <button v-if="row.hash" type="button" :title="row.hash" :aria-label="copied === index ? 'Transaction hash copied' : 'Copy transaction hash'" class="w-[100px] justify-between pl-[9px] pr-[7px] text-muted [--icon-scale:0.667] lg:w-[120px] lg:pl-[13.5px] lg:pr-[8.5px]" :class="chip" @click="copyHash(index, row.hash)">
-          <span class="min-w-0 truncate text-ink"><span class="lg:hidden">{{ shorten(row.hash, 4, 4) }}</span><span class="max-lg:hidden">{{ shorten(row.hash, 5, 4) }}</span></span>
-          <AppIcon name="copy-light" :class="{ 'text-accent': copied === index }" />
+        <button v-if="row.hash" type="button" :title="row.hash" :aria-label="copied === index ? 'Transaction hash copied' : 'Copy transaction hash'" class="w-[100px] justify-between pl-[9px] pr-[7px] [--icon-scale:0.667] lg:w-[120px] lg:pl-[13.5px] lg:pr-[8.5px]" :class="chip" @click="copyHash(index, row.hash)">
+          <span class="min-w-0 truncate"><span class="lg:hidden">{{ shorten(row.hash, 4, 4) }}</span><span class="max-lg:hidden">{{ shorten(row.hash, 5, 4) }}</span></span>
+          <AppIcon name="copy-light" :class="copied === index ? 'text-accent light:text-ink' : 'text-faint'" />
         </button>
         <!-- Not in Figma: a withdrawal that failed, or whose outcome is not known, has no hash. -->
         <span v-else class="pl-[9px] text-muted lg:pl-[13.5px]" :class="cell">—</span>
