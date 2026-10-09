@@ -22,7 +22,7 @@ const columns = ['Currency', 'Amount', 'USD Value', 'Type', 'Date']
 const grid = 'grid-cols-[87px_173px_87px_120px_80px] lg:min-w-[900px] lg:grid-cols-[285fr_277.5fr_293fr_258.5fr_235fr]'
 
 const heading = 'text-[18px] leading-none font-medium lg:font-semibold'
-const box = 'h-[40px] rounded-[5px] border-[0.5px] border-[#32343C] bg-[#1B1D26] pt-[7px] lg:h-[65px] lg:bg-card lg:pt-[12px]'
+const box = 'h-[40px] rounded-[5px] border-[0.5px] border-slot-line bg-slot pt-[7px] lg:h-[65px] lg:bg-card lg:light:border-card-line lg:light:shadow-(--shadow-card) lg:pt-[12px]'
 // One text line high, so the padlock (taller than the text) does not push the value down.
 const label = 'flex h-[10px] items-center text-[10px] leading-none font-semibold text-muted [--icon-scale:0.84] lg:h-[12px] lg:text-[12px] lg:tracking-normal lg:[--icon-scale:1]'
 const value = 'mt-[4.5px] text-[12px] leading-none lg:mt-[9.5px] lg:text-[18px] lg:tracking-[0.005em]'
@@ -40,7 +40,7 @@ const small = 'text-[12px] font-semibold lg:text-[14px] lg:font-medium'
     <li
       v-for="plan in plans"
       :key="plan.name"
-      class="rounded-[10px] border border-card-line bg-card px-[9px] pb-[28px] pt-[20px] lg:border-line lg:bg-[#02040E] lg:px-[29px] lg:pb-[29px] lg:pt-[29.5px]"
+      class="card rounded-[10px] px-[9px] pb-[28px] pt-[20px] lg:panel lg:px-[29px] lg:pb-[29px] lg:pt-[29.5px]"
     >
       <!-- Floated, so a name or description that reaches it wraps instead of running under it. -->
       <span v-if="plan.recommended" class="bg-tag float-right -mt-[7px] ml-[10px] mr-[5px] grid h-[24.5px] w-[97px] place-items-center rounded-[10px] border-[0.5px] border-accent text-[10px] leading-none font-semibold text-accent lg:-mt-[0.5px] lg:mr-0 lg:h-[36px] lg:w-[140px] lg:text-[14px] lg:font-medium">Recommended</span>
@@ -75,10 +75,11 @@ const small = 'text-[12px] font-semibold lg:text-[14px] lg:font-medium'
   </ul>
 
   <!-- A card on desktop; on mobile its content stands on the page and the rows scroll sideways. -->
-  <section class="mt-[32px] lg:mt-[30px] lg:rounded-[10px] lg:border lg:border-line lg:bg-[#02040E] lg:px-[29px] lg:pb-[29px] lg:pt-[28.5px]">
+  <section class="mt-[32px] lg:mt-[30px] lg:panel lg:rounded-[10px] lg:px-[29px] lg:pb-[29px] lg:pt-[28.5px]">
     <h2 :class="heading">Recent Deposits</h2>
-    <ScrollX class="mt-[21.5px] lg:mt-[30.5px]">
-      <ul class="w-max min-w-full space-y-[10px] pb-[7px] lg:space-y-[20px] lg:pb-0">
+    <ScrollX class="mt-[21.5px] lg:mt-[30.5px] lg:light:-mx-[8px] lg:light:-mb-[8px]">
+      <!-- Light only: padded and pulled back out, so the rows' shadows are not clipped by the scroller. -->
+      <ul class="w-max min-w-full space-y-[10px] pb-[7px] lg:space-y-[20px] lg:pb-0 lg:light:px-[8px] lg:light:pb-[8px]">
         <CoinRow
           v-for="stake in stakes"
           :key="stake.amount"
@@ -95,7 +96,7 @@ const small = 'text-[12px] font-semibold lg:text-[14px] lg:font-medium'
               <p class="text-[12px] leading-none font-semibold text-muted">{{ field.label }}</p>
               <p class="mt-[11.5px] text-[12px] leading-none lg:mt-[18.5px] lg:text-[16px]" :class="field.look">{{ stake[field.key] }}</p>
             </div>
-            <button type="button" class="bg-account h-[32px] rounded-[10px] border border-card-line text-[10px] font-semibold lg:h-[45px] lg:text-[14px]">Manage</button>
+            <button type="button" class="bg-manage h-[32px] rounded-[10px] border border-card-line text-[10px] font-semibold light:border-transparent light:text-white lg:h-[45px] lg:text-[14px]">Manage</button>
           </div>
         </CoinRow>
       </ul>

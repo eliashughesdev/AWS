@@ -156,3 +156,14 @@
 :root[data-theme="light"] .dot-glow {
   box-shadow: 0 1px 5px color-mix(in srgb, var(--glow, currentColor) 60%, transparent);
 }
+
+/* Earn: the tag is the bar's gradient to the edge, white on it; Manage is flat accent. */
+:root[data-theme="light"] .bg-tag {
+  border-color: transparent;
+  background: linear-gradient(90deg, #184C6E, #3DCFD8) border-box;
+  color: #FFFFFF;
+}
+
+:root[data-theme="light"] .bg-manage {
+  background: var(--color-accent);
+}

@@ -258,6 +258,10 @@ body {
   background: linear-gradient(90deg, #24585D, #03050E);
 }
 
+.bg-manage {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+}
+
 /* A half-pixel teal border that fades to the right, on the card fill. */
 .button-outline {
   border: 0.5px solid transparent;
