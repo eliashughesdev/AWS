@@ -41,6 +41,7 @@
   --color-slot:      #1B1D26;  /* a text input's fill, and its hairline */
   --color-slot-line: #32343C;
   --color-select:    #1B1D26;  /* a dropdown button's fill, which light draws apart from the input */
+  --color-action:    #151A31;  /* a table row's actions button */
   --color-thumb:     #E0E0E0;  /* the thumb of ScrollX's bar */
 
   /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
@@ -101,6 +102,10 @@ body {
 
 .bg-swap {
   background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-method {
+  background: #051A24;
 }
 
 .bg-avatar {
@@ -183,7 +188,7 @@ body {
 /* A summary card's dot glows in its own colour. */
 .dot-glow {
   background: currentColor;
-  box-shadow: 0 1px 5px color-mix(in srgb, currentColor 40%, transparent);
+  box-shadow: 0 1px 5px color-mix(in srgb, var(--glow, currentColor) 40%, transparent);
 }
 
 /* Scrolls without the browser's scrollbar (ScrollX draws the design's own). */

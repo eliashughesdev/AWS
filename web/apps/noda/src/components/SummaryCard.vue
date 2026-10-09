@@ -8,7 +8,7 @@ defineProps<{ item: Summary; plain?: boolean }>()
 </script>
 
 <template>
-  <div class="relative rounded-[10px] border border-card-line bg-card pb-[20.5px] pl-[14px] pt-[19.5px] lg:pb-[30.5px] lg:pl-[29.5px] lg:pt-[30.5px]">
+  <div class="card relative rounded-[10px] pb-[20.5px] pl-[14px] pt-[19.5px] lg:pb-[30.5px] lg:pl-[29.5px] lg:pt-[30.5px]">
     <span class="dot-glow absolute right-[11px] top-[11px] size-[10px] rounded-full lg:right-[19px] lg:top-[19px] lg:size-[12px]" :class="dots[item.dot]" />
     <p class="text-[12px] leading-none font-semibold text-muted lg:text-[18px]">{{ item.label }}</p>
     <p class="mt-[15px] text-[22px] leading-none font-semibold lg:mt-[22.5px] lg:text-[25px]">{{ item.value }}</p>

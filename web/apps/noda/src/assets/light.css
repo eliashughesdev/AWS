@@ -28,6 +28,7 @@
   --color-slot:      #FFFFFF;
   --color-slot-line: #E0E0E0;
   --color-select:    #F3F9F9;
+  --color-action:    #E3F2F2;
 
   --color-star:         #B3EBEE;
   --color-star-off:     #DADADA;
@@ -55,7 +56,8 @@
 
 /* The gradient border and the glow go: the fill runs to the edge. */
 :root[data-theme="light"] .card-glow,
-:root[data-theme="light"] .info-box {
+:root[data-theme="light"] .info-box,
+:root[data-theme="light"] .bg-method {
   background: linear-gradient(to bottom right, #F3F9F9 7%, #ACE7E5) border-box;
   box-shadow: var(--shadow-card);
 }
@@ -148,4 +150,9 @@
   border-color: var(--color-card-line);
   background: var(--color-card);
   box-shadow: var(--shadow-card);
+}
+
+/* Payments: a summary card's glow is stronger on a light card. */
+:root[data-theme="light"] .dot-glow {
+  box-shadow: 0 1px 5px color-mix(in srgb, var(--glow, currentColor) 60%, transparent);
 }

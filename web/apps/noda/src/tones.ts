@@ -18,7 +18,7 @@ export const pills = {
 
 // The colour of a summary card's dot.
 export const dots = {
-  teal:   'text-accent',
+  teal:   'text-accent [--glow:var(--color-accent-bright)]',
   yellow: 'text-yellow',
   green:  'text-green',
   orange: 'text-orange',
