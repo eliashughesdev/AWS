@@ -202,9 +202,9 @@ const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font
 
   <!-- Positioned while a filter is open, so that on mobile its list hangs under the whole block. -->
   <div class="mt-[20px] has-[[aria-expanded=true]]:relative lg:-ml-px lg:mt-[30px] lg:flex lg:gap-[15px]">
-    <label class="flex h-[40px] items-center rounded-[10px] border border-card-line bg-card pl-[9px] pr-[10px] text-muted [--icon-scale:0.78] lg:h-[50px] lg:max-w-[684px] lg:flex-1 lg:pl-[14px] lg:[--icon-scale:1]">
+    <label class="flex h-[40px] items-center card rounded-[10px] pl-[9px] pr-[10px] text-muted [--icon-scale:0.78] lg:h-[50px] lg:max-w-[684px] lg:flex-1 lg:pl-[14px] lg:[--icon-scale:1]">
       <AppIcon name="search" />
-      <input v-model="query" type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-white placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
+      <input v-model="query" type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-ink placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
     </label>
     <!-- On mobile the buttons run past the screen's edge and scroll sideways. -->
     <div class="no-scrollbar -mr-[10px] mt-[10px] flex gap-[10px] overflow-x-auto pr-[10px] lg:m-0 lg:gap-[15px] lg:overflow-visible lg:p-0">
@@ -225,11 +225,11 @@ const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font
       <span role="cell">
         <button v-if="row.id" type="button" :title="row.id" class="flex items-center gap-[6px] text-[12px] font-semibold text-muted [--icon-scale:0.667]" @click="copyId(row.key, row.id)">
           <span class="text-ink">{{ shorten(row.id) }}</span>
-          <AppIcon name="copy-light" :class="{ 'text-accent': copied === row.key }" />
+          <AppIcon name="copy-light" :class="{ 'text-accent light:text-ink': copied === row.key }" />
         </button>
       </span>
       <span role="cell">
-        <span class="grid h-[23px] w-[72px] place-items-center rounded-[10px] pb-[2px] text-[10px] leading-none font-semibold" :class="badges[row.kind]">{{ row.kind }}</span>
+        <span class="grid h-[23px] w-[72px] place-items-center rounded-[10px] pb-[2px] text-[10px] leading-none font-semibold text-white" :class="badges[row.kind]">{{ row.kind }}</span>
       </span>
       <span role="cell" class="text-[14px] font-medium">{{ row.currency }}</span>
       <div role="cell">
