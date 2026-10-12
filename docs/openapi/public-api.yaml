@@ -529,11 +529,18 @@ paths:
                 provider: { $ref: '#/components/schemas/LedgerProvider' }
                 senderAccountNumber:
                   type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                   description: Must be one of the signed-in user's accounts.
-                recipientAccountNumber: { type: string }
+                recipientAccountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                 amount:
                   type: string
-                  description: In the accounts' currency, as a decimal string.
+                  maxLength: 38
+                  pattern: '^(?!0+(\.0+)?$)(0|[1-9][0-9]*)(\.[0-9]+)?$'
+                  description: |
+                    In the accounts' currency, as a plain decimal string above zero: no sign,
+                    exponent, leading zero or thousands separator.
                   example: '12.5'
       responses:
         '200':
@@ -556,6 +563,8 @@ paths:
         '400':
           description: |
             - `100029` a required field is missing
+            - `100031` a field is malformed: an account number, `provider`, or an `amount` that is
+              not a plain decimal above zero
             - `100001` the sender is not one of the user's accounts, or the recipient does not exist
           content:
             application/json:

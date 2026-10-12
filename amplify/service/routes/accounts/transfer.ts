@@ -18,11 +18,8 @@ type Event = {
 
 export default class TransferFundsHandler {
   async execute(event: Event, context: Context) {
+    // All four present and shaped, the amount a decimal above zero (schemas/accounts/transfer.json)
     const { provider, senderAccountNumber, recipientAccountNumber, amount } = event.body
-
-    if (!provider || !senderAccountNumber || !recipientAccountNumber || !amount) {
-      return processError(100029, 'Missing required parameters')
-    }
 
     // Look up sender account to get its Tatum vAccountId
     const senderResult = await queryItemFromIndex({
