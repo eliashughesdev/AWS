@@ -3,6 +3,8 @@ backend:
   phases:
     build:
       commands:
+        # Node 20 from the image (no Node override in the Amplify console)
+        - . scripts/ci/node.sh
         - cd amplify/layers/nodejs
         - yarn install --frozen-lockfile
         - cd ../../fn/authorizer
@@ -50,6 +52,7 @@ frontend:
   phases:
     preBuild:
       commands:
+        - . scripts/ci/node.sh
         - yarn install --frozen-lockfile
         - cd web && yarn install --frozen-lockfile && cd ..
     build:
