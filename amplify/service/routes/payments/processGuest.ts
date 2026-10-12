@@ -2,6 +2,9 @@ import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 
+// Nothing was charged when the job could not be queued, so the caller may send it again
+const NOT_QUEUED = 'the payment could not be queued; nothing was charged'
+
 /**
  * Queues a guest (widget) payment for async processing.
  * Card data is provided inline and encrypted client-side via Evervault SDK.
@@ -37,10 +40,10 @@ export default class ProcessGuestPaymentHandler {
       console.log('DEBUG: Sending guest payment job to SQS queue:', process.env.PAYMENT_PROCESSING_QUEUE_URL)
       const queueUrl = process.env.PAYMENT_PROCESSING_QUEUE_URL || 'https://sqs.us-east-2.amazonaws.com/129364817855/v1-payment-processing-queue'
       const result = await sendToQueue(queueUrl, queueMessage)
-      console.log('DEBUG: Guest payment job queued successfully. Job ID:', result.res?.MessageId)
 
       if (result.success) {
         const jobId = result.res?.MessageId
+        console.log('DEBUG: Guest payment job queued successfully. Job ID:', jobId)
         return response({
           statusCode: 200,
           headers: null,
@@ -57,10 +60,13 @@ export default class ProcessGuestPaymentHandler {
           }
         })
       }
+
+      console.error('ERROR: The queue refused the guest payment job')
+      return processError(100002, NOT_QUEUED)
     } catch (err: any) {
       console.error('FATAL ERROR: Failed to queue guest payment:', err)
       console.error('Error stack:', err.stack)
-      return processError(100002, 'Failed to queue payment for processing')
+      return processError(100002, NOT_QUEUED)
     }
   }
 }

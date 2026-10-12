@@ -32,6 +32,22 @@ describe('/payments/process handler', () => {
     expect(sendToQueue).not.toHaveBeenCalled()
   })
 
+  // B16: a refused message fell through with no answer, which API Gateway turned into a 502
+  it('answers 100002 when the queue refuses the job', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: false })
+    const res = await process({ role: 'user', userId: 'user-1' })
+    expect(res).toBeDefined()
+    expect(JSON.parse(res!.body)).toEqual({ error_code: 100002, message: 'the payment could not be queued; nothing was charged' })
+  })
+
+  it('answers 100002 when queueing throws', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    ;(sendToQueue as jest.Mock).mockRejectedValue(new Error('network'))
+    const res = await process({ role: 'user', userId: 'user-1' })
+    expect(JSON.parse(res!.body).error_code).toBe(100002)
+  })
+
   it('queues no field the handler does not list (B1)', async () => {
     await process({ role: 'user', userId: 'user-1' }, { queue: 'v1-sweep-queue', kmsKeyId: 'k' })
     const message = (sendToQueue as jest.Mock).mock.calls[0][1]
