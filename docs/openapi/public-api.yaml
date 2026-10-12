@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.1.0'
+  version: '2.2.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
