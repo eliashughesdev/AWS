@@ -13,7 +13,6 @@ import { canHoldCurrency } from '../../../utils/masterAccount'
 export default class AccountHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: AccountHandler execution started.')
-    console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const userId   = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
     const chain    = event.body.chain

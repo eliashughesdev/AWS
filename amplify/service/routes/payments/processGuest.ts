@@ -10,8 +10,6 @@ import { sendToQueue } from '../../../utils/sqs'
 export default class ProcessGuestPaymentHandler {
   async execute(event: any) {
     console.log('DEBUG: ProcessGuestPaymentHandler execution started.')
-    console.log('DEBUG: Incoming Event:', JSON.stringify(event))
-    console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const { cardData, userId, amount, currency, provider = 'stripe', transactionId } = event.body
 

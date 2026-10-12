@@ -4,7 +4,6 @@ import { loadConfig } from '../../utils/config'
 
 export const handler: APIGatewayProxyHandler = async (event, context) => {
   await loadConfig()
-  console.log('event: ', event)
   return await router(event, context)
   // return {
   //  statusCode: 200,

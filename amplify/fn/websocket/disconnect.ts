@@ -1,7 +1,7 @@
 import { deleteItem } from '../../utils/db'
 
 export const handler = async (event: any) => {
-  console.log('WebSocket Disconnect Event:', JSON.stringify(event))
+  console.log('WebSocket disconnect:', event.requestContext?.connectionId)
 
   const connectionId = event.requestContext.connectionId
 

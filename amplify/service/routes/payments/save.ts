@@ -9,8 +9,6 @@ import { processError } from '../../../errors/http'
 export default class SavePaymentHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: SavePaymentHandler execution started.')
-    console.log('DEBUG: Incoming Event:', JSON.stringify(event))
-    console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const { paymentMethod, userId } = event.body
 

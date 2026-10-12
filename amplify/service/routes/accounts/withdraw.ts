@@ -14,7 +14,6 @@ import { accountKeyRef } from '../../../utils/signing'
 export default class WithdrawHandler {
   async execute(event: any) {
     console.log('DEBUG: WithdrawHandler execution started.')
-    console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const userId = event.requestContext?.authorizer?.userId
     const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body

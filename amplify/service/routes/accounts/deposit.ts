@@ -12,7 +12,6 @@ import { isNativeCurrency } from '../../../utils/currencies'
 export default class DepositHandler {
   async execute(event: any) {
     console.log('DEBUG: DepositHandler execution started.')
-    console.log('DEBUG: Event Body:', JSON.stringify(event.body))
 
     const userId = event.requestContext?.authorizer?.userId
     const { accountNumber, currency, amount, paymentId, transactionId, email } = event.body

@@ -9,7 +9,6 @@ import { processError } from '../../../errors/http'
 export default class ListPaymentsHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: ListPaymentsHandler execution started.')
-    console.log('DEBUG: Incoming Event:', JSON.stringify(event))
 
     // Get userId from query parameters
     const userId = event.queryStringParameters?.userId

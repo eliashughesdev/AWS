@@ -30,6 +30,7 @@ import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
+import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
@@ -82,8 +83,8 @@ export const routes: RoutesMap = new Map([
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null }, context: any) => {
-  // DEBUG: Log the full incoming event object
-  console.log('DEBUG: Router initiated. Incoming Event:', JSON.stringify(event))
+  // Never the event itself: its body and headers carry passwords, tokens and credentials
+  console.log('DEBUG: Router initiated:', JSON.stringify(describeRequest(event)))
 
   // Look up the route based on the path received from API Gateway
   // Custom-domain requests arrive as /v1/<route>; direct execute-api calls as /<route>.
@@ -125,7 +126,7 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
 
     // Attach raw body to event for handlers that need it (e.g. Stripe webhooks)
     ;(event as any).rawBody = rawBody
-    console.log('DEBUG: Final Request Body:', JSON.stringify(event.body))
+    console.log('DEBUG: Request body fields:', bodyFields(event.body))
 
     // RBAC: enforce allowedRoles if defined on the route
     if (route.allowedRoles) {
