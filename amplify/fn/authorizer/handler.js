@@ -22,18 +22,17 @@ const generatePolicy = (principalId, effect, resource, role = 'user') => {
   }
 }
 
+// Logs here never name the Authorization header, a signature, a JWT, the event or a key record:
+// CloudWatch keeps them, and v1UserKeysTable's key is the secret a merchant signs with
 const handler = async (event) => {
   console.log('DEBUG: --- HANDLER START ---')
   const resource = event.methodArn
   console.log('DEBUG: Resource ARN:', resource)
   const auth = event.headers?.Authorization
-  console.log('DEBUG: Authorization Header:', auth)
   const project = event.headers?.['X-Project']
   console.log('DEBUG: X-Project Header (Key ID):', project)
   const sourceIp = event.requestContext.identity.sourceIp
   console.log('DEBUG: Source IP:', sourceIp)
-
-  console.log('AuthorizerFn: ', event)
 
   if (auth?.includes('Signature') && !project) {
     console.log('DEBUG: Deny: Signature provided but X-Project missing.')
@@ -54,15 +53,14 @@ const handler = async (event) => {
     } else if (auth?.includes('Signature')) {
       console.log('DEBUG: Auth Type: Signature (HMAC/RSA)')
       const keys = await getRecord('v1UserKeysTable', project)
-      console.log('db.keys: ', keys)
+      console.log('DEBUG: Key found for X-Project:', !!keys.res)
 
       const b = auth.replace('Signature ', '')
-      console.log('DEBUG: Signature part (b):', b)
 
       const chunks = b.split(':') // 0 - timestamp, 1 - bodyHash, 2 - signature
       const [timestamp, bodyHash, requestSignature] = chunks.map(c => c.trim())
 
-      console.log('DEBUG: Chunks (Trimmed) - Timestamp:', timestamp, 'BodyHash:', bodyHash, 'Signature:', requestSignature)
+      console.log('DEBUG: Signed at:', timestamp, 'BodyHash:', bodyHash)
 
       const timestampDiff = Date.now() - parseInt(timestamp)
       if (timestampDiff > 10000) {
@@ -107,10 +105,7 @@ const handler = async (event) => {
  * @return {{isValid: boolean}}
  */
 const authenticateWithHmacWithKey = (body, requestSignature, key) => {
-  console.log('DEBUG HMAC: -------------------')
-  console.log('DEBUG HMAC: Input Body (mix):', body)
-  console.log('DEBUG HMAC: Client Signature:', requestSignature)
-  console.log('DEBUG HMAC: Secret Key Used:', key)
+  console.log('DEBUG HMAC: String to Sign:', body)
 
   const trimmedKey = key.trim()
 
@@ -119,7 +114,6 @@ const authenticateWithHmacWithKey = (body, requestSignature, key) => {
     .update(body)
     .digest('base64')
 
-  console.log('DEBUG HMAC: Server Calculated Signature:', signature)
   console.log('DEBUG HMAC: Signatures Match:', signature === requestSignature)
 
   return { isValid: signature === requestSignature }
@@ -193,7 +187,6 @@ const authenticateWithJWT = async ({ event, region = process.env.AWS_REGION, use
     try {
       console.log('DEBUG JWT: Starting checkClaims.')
       const authorization = event.headers.Authorization || event.headers.authorization
-      console.log(`user claim verify invoked for ${JSON.stringify(authorization)}`)
       const token = authorization.split(' ')[1] // Authorization: Bearer {token}
       console.log('DEBUG JWT: Token extracted:', token ? 'Yes' : 'No')
       const tokenSections = (token || '').split('.')
@@ -212,8 +205,7 @@ const authenticateWithJWT = async ({ event, region = process.env.AWS_REGION, use
       if (claim.iss !== cognitoIssuer) return { isValid: false, message: 'claim issuer is invalid' }
       if (claim.token_use !== 'access') return { isValid: false, message: 'claim use is not access' }
 
-      console.log(`claim confirmed for ${claim.username}`)
-      console.log(JSON.stringify(claim))
+      console.log(`claim confirmed for ${claim.sub}, groups ${JSON.stringify(claim['cognito:groups'] ?? [])}`)
       return { isValid: true, claim }
     } catch (error) {
       console.log('DEBUG JWT: checkClaims caught error:', error)

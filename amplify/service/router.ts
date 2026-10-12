@@ -30,9 +30,13 @@ import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
+import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
+import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
+import onboardingVerifySchema from './schemas/onboarding/verify.json'
+import onboardingClaimSchema from './schemas/onboarding/claim.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -59,10 +63,10 @@ export const routes: RoutesMap = new Map([
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, schema: accountsOnboardingSchema, method: 'POST', allowedRoles: ['admin'] }],
-  ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, requiredParams: ['externalId'], method: 'POST', allowedRoles: ['admin'] }],
+  ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, schema: accountsOnboardingResendSchema, method: 'POST', allowedRoles: ['admin'] }],
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
-  ['/onboarding/verify', { handler: onboardingVerify, requiredParams: ['token'], method: 'POST' }],
-  ['/onboarding/claim', { handler: onboardingClaim, requiredParams: ['token', 'password'], method: 'POST' }],
+  ['/onboarding/verify', { handler: onboardingVerify, schema: onboardingVerifySchema, method: 'POST' }],
+  ['/onboarding/claim', { handler: onboardingClaim, schema: onboardingClaimSchema, method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'destinationAddress'], method: 'POST' }],
@@ -79,8 +83,8 @@ export const routes: RoutesMap = new Map([
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null }, context: any) => {
-  // DEBUG: Log the full incoming event object
-  console.log('DEBUG: Router initiated. Incoming Event:', JSON.stringify(event))
+  // Never the event itself: its body and headers carry passwords, tokens and credentials
+  console.log('DEBUG: Router initiated:', JSON.stringify(describeRequest(event)))
 
   // Look up the route based on the path received from API Gateway
   // Custom-domain requests arrive as /v1/<route>; direct execute-api calls as /<route>.
@@ -122,7 +126,7 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
 
     // Attach raw body to event for handlers that need it (e.g. Stripe webhooks)
     ;(event as any).rawBody = rawBody
-    console.log('DEBUG: Final Request Body:', JSON.stringify(event.body))
+    console.log('DEBUG: Request body fields:', bodyFields(event.body))
 
     // RBAC: enforce allowedRoles if defined on the route
     if (route.allowedRoles) {

@@ -1,7 +1,8 @@
 import { putItem } from '../../utils/db'
 
 export const handler = async (event: any) => {
-  console.log('WebSocket Connect Event:', JSON.stringify(event))
+  // Not the event: its headers and query can carry credentials
+  console.log('WebSocket connect:', event.requestContext?.connectionId)
 
   const connectionId = event.requestContext.connectionId
   const queryParams = event.queryStringParameters || {}
