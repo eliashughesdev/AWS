@@ -62,7 +62,7 @@ check('two merchants have different seeds and keys', parameters.get('/loudibly/h
 const before = keys.length
 await handler({ op: 'createSeed', merchantId: 'internal-001', network: 'SOL' })
 const systemKey = seedRow('internal-001', 'TRON').kmsKeyId
-check('a merchant\'s second network reuses its key', keys.length === before && seedRow('internal-001', 'SOL').kmsKeyId === systemKey && parameters.get('/loudibly/hd-seed/loudibly/SOL')!.keyId === systemKey)
+check('a merchant\'s second network reuses its key', keys.length === before && seedRow('internal-001', 'SOL').kmsKeyId === systemKey && parameters.get('/loudibly/hd-seed/internal-001/SOL')!.keyId === systemKey)
 check('…under a seed of its own', parameters.get('/loudibly/hd-seed/internal-001/SOL')!.value !== parameters.get('/loudibly/hd-seed/internal-001/TRON')!.value)
 
 merchants.set('duo|PROFILE', { id: 'duo', sk: 'PROFILE', status: 'active' })

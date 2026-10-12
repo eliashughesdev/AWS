@@ -29,15 +29,20 @@ import setTreasuryPolicy from './routes/merchants/policy'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
+import { checkBodyAgainstSchema } from '../utils/schema'
+import accountsAccountSchema from './schemas/accounts/account.json'
+import accountsDetailsSchema from './schemas/accounts/details.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
 type RoutesMap = Map<string, {
   handler: any
-  requiredParams: string[]
   method: string
   allowedRoles?: ('admin' | 'user' | 'staff' | 'merchant')[]
-}>
+} & (
+  // A JSON schema for the body (amplify/service/schemas/), or the older top-level-only check
+  { schema: Record<string, any>, requiredParams?: never } | { requiredParams: string[], schema?: never }
+)>
 
 export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
@@ -50,8 +55,8 @@ export const routes: RoutesMap = new Map([
   ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
-  ['/accounts/details', { handler: accountsDetails, requiredParams: ['accountNumber'], method: 'POST' }],
-  ['/accounts/account', { handler: accountsAccount, requiredParams: ['accountName'], method: 'POST' }],
+  ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
+  ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'chain', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, requiredParams: ['externalId'], method: 'POST', allowedRoles: ['admin'] }],
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
@@ -96,7 +101,7 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   }
 
   // DEBUG: Route found
-  console.log(`DEBUG: Route FOUND: Handler=${route.handler.name}, Method=${route.method}, RequiredParams=${route.requiredParams.join(', ')}`)
+  console.log(`DEBUG: Route FOUND: Handler=${route.handler.name}, Method=${route.method}, ${route.schema ? `Schema=${route.schema.title}` : `RequiredParams=${route.requiredParams.join(', ')}`}`)
 
   // We can also check if the method matches, though this should be handled by API Gateway configuration
   if (event.httpMethod !== route.method) {
@@ -129,10 +134,17 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
     }
 
     // Parameter Validation
-    const _check = checkForRequiredParameters(event.body, route.requiredParams)
-    console.log('DEBUG: Parameter Check Result:', _check.valid ? 'Valid' : _check.message)
+    if (route.schema) {
+      const _check = checkBodyAgainstSchema(event.body, route.schema)
+      console.log('DEBUG: Schema Check Result:', _check.valid ? 'Valid' : `${_check.code} ${_check.message}`)
 
-    if (!_check.valid) return processError(100029, _check.message)
+      if (!_check.valid) return processError(_check.code, _check.message)
+    } else {
+      const _check = checkForRequiredParameters(event.body, route.requiredParams)
+      console.log('DEBUG: Parameter Check Result:', _check.valid ? 'Valid' : _check.message)
+
+      if (!_check.valid) return processError(100029, _check.message)
+    }
 
     // Handler Execution
     console.log('DEBUG: Instantiating and executing handler...')

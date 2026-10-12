@@ -192,8 +192,19 @@ yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
 yarn workspace noda dev               # same scripts for the NODA app
 ```
 
-There is no unit/integration test runner (no jest/vitest config, no `test` script). Backend
-verification is done with standalone scripts in `amplify/service/routes/e2e/**/*Test.ts` —
+Backend unit and regression tests run with Jest (`jest.config.js`, root):
+```
+yarn test                             # every amplify/**/*.test.ts
+yarn test amplify/service/router      # one file or folder
+```
+A test sits beside the code it covers as `<name>.test.ts` (a route's schema tests beside its
+JSON in `amplify/service/schemas/`). New functionality comes with its tests, and a fixed bug
+with a test that fails without the fix, its name or comment pointing at the commit or bug id.
+Tests never reach AWS, Tatum or a chain: stub a route's handler with
+`jest.spyOn(routes.get(path)!.handler.prototype, 'execute')`, or mock the module. SWC compiles
+them without type-checking, so run `npx tsc --noEmit -p amplify` too. The frontends have no tests.
+
+Live verification is done with standalone scripts in `amplify/service/routes/e2e/**/*Test.ts` —
 each one builds a signed request and `fetch()`s a **live, already-deployed** API Gateway URL
 that's hardcoded in the file. Run one with `tsx`:
 ```
@@ -225,8 +236,12 @@ top of `router.ts`). To add an endpoint: create a handler class with an `execute
 context)` method under `service/routes/<area>/`, then register it in that map. The router
 does, in order: parse body (preserving `rawBody` for signature verification, e.g. Stripe
 webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowedRoles` is set,
-then top-level-only required-param validation (`utils/params.ts`) — handlers must still
-validate their own nested fields. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
+then body validation. A route either names a JSON schema (draft-07, Ajv, `utils/schema.ts`), one
+file per route in `amplify/service/schemas/` mirroring its path (`/accounts/details` →
+`schemas/accounts/details.json`): a missing required field answers `100029`, any other mismatch
+`100031` with the field. Or it lists `requiredParams`, the older top-level-only check
+(`utils/params.ts`), whose handlers must still validate their own nested fields. Routes are being
+moved to schemas one at a time; a new route gets a schema and its tests. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
 into `process.env` on cold start / at most once a minute; env access after that is normal
 `process.env.X`.
 
