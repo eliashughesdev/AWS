@@ -30,6 +30,8 @@
     "@tatumio/tatum": "^4.2.57",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jwk-to-pem": "^2.0.3",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "aws-amplify": "^6.15.1",
     "axios": "^1.11.0",
     "bs58": "^6.0.0",
