@@ -18,9 +18,8 @@ type Event = {
  */
 export default class OnboardingClaimHandler {
   async execute(event: Event, context: Context) {
+    // Both are non-empty strings (schemas/onboarding/claim.json); the token's format is loadClaim's
     const { token, password } = event.body
-
-    if (typeof password !== 'string') return processError(100031, 'password')
 
     const claim = await loadClaim(token)
     if (!claim.ok) {

@@ -279,8 +279,8 @@ paths:
               type: object
               required: [token, password]
               properties:
-                token: { type: string }
-                password: { type: string, format: password }
+                token: { type: string, minLength: 1 }
+                password: { type: string, format: password, minLength: 1, maxLength: 256 }
       responses:
         '200':
           description: The password is set.
@@ -302,7 +302,7 @@ paths:
         '400':
           description: |
             - `100029` `token` or `password` is missing
-            - `100031` `password` is not a string
+            - `100031` `token` or `password` is empty or not a string, or `password` is over 256 characters
             - `100034` the link is not valid
             - `100035` the link has expired
             - `100036` the link has already been used
