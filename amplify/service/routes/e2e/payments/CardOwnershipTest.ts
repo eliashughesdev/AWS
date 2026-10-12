@@ -55,7 +55,8 @@ const check = async (name: string, path: string, init: { method: string, headers
 }
 
 const userChecks = async (token: string, userB: string, cardOfB: string) => {
-  const asUser = { Authorization: `Bearer ${token}` }
+  // The gateway asks every caller for X-Project; with a token its value is not read (the dashboard sends 'web')
+  const asUser = { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
   await check('user A lists their own cards with no userId', '/payments/list',
     { method: 'GET', headers: asUser }, { status: 200 })
   await check('user A cannot list user B\'s cards', '/payments/list',
