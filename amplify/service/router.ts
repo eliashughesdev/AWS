@@ -31,6 +31,7 @@ import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
 import accountsAccountSchema from './schemas/accounts/account.json'
+import accountsDetailsSchema from './schemas/accounts/details.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -54,7 +55,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
-  ['/accounts/details', { handler: accountsDetails, requiredParams: ['accountNumber'], method: 'POST' }],
+  ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'chain', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, requiredParams: ['externalId'], method: 'POST', allowedRoles: ['admin'] }],
