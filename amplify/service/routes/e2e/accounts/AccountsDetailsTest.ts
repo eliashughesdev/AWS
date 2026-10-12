@@ -4,7 +4,7 @@ import { customer } from '../credentials'
 const path = '/v1/accounts/details'
 console.log('path: ', path)
 
-const body = JSON.stringify({ account_id: 'ACCOUNT#PCF00018604bbd641df4bb0aa5243e1e78f5cc4' })
+const body = JSON.stringify({ accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4' })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
 console.log('bodyHash', bodyHash)

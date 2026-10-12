@@ -8,10 +8,10 @@ import { customer } from '../credentials'
 const path = '/v1/accounts/account'
 
 const body = JSON.stringify({
-  account_name: `B30 orphan check ${Date.now().toString()}`,
+  accountName: `B30 orphan check ${Date.now().toString()}`,
   chain: 'TRON',
   provider: 'PCF0001',
-  accounting_currency: 'NOT_A_CURRENCY',
+  accountingCurrency: 'NOT_A_CURRENCY',
 })
 
 const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')

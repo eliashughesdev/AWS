@@ -68,11 +68,11 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
     userId?: string
   }) {
     return createAccount({
-      account_name: accountName,
+      accountName,
       email,
       chain,
       provider: LEDGER_PROVIDER,
-      accounting_currency: 'USD',
+      accountingCurrency: 'USD',
       userId,
     })
   }
