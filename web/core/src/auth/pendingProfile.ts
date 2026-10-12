@@ -1,5 +1,5 @@
 import { saveProfile } from '../api/profile'
-import { getAccessToken } from './cognito'
+import { fetchUserAttributes, getAccessToken } from './cognito'
 
 const KEY = 'loudibly.pendingProfile'
 
@@ -15,8 +15,12 @@ export async function flushPendingProfile() {
   try {
     const { name, email } = JSON.parse(raw)
     if (!(await getAccessToken()) || !name) return
-    await saveProfile({ name, email })
-    localStorage.removeItem(KEY)
+    // Whoever signed up in this browser may not be who just signed in
+    const signedIn = (await fetchUserAttributes()).email ?? ''
+    if (signedIn.toLowerCase() !== String(email).toLowerCase()) return
+    // A refused save keeps the name for the next sign-in
+    const { ok } = await saveProfile({ name, email })
+    if (ok) localStorage.removeItem(KEY)
   } catch (e) {
     console.error('Failed to save pending profile', e)
   }
