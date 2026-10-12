@@ -139,6 +139,7 @@ const refusals: Record<number, string> = {
   100007: 'The account does not have that much available.',
   100008: 'Enter a destination address.',
   100009: 'Withdrawals are not available for this currency yet.',
+  100048: 'That is not an address on this network.',
 }
 
 const { status, failure, errorCode, txId, send, reset } = useWithdraw(wording)
