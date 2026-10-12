@@ -81,9 +81,22 @@ There are three deployable pieces in this one repo:
     uses too. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
     real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
-    the client supplies its own. Only that view uses the Loudibly colour, spacing and type names
-    in `src/assets/auth.css` and the two extra font requests in `index.html`; they go when it
-    goes. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
+    the client supplies its own. So are the two screens the backend's emails link to, copies as
+    well: `/confirm` (`ConfirmView`, the "Confirm my email" link) and `/set-password`
+    (`SetPasswordView`, the claim link). The three are public routes outside `TopNavLayout`, and
+    only they use the Loudibly colour, spacing and type names in `src/assets/auth.css` and the
+    two extra font requests in `index.html`; those go when the copies go. A Material Symbols
+    icon shows only if it is named in that request's `icon_names` (kept in alphabetical order),
+    and takes its size from an inline `font-size`: Google's rule (24px) beats a `text-*` class.
+    A text on these screens names its colour, because the page's own would be black in light.
+    `AuthView` reads `email` (typed into the form) and `verified=1` (a line saying the address
+    was confirmed) from the address: that is how a link screen hands on a visitor with no
+    session. Both link screens forward with `router.replace`, so Back does not run a link again.
+    `SetPasswordView` takes the token out of the address with `router.replace` too, never
+    `history.replaceState`: vue-router writes the address it remembers back into the history
+    entry on the next navigation. It says "This link cannot be used" for `100034`, `100035` and
+    `100036` only; when the link could not be checked for any other reason it offers the check
+    again, and when the request that sets the password fails it stays on the form. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
     sun and moon switch beside it flips the theme (`src/theme.ts`): dark is `main.css` as it
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
@@ -103,7 +116,7 @@ There are three deployable pieces in this one repo:
     border stays `border-yellow`). A class with literal gradient stops in `main.css` gets its light look in `light.css`
     (`:root[data-theme="light"] .card-glow`). `.button-outline` is solid in light, except inside a
     dialog, where it stays an outline beside the main button. `.bg-cta` runs at 82deg unless an
-    element sets `--cta-angle`. The sign-in screen is dark in both themes. A
+    element sets `--cta-angle`. The sign-in, confirm and set-password screens are dark in both themes. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A
@@ -144,7 +157,10 @@ There are three deployable pieces in this one repo:
   routing. An operation the API only queues (`useWithdraw`, `useDeposit`) also says which kind
   of failure it was (`failure`: `rejected`, `failed`, `timeout`, `unexpected`) and the API's
   `errorCode` when it refused; a `timeout` is not a failed operation, so a view must not offer
-  to send it again. Composables stop their own timers and sockets with `onScopeDispose`, so call them
+  to send it again. `useClaim().setPassword()` makes two requests, the password and then the
+  sign-in, and throws when either fails: `passwordSet` says which, and a view must not send the
+  user to sign-in while it is false. Its failure results, and `verify()`'s, carry the API's
+  `errorCode`. Composables stop their own timers and sockets with `onScopeDispose`, so call them
   in `setup`.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and

@@ -4,10 +4,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { signInWithPassword, isSignedIn } from '@loudibly/core/auth/signIn'
 import { useSignUp, passwordStrength } from '@loudibly/core/composables/useSignUp'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import logoMark from '../assets/logo-mark.png'
 import logoWordmark from '../assets/logo-wordmark.png'
 
+const route  = useRoute()
 const router = useRouter()
 
 // ─── Tab / Step state ──────────────────────────────────────────────────────────
@@ -32,6 +33,10 @@ function switchTab(tab: Tab) {
 // ─── Sign In ───────────────────────────────────────────────────────────────────
 const siEmail    = ref('')
 const siPassword = ref('')
+
+// The emailed links end here when there is no session: with the address to sign in with,
+// and `verified` when the link confirmed it.
+const verifiedBanner = ref(false)
 
 async function handleSignIn() {
   clearError()
@@ -119,6 +124,8 @@ async function handleResend() {
 
 // ─── Redirect if already authenticated ────────────────────────────────────────
 onMounted(async () => {
+  if (typeof route.query.email === 'string') siEmail.value = route.query.email
+  verifiedBanner.value = route.query.verified === '1'
   if (await isSignedIn()) router.push({ name: 'dashboard' })
 })
 </script>
@@ -265,6 +272,10 @@ onMounted(async () => {
             aria-labelledby="tab-signin"
           >
             <form @submit.prevent="handleSignIn" class="flex flex-col gap-space-4">
+              <p v-if="verifiedBanner" role="status"
+                 class="font-body-base text-body-base text-brand text-center">
+                Your email has been verified — sign in to continue.
+              </p>
               <p v-if="error && activeTab === 'signIn'" role="alert"
                  class="font-body-base text-body-base text-status-danger">
                 {{ error }}

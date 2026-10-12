@@ -4,11 +4,13 @@ import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
 import AuthView from '../views/AuthView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
+import ConfirmView from '../views/ConfirmView.vue'
 import ConvertView from '../views/ConvertView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import DepositView from '../views/DepositView.vue'
 import EarnView from '../views/EarnView.vue'
 import PaymentsView from '../views/PaymentsView.vue'
+import SetPasswordView from '../views/SetPasswordView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import WithdrawView from '../views/WithdrawView.vue'
 import WithdrawFormView from '../views/WithdrawFormView.vue'
@@ -26,6 +28,9 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/auth', name: 'auth', component: AuthView },
+    // Where the links in the backend's emails land.
+    { path: '/confirm',      name: 'confirm',      component: ConfirmView },
+    { path: '/set-password', name: 'set-password', component: SetPasswordView },
     {
       path: '/',
       component: TopNavLayout,

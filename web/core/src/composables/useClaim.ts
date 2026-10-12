@@ -11,12 +11,14 @@ export function useClaim() {
   let token = ''
   const email     = ref('')
   const firstName = ref('')
+  // True once the server took the password: a throw from setPassword() after that is the sign-in's.
+  const passwordSet = ref(false)
 
   // Throws when the request itself fails.
-  async function verify(linkToken: string): Promise<{ ok: true } | { ok: false; message?: string }> {
+  async function verify(linkToken: string): Promise<{ ok: true } | { ok: false; message?: string; errorCode?: number }> {
     token = linkToken
     const { ok, data } = await verifyClaimToken(token)
-    if (!ok) return { ok: false, message: data?.message }
+    if (!ok) return { ok: false, message: data?.message, errorCode: data?.error_code }
 
     email.value     = data?.res?.data?.email ?? ''
     firstName.value = data?.res?.data?.firstName ?? ''
@@ -25,15 +27,16 @@ export function useClaim() {
 
   // Sets the password, then signs in. Throws when a request itself fails, including
   // the sign-in that follows a password that was set.
-  async function setPassword(password: string): Promise<{ ok: true } | { ok: false; message?: string; linkSpent: boolean }> {
+  async function setPassword(password: string): Promise<{ ok: true } | { ok: false; message?: string; errorCode?: number; linkSpent: boolean }> {
     const { ok, data } = await claimAccount(token, password)
     if (!ok) {
-      return { ok: false, message: data?.message, linkSpent: SPENT_LINK.includes(data?.error_code ?? 0) }
+      return { ok: false, message: data?.message, errorCode: data?.error_code, linkSpent: SPENT_LINK.includes(data?.error_code ?? 0) }
     }
 
+    passwordSet.value = true
     await signIn({ username: email.value, password })
     return { ok: true }
   }
 
-  return { email, firstName, verify, setPassword }
+  return { email, firstName, passwordSet, verify, setPassword }
 }
