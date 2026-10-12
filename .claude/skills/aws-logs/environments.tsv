@@ -1,3 +1,4 @@
 # One row per git branch that has its own deployed AWS backend. Columns are whitespace-separated.
 # branch        account        region      profile    amplifyAppId
 nodapay_ui      471112580718   eu-west-3   nodaprod   du87gtxtvnt62
+main            129364817855   us-east-2   smartzebu  d2pm43uo9745dk
