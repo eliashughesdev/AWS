@@ -14,7 +14,8 @@ export type SchemaCheck =
 
 // A missing required field answers 100029 with every required field at its level, as
 // requiredParams did (nested ones by path: transaction.id); any other mismatch answers 100031
-// with the path of the offending value
+// with the path of the offending value. A oneOf/anyOf of required-only branches names its
+// alternatives: 100029 "amount or cryptoAmount" when none was sent, 100031 when oneOf got several
 export const checkBodyAgainstSchema = (body: unknown, schema: Record<string, any>): SchemaCheck => {
   let validate = compiled.get(schema)
   if (!validate) {
@@ -22,6 +23,19 @@ export const checkBodyAgainstSchema = (body: unknown, schema: Record<string, any
     compiled.set(schema, validate)
   }
   if (validate(body)) return { valid: true }
+
+  const alternatives = validate.errors!.find(error =>
+    (error.keyword === 'oneOf' || error.keyword === 'anyOf') &&
+    (error.schema as Record<string, any>[]).every(branch => Object.keys(branch).every(key => key === 'required')))
+  if (alternatives) {
+    const at = alternatives.instancePath.slice(1).replace(/\//g, '.')
+    const names = (alternatives.schema as { required: string[] }[])
+      .map(branch => branch.required.map(field => (at ? `${at}.` : '') + field).join(' and '))
+      .join(' or ')
+    return alternatives.params.passingSchemas
+      ? { valid: false, code: 100031, message: `${names}: send only one` }
+      : { valid: false, code: 100029, message: names }
+  }
 
   const error = validate.errors![0]
   const path = error.instancePath.slice(1).replace(/\//g, '.')

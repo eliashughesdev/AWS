@@ -32,6 +32,32 @@ describe('checkBodyAgainstSchema', () => {
       .toEqual({ valid: false, code: 100029, message: 'contact.email,contact.phone' })
   })
 
+  describe('a oneOf of required fields', () => {
+    const either = {
+      type: 'object',
+      properties: { amount: { type: 'number', exclusiveMinimum: 0 }, cryptoAmount: { type: 'number' } },
+      oneOf: [{ required: ['amount'] }, { required: ['cryptoAmount'] }],
+    }
+
+    it('accepts one', () => {
+      expect(checkBodyAgainstSchema({ amount: 1 }, either)).toEqual({ valid: true })
+      expect(checkBodyAgainstSchema({ cryptoAmount: 1 }, either)).toEqual({ valid: true })
+    })
+
+    it('answers 100029 naming the alternatives when none was sent', () => {
+      expect(checkBodyAgainstSchema({}, either)).toEqual({ valid: false, code: 100029, message: 'amount or cryptoAmount' })
+    })
+
+    it('answers 100031 when both were sent', () => {
+      expect(checkBodyAgainstSchema({ amount: 1, cryptoAmount: 1 }, either))
+        .toEqual({ valid: false, code: 100031, message: 'amount or cryptoAmount: send only one' })
+    })
+
+    it('still names a bad value in the one sent', () => {
+      expect(checkBodyAgainstSchema({ amount: -1 }, either)).toEqual({ valid: false, code: 100031, message: 'amount' })
+    })
+  })
+
   it('names a nested field by its dotted path', () => {
     expect(checkBodyAgainstSchema({ name: 'a', amount: 1, contact: { email: 'nope' } }, schema))
       .toEqual({ valid: false, code: 100031, message: 'contact.email' })

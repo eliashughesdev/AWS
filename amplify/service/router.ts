@@ -36,6 +36,7 @@ import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
+import accountsWithdrawSchema from './schemas/accounts/withdraw.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -72,7 +73,7 @@ export const routes: RoutesMap = new Map([
   ['/onboarding/claim', { handler: onboardingClaim, schema: onboardingClaimSchema, method: 'POST' }],
   ['/accounts/transfer', { handler: transferFunds, schema: accountsTransferSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'destinationAddress'], method: 'POST' }],
+  ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
   ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
   ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],

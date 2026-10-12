@@ -16,6 +16,7 @@ export default class WithdrawHandler {
     console.log('DEBUG: WithdrawHandler execution started.')
 
     const userId = event.requestContext?.authorizer?.userId
+    // Exactly one of amount and cryptoAmount, above zero, and a destination (schemas/accounts/withdraw.json)
     const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body
 
     if (!userId) {
@@ -74,11 +75,6 @@ export default class WithdrawHandler {
         console.error(`ERROR: No ${accountChain} master for merchant ${accountRecord.merchantId ?? '(none)'} — withdrawals unsupported`)
         return processError(100009)
       }
-    }
-
-    if (!destinationAddress) {
-      console.error(`ERROR: Crypto withdrawal requires a destination address (chain: ${accountChain})`)
-      return processError(100008)
     }
 
     // If a direct crypto amount is provided, skip the fiat conversion
