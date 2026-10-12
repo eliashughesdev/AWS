@@ -96,7 +96,9 @@ There are three deployable pieces in this one repo:
     `history.replaceState`: vue-router writes the address it remembers back into the history
     entry on the next navigation. It says "This link cannot be used" for `100034`, `100035` and
     `100036` only; when the link could not be checked for any other reason it offers the check
-    again, and when the request that sets the password fails it stays on the form. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
+    again, and when the request that sets the password fails it stays on the form. Its button
+    is disabled only while that request runs: the browser's own hints say which field is empty
+    or that the terms box is unticked, and the form says when the passwords differ. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
     sun and moon switch beside it flips the theme (`src/theme.ts`): dark is `main.css` as it
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the
@@ -157,7 +159,12 @@ There are three deployable pieces in this one repo:
   routing. An operation the API only queues (`useWithdraw`, `useDeposit`) also says which kind
   of failure it was (`failure`: `rejected`, `failed`, `timeout`, `unexpected`) and the API's
   `errorCode` when it refused; a `timeout` is not a failed operation, so a view must not offer
-  to send it again. `useClaim().setPassword()` makes two requests, the password and then the
+  to send it again. Every sign-in goes through `startSession()` in `auth/signIn`
+  (`signInWithPassword()`, `useSignUp().confirm()` and `useClaim().setPassword()` do), never
+  `signIn` from `auth/cognito`: Amplify refuses to sign in while the browser holds a session,
+  even one whose user is gone, and `startSession()` ends that session first. `isSignedIn()`
+  asks the browser only, while `checkAccess()` also reads the user's attributes from Cognito,
+  so the two disagree about a session whose user is gone. `useClaim().setPassword()` makes two requests, the password and then the
   sign-in, and throws when either fails: `passwordSet` says which, and a view must not send the
   user to sign-in while it is false. Its failure results, and `verify()`'s, carry the API's
   `errorCode`. Composables stop their own timers and sockets with `onScopeDispose`, so call them

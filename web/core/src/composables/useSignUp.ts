@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { confirmSignUp, resendSignUpCode, signIn, signUp } from '../auth/cognito'
+import { confirmSignUp, resendSignUpCode, signUp } from '../auth/cognito'
+import { startSession } from '../auth/signIn'
 import { flushPendingProfile, rememberPendingProfile } from '../auth/pendingProfile'
 
 // 0 (empty) to 4: one point each for length, an upper-case letter, a digit and a symbol.
@@ -55,7 +56,7 @@ export function useSignUp() {
   // Resolves true when the user ends up signed in.
   async function confirm(code: string) {
     if (!(await confirmEmail(pendingEmail.value, code))) return false
-    await signIn({ username: pendingEmail.value, password: pendingPassword })
+    await startSession(pendingEmail.value, pendingPassword)
     await flushPendingProfile()
     return true
   }

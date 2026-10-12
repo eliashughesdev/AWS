@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { claimAccount, verifyClaimToken } from '../api/onboarding'
-import { signIn } from '../auth/cognito'
+import { startSession } from '../auth/signIn'
 
 // Error codes for a link that can't be used again: expired, or already used.
 const SPENT_LINK = [100035, 100036]
@@ -34,7 +34,7 @@ export function useClaim() {
     }
 
     passwordSet.value = true
-    await signIn({ username: email.value, password })
+    await startSession(email.value, password)
     return { ok: true }
   }
 

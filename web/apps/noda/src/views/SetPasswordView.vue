@@ -40,10 +40,6 @@ const passwordStrengthLabel = computed((): string =>
   (['', 'Weak', 'Fair', 'Good', 'Strong'] as const)[passwordBars.value] ?? ''
 )
 
-const canSubmit = computed((): boolean =>
-  !submitting.value && accepted.value && password.value.length > 0 && password.value === confirmPass.value
-)
-
 // The link's token, kept in memory only.
 let token = ''
 
@@ -307,7 +303,9 @@ const buttonClass =
               </span>
             </label>
 
-            <button type="submit" :disabled="!canSubmit" :class="buttonClass">
+            <!-- Never disabled for what is missing: the browser points at an empty field or the
+                 unticked box, and handleSubmit says when the passwords differ. -->
+            <button type="submit" :disabled="submitting" :class="buttonClass">
               {{ submitting ? 'Setting password…' : 'Set password and continue' }}
             </button>
           </form>
