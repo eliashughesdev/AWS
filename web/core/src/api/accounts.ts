@@ -13,11 +13,11 @@ export function listTransactions(accountNumber: string) {
 }
 
 export function createAccount(body: {
-  account_name: string
+  accountName: string
   email: string
   chain: string
   provider: string
-  accounting_currency: string
+  accountingCurrency: string
   userId?: string
 }) {
   return request<{ success?: boolean }>('/accounts/account', { method: 'POST', body })

@@ -44,7 +44,7 @@ export default class AccountHandler {
       sk: 'USERPROFILE',
       created_at: Date.now(),
       deleted_at: null,
-      name: event.body.account_name,
+      name: event.body.accountName,
       email: email ?? null,
       // Not onboarded by a merchant, so a direct customer of the system
       merchantId: SYSTEM_MERCHANT_ID,
@@ -56,7 +56,7 @@ export default class AccountHandler {
         userId,
         chain,
         provider,
-        accountingCurrency: event.body.accounting_currency,
+        accountingCurrency: event.body.accountingCurrency,
         merchantId,
       })
 

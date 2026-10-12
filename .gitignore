@@ -15,3 +15,4 @@ energy-test.env
 
 # Claude Code personal settings
 .claude/settings.local.json
+amplify/service/routes/e2e/credentials.js

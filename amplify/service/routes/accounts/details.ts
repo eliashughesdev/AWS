@@ -6,8 +6,8 @@ import { processError } from '../../../errors/http'
 export default class DetailsHandler {
   async execute(event: any, context: Context) {
     // todo ensure that customer have enough right to get this account
-    // const cstomer = await getRecord('v2CustomerTable', event.body.account_id)
-    // const account = await byindes('v2CustomerTable', event.body.account_id)
+    // const cstomer = await getRecord('v2CustomerTable', event.body.accountNumber)
+    // const account = await byindes('v2CustomerTable', event.body.accountNumber)
     const account = await queryItemFromIndex({
       tableName: 'v2CustomerTable',
       indexName: 'v1v2CustomerTableToAccountId',
@@ -16,11 +16,11 @@ export default class DetailsHandler {
         '#sk': 'sk',
       },
       attributeValues: {
-        ':accountNumber': event.body.account_id,
+        ':accountNumber': `ACCOUNT#${event.body.accountNumber}`,
       }
     })
     if (!account.success || !account.res) {
-      console.error(`ERROR: Account not found for accountNo: ${event.body.account_id}`)
+      console.error(`ERROR: Account not found for accountNo: ${event.body.accountNumber}`)
       return processError(100001)
     }
 
@@ -32,7 +32,7 @@ export default class DetailsHandler {
     // ignore Legacy non-custodial backend records 
     // tihs is test code to quickly test a few things but this will never happen
     if (!accountDet.vAccountId) {
-      console.error(`ERROR: Account ${event.body.account_id} has no vAccountId`)
+      console.error(`ERROR: Account ${event.body.accountNumber} has no vAccountId`)
       return processError(100001)
     }
 

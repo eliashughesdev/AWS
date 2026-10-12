@@ -180,11 +180,11 @@ async function handleSignUp() {
 //       'X-Project': 'web',
 //     },
 //     body: JSON.stringify({
-//       account_name: `${pendingFirstName.value} ${pendingLastName.value}`,
+//       accountName: `${pendingFirstName.value} ${pendingLastName.value}`,
 //       email: pendingEmail.value,
 //       chain: 'TRON',
 //       provider: 'PCF0001',
-//       accounting_currency: 'USD',
+//       accountingCurrency: 'USD',
 //     }),
 //   })
 // }

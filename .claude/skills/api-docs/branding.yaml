@@ -1,0 +1,42 @@
+# Look and wording of the public API's documentation, per brand and per branch.
+#
+# A branch wears the brand named by BRAND_NAME in its own SSM config
+# (/loudibly/api/BRAND_NAME), unless its entry under `branches` names another.
+# render.py reads this file; it never invents a value that is missing here.
+
+brands:
+  NODA:
+    title: NODA API
+    summary: The NODA API for merchant platforms and their wallet users.
+    # Repo path; embedded into the page, and into the spec as x-logo
+    logo: web/apps/loudibly/src/assets/noda-logo.png
+    colors:
+      header: '#060C39'     # the page bar behind the logo (NODA's page colour)
+      onHeader: '#FFFFFF'
+      primary: '#0DC1C6'    # links and accents in the reference (NODA's brand colour)
+  Loudibly:
+    title: Loudibly API
+    summary: The Loudibly API for merchant platforms and their users.
+    colors:
+      header: '#000000'
+      onHeader: '#CCFF00'   # Loudibly's brand colour, readable on black only
+      primary: '#000000'
+
+# What differs per branch. `environment` is shown beside the title and in the
+# server's description; `description` is added under the brand's summary.
+# Optional: `brand` (overrides BRAND_NAME), `serverUrl` (e.g. a custom domain,
+# used instead of the URL read from the stack), `websocketUrl` (the same, for
+# the WebSocket that pushes results).
+branches:
+  main:
+    brand: Loudibly
+    environment: Staging
+    serverUrl: https://api.staging.loudibly.com
+    description: |
+      This is the staging environment. Coins move on the TRON and Solana test networks and have
+      no value; use it to build and try your integration.
+  nodapay_ui:
+    environment: Production
+    serverUrl: https://api.noda.money
+    description: |
+      This is the live environment. Coins and payments are real.
