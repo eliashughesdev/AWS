@@ -76,7 +76,7 @@ D1 and D2 block Phase 0.
 |---|---|---|---|---|---|
 | F1 | ⬜ Not started | | | | |
 | F2 | ⬜ Not started | | | | |
-| F3 | 🟡 In progress | | | | Steps 1–5 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Frontends no longer send another id. Verified needs a deploy: `e2e/payments/CardOwnershipTest.ts` |
+| F3 | 🟡 In progress | | | | Steps 1–5 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Frontends no longer send another id. Deployed to main 2026-10-12: the merchant-key checks of `e2e/payments/CardOwnershipTest.ts` pass live (another merchant's user, a user with 4 cards, and an unknown id all get 403 `100053`). The signed-in user's checks need a test user's token |
 | F4 | ⬜ Not started | | | | |
 | F5 | ⬜ Not started | | | | |
 | F6 | ⬜ Not started | | | | |
