@@ -1,6 +1,7 @@
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
+import { resolvePayer } from '../../../utils/payer'
 
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the payment could not be queued; nothing was charged'
@@ -32,7 +33,12 @@ export default class ProcessGuestPaymentHandler {
     console.log('DEBUG: ProcessGuestPaymentHandler execution started.')
 
     // The body is shaped by schemas/payments/process/guest.json
-    const { cardData, userId, amount, currency, provider = 'stripe', transactionId } = event.body
+    const { cardData, amount, currency, provider = 'stripe', transactionId } = event.body
+
+    // A signed-in user pays as themselves; a merchant's key names one of its own users (F3)
+    const payer = await resolvePayer(event.requestContext?.authorizer, event.body.userId)
+    if (payer.error) return payer.error
+    const userId = payer.userId
 
     if (!isEncryptedCard(cardData.cardData)) {
       return processError(100031, 'cardData.cardData')

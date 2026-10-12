@@ -59,8 +59,8 @@ describe('router body validation', () => {
   })
 
   describe('a GET route with a schema', () => {
-    const get = (path: string, query: Record<string, string> | null) =>
-      router({ path, httpMethod: 'GET', body: null, queryStringParameters: query } as any, {})
+    const get = (path: string, query: Record<string, string> | null, role = 'user') =>
+      router({ path, httpMethod: 'GET', body: null, queryStringParameters: query, requestContext: { authorizer: { role } } } as any, {})
 
     it('checks the query string and runs the handler when it matches', async () => {
       const execute = stubHandler('/payments/list')
@@ -69,11 +69,19 @@ describe('router body validation', () => {
       expect(execute).toHaveBeenCalledTimes(1)
     })
 
-    // A GET with no query string has queryStringParameters null
-    it('answers 100029 without running the handler when there is no query string', async () => {
+    // A GET with no query string has queryStringParameters null, checked as no parameters
+    it('runs the handler when there is no query string', async () => {
       const execute = stubHandler('/payments/list')
       const res = await get('/payments/list', null)
-      expect(JSON.parse(res.body)).toMatchObject({ error_code: 100029, message: 'required parameters for this request are userId' })
+      expect(res.statusCode).toBe(200)
+      expect(execute).toHaveBeenCalledTimes(1)
+    })
+
+    // F3: only a user or a merchant's key may reach the card routes
+    it('refuses a staff caller before looking at the query string', async () => {
+      const execute = stubHandler('/payments/list')
+      const res = await get('/payments/list', { userId: 'user-1' }, 'staff')
+      expect(res.statusCode).toBe(403)
       expect(execute).not.toHaveBeenCalled()
     })
 

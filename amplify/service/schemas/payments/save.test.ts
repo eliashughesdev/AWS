@@ -10,13 +10,19 @@ describe('POST /payments/save body', () => {
   it.each([
     ['a card with an 8-digit BIN', valid],
     ['a card with a 6-digit BIN', { ...valid, paymentMethod: { ...card, bin: '424242' } }],
+    // F3: a signed-in user saves for themselves; the handler checks a merchant key's userId
+    ['a body without userId', { paymentMethod: card }],
   ])('accepts %s', (_, body) => {
     expect(checkBodyAgainstSchema(body, schema)).toEqual({ valid: true })
   })
 
-  it.each(['paymentMethod', 'userId'])('requires %s', field => {
-    expect(checkBodyAgainstSchema({ ...valid, [field]: undefined }, schema))
-      .toEqual({ valid: false, code: 100029, message: 'paymentMethod,userId' })
+  it('requires paymentMethod', () => {
+    expect(checkBodyAgainstSchema({ ...valid, paymentMethod: undefined }, schema))
+      .toEqual({ valid: false, code: 100029, message: 'paymentMethod' })
+  })
+
+  it('refuses an empty userId', () => {
+    expect(checkBodyAgainstSchema({ ...valid, userId: '' }, schema)).toEqual(invalid('userId'))
   })
 
   it.each(['lastFour', 'bin', 'cardType', 'cardData'])('requires paymentMethod.%s', field => {
@@ -49,6 +55,6 @@ describe('POST /payments/save body', () => {
   // What src/pages/AddPayment.tsx sends; it was refused before this schema too
   it('refuses card fields sent outside paymentMethod', () => {
     expect(checkBodyAgainstSchema({ userId: 'user-1', cardData: card.cardData, bin: card.bin, lastFour: card.lastFour }, schema))
-      .toEqual({ valid: false, code: 100029, message: 'paymentMethod,userId' })
+      .toEqual({ valid: false, code: 100029, message: 'paymentMethod' })
   })
 })

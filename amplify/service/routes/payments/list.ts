@@ -2,6 +2,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryRecord } from '../../../utils/db'
 import { processError } from '../../../errors/http'
+import { resolvePayer } from '../../../utils/payer'
 
 /**
  * Lists payment methods for a user
@@ -10,8 +11,11 @@ export default class ListPaymentsHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: ListPaymentsHandler execution started.')
 
-    // The query string is shaped by schemas/payments/list.json
-    const userId = event.queryStringParameters.userId
+    // The query string is shaped by schemas/payments/list.json; whose cards these are is the
+    // caller's to prove (F3)
+    const payer = await resolvePayer(event.requestContext?.authorizer, event.queryStringParameters?.userId)
+    if (payer.error) return payer.error
+    const userId = payer.userId
 
     try {
       console.log(`DEBUG: Querying payment methods for user: ${userId}`)

@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "POST /payments/process/guest",
-  "$comment": "cardData has the shape of a saved card (schemas/payments/save.json). Its own cardData is Evervault ciphertext: either one ev: value (what the relay produces) or the JSON of evervault.encrypt({ number, cvc, expiry }), which PaymentWidget.tsx sends; the handler checks that every value in that JSON is ciphertext, which a pattern cannot (pci-remediation-plan.md F6 step 4). amount is in the currency's major unit.",
+  "$comment": "cardData has the shape of a saved card (schemas/payments/save.json). Its own cardData is Evervault ciphertext: either one ev: value (what the relay produces) or the JSON of evervault.encrypt({ number, cvc, expiry }), which PaymentWidget.tsx sends; the handler checks that every value in that JSON is ciphertext, which a pattern cannot (pci-remediation-plan.md F6 step 4). amount is in the currency's major unit. userId is optional: a signed-in user pays as themselves, and a merchant's key must name one of its own users, which the handler checks (pci-remediation-plan.md F3).",
   "type": "object",
-  "required": ["cardData", "userId", "amount", "currency"],
+  "required": ["cardData", "amount", "currency"],
   "properties": {
     "userId": { "type": "string", "minLength": 1 },
     "amount": { "type": "number", "exclusiveMinimum": 0 },

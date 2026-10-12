@@ -54,7 +54,7 @@ describe('API request logging', () => {
       httpMethod: 'POST',
       headers: { Authorization: secrets.authorization },
       body: JSON.stringify({ userId: 'user-1', paymentMethod: { lastFour: '4242', bin: '42424242', cardType: 'visa', cardData } }),
-      requestContext: { requestId: 'req-2' },
+      requestContext: { requestId: 'req-2', authorizer: { userId: 'user-1', role: 'user', authType: 'jwt' } },
     } as any, {} as any, () => {}) as { statusCode: number }
     expect(res.statusCode).toBe(200)
     expect(logged.filter(line => line.includes(cardData))).toEqual([])

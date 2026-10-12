@@ -32,11 +32,13 @@ const httpErrors: any = {
   100050: (params: any) => `this merchant is not set up for ${params} yet — its master must be provisioned first`,
   100051: () => 'the sender and the recipient are the same account',
   100052: (params: any) => `the recipient account does not hold ${params}`,
+  100053: () => 'this user is not yours to act for',
 }
 
-export const processError = (code: any, params?: any) => {
+// statusCode is 400 unless the code needs another, as 100053's 403 does
+export const processError = (code: any, params?: any, statusCode = 400) => {
   return response({
-    statusCode: 400,
+    statusCode,
     headers: null,
     bodyObject: {
       error_code: code,

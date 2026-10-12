@@ -279,7 +279,11 @@ runs on every call — no caching). It accepts either a Cognito JWT (end users, 
 group `staff` → role `staff`, Loudibly employees; group `merchant` → role `merchant`, a merchant's
 own team who approve its treasury operations — precedence staff > admin > merchant > user) or an HMAC
 `Signature <timestamp>:<bodyHash>:<sig>` over `X-Project` (B2B platform keys stored in
-`v1UserKeysTable`, role `admin`). One key per merchant: `X-Project` is the merchant id —
+`v1UserKeysTable`, role `admin`). The context also says `authType` (`jwt` or `key`, with
+`merchantId` for a key): role `admin` alone does not mean a key, since the Cognito group `admin`
+has it too. The card routes (`/payments/*`) take the user from `resolvePayer()`
+(`utils/payer.ts`), never from the request: a user acts for themselves, a key only for its own
+merchant's payers, anyone else gets `100053` (403). One key per merchant: `X-Project` is the merchant id —
 onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
 `100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
 merchant: the system's own direct customers belong to `internal-001`, named `Internal001`

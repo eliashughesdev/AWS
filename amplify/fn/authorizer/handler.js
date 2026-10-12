@@ -3,8 +3,11 @@ const crypto = require('crypto')
 const { getRecord } = require('./db')
 const jwkToPem = require('jwk-to-pem')
 
-const generatePolicy = (principalId, effect, resource, role = 'user') => {
-  console.log('DEBUG: Generating policy:', { principalId, effect, resource, role })
+// authType says which credential was checked: 'jwt' (userId is the Cognito sub) or 'key' (a
+// merchant's HMAC or RSA key; userId and merchantId are the X-Project it was verified for).
+// role 'admin' alone does not say which: the Cognito group admin has it too
+const generatePolicy = (principalId, effect, resource, role = 'user', authType = 'none') => {
+  console.log('DEBUG: Generating policy:', { principalId, effect, resource, role, authType })
   return {
     principalId,
     policyDocument: {
@@ -18,6 +21,8 @@ const generatePolicy = (principalId, effect, resource, role = 'user') => {
     context: {
       userId: principalId,
       role,
+      authType,
+      ...(authType === 'key' ? { merchantId: principalId } : {}),
     }
   }
 }
@@ -49,7 +54,7 @@ const handler = async (event) => {
       const groups = res.claim['cognito:groups'] ?? []
       const role = groups.includes('staff') ? 'staff' : groups.includes('admin') ? 'admin' : groups.includes('merchant') ? 'merchant' : 'user'
       console.log('DEBUG: JWT Role resolved:', role)
-      return generatePolicy(res.claim.sub, 'Allow', resource, role)
+      return generatePolicy(res.claim.sub, 'Allow', resource, role, 'jwt')
     } else if (auth?.includes('Signature')) {
       console.log('DEBUG: Auth Type: Signature (HMAC/RSA)')
       const keys = await getRecord('v1UserKeysTable', project)
@@ -84,7 +89,7 @@ const handler = async (event) => {
       const res = types[keys.res.type]()
       console.log('res: ', res)
       // HMAC/RSA keys are B2B service clients — treated as admin
-      return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource, 'admin')
+      return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource, 'admin', 'key')
     }
   } catch (e) {
     console.log('DEBUG: Catch block executed. Error:', e)

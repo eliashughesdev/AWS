@@ -6,12 +6,10 @@ describe('GET /payments/list query', () => {
   it.each([
     ['a Cognito user id', { userId: '018bb520-4061-70b4-6d65-4d7d4bdb5a25' }],
     ['another parameter beside it', { userId: 'user-1', page: '2' }],
+    // F3: a signed-in user lists their own cards; the handler checks a merchant key's userId
+    ['no userId', {}],
   ])('accepts %s', (_, query) => {
     expect(checkBodyAgainstSchema(query, schema)).toEqual({ valid: true })
-  })
-
-  it('requires userId', () => {
-    expect(checkBodyAgainstSchema({}, schema)).toEqual({ valid: false, code: 100029, message: 'userId' })
   })
 
   it.each([

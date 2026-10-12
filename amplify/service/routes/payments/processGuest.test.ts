@@ -5,8 +5,10 @@ jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 
 // What src/pages/PaymentWidget.tsx sends: evervault.encrypt() of the card, as JSON
 const card = { number: 'ev:Tk9OQ:num', cvc: 'ev:Tk9OQ:cvc', expiry: { month: 'ev:Tk9OQ:mm', year: 'ev:Tk9OQ:yy' } }
-const processGuest = (cardData = JSON.stringify(card)) => new ProcessGuestPaymentHandler().execute({
-  body: { cardData: { lastFour: '4242', bin: '42424242', cardType: 'visa', cardData }, userId: 'guest-1', amount: 50, currency: 'USD', transactionId: 'txn_1' },
+const user = { userId: 'guest-1', role: 'user', authType: 'jwt' }
+const processGuest = (cardData = JSON.stringify(card), extra: Record<string, unknown> = {}) => new ProcessGuestPaymentHandler().execute({
+  requestContext: { authorizer: user },
+  body: { cardData: { lastFour: '4242', bin: '42424242', cardType: 'visa', cardData }, amount: 50, currency: 'USD', transactionId: 'txn_1', ...extra },
 })
 
 beforeEach(() => {
@@ -16,11 +18,20 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks())
 
 describe('/payments/process/guest handler', () => {
-  it('queues the payment', async () => {
+  it('queues the payment as the signed-in user', async () => {
     ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
     const res = await processGuest()
     expect(res!.statusCode).toBe(200)
     expect(JSON.parse(res!.body)).toMatchObject({ jobId: 'job-1', status: 'queued' })
+    expect((sendToQueue as jest.Mock).mock.calls[0][1]).toMatchObject({ userId: 'guest-1' })
+  })
+
+  // F3: userId was taken from the body, so a payment could be made in another user's name
+  it('answers 100053 without queueing when a signed-in user names someone else', async () => {
+    const res = await processGuest(undefined, { userId: 'someone-else' })
+    expect(res!.statusCode).toBe(403)
+    expect(JSON.parse(res!.body).error_code).toBe(100053)
+    expect(sendToQueue).not.toHaveBeenCalled()
   })
 
   // B16: a refused message fell through with no answer, which API Gateway turned into a 502

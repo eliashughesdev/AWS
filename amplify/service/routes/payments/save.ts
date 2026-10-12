@@ -2,6 +2,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { transactWriteItems } from '../../../utils/db'
 import { processError } from '../../../errors/http'
+import { resolvePayer } from '../../../utils/payer'
 
 /**
  * Saves payment card data
@@ -11,7 +12,12 @@ export default class SavePaymentHandler {
     console.log('DEBUG: SavePaymentHandler execution started.')
 
     // paymentMethod is shaped and its cardData is Evervault ciphertext (schemas/payments/save.json)
-    const { paymentMethod, userId } = event.body
+    const { paymentMethod } = event.body
+
+    // Whose card this is is the caller's to prove (F3)
+    const payer = await resolvePayer(event.requestContext?.authorizer, event.body.userId)
+    if (payer.error) return payer.error
+    const userId = payer.userId
 
     const paymentId = crypto.randomUUID()
     const paymentRecord: Record<string, any> = {

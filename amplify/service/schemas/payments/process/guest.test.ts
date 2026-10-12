@@ -12,13 +12,15 @@ describe('POST /payments/process/guest body', () => {
     ['the widget\'s body', valid],
     ['a card the relay encrypted whole', { ...valid, cardData: { ...card, cardData: 'ev:Tk9OQ:encrypted-card' } }],
     ['a provider', { ...valid, provider: 'clover' }],
+    // F3: a signed-in user pays as themselves; the handler checks a merchant key's userId
+    ['a body without userId', { ...valid, userId: undefined }],
   ])('accepts %s', (_, body) => {
     expect(checkBodyAgainstSchema(body, schema)).toEqual({ valid: true })
   })
 
-  it.each(['cardData', 'userId', 'amount', 'currency'])('requires %s', field => {
+  it.each(['cardData', 'amount', 'currency'])('requires %s', field => {
     expect(checkBodyAgainstSchema({ ...valid, [field]: undefined }, schema))
-      .toEqual({ valid: false, code: 100029, message: 'cardData,userId,amount,currency' })
+      .toEqual({ valid: false, code: 100029, message: 'cardData,amount,currency' })
   })
 
   it.each(['lastFour', 'bin', 'cardType', 'cardData'])('requires cardData.%s', field => {

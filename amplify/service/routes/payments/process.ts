@@ -1,6 +1,7 @@
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
+import { resolvePayer } from '../../../utils/payer'
 
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the payment could not be queued; nothing was charged'
@@ -14,17 +15,12 @@ export default class ProcessPaymentHandler {
 
     const { paymentId, amount, currency, provider = 'stripe', transactionId, offSession, bin, email, firstName, lastName, returnUrl } = event.body
 
-    // A signed-in user pays as themselves; a platform key names the user it acts for
-    const authorizer = event.requestContext?.authorizer
-    const userId = authorizer?.role === 'user' ? authorizer.userId : event.body.userId
+    // A signed-in user pays as themselves; a merchant's key names one of its own users (F3)
+    const payer = await resolvePayer(event.requestContext?.authorizer, event.body.userId)
+    if (payer.error) return payer.error
+    const userId = payer.userId
 
     console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider)
-
-    // The body is shaped by schemas/payments/process.json, which cannot require userId:
-    // only a platform key sends it
-    if (!userId) {
-      return processError(100029, 'userId')
-    }
 
     try {
       // transactionId is used for WebSocket correlation (what frontend uses to connect)

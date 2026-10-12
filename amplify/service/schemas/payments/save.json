@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "POST /payments/save",
-  "$comment": "cardData must be Evervault ciphertext: this route is also on the public API, and a plain card sent straight to it would be stored, and logged by v2CustomerTable's stream handler (pci-remediation-plan.md F6 step 4). userId stays required until the handler takes it from the authorizer (F3).",
+  "$comment": "cardData must be Evervault ciphertext: this route is also on the public API, and a plain card sent straight to it would be stored, and logged by v2CustomerTable's stream handler (pci-remediation-plan.md F6 step 4). userId is optional: a signed-in user saves for themselves, and a merchant's key must name one of its own users, which the handler checks (pci-remediation-plan.md F3).",
   "type": "object",
-  "required": ["paymentMethod", "userId"],
+  "required": ["paymentMethod"],
   "properties": {
     "userId": { "type": "string", "minLength": 1 },
     "paymentMethod": {

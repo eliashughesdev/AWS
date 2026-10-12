@@ -76,7 +76,7 @@ D1 and D2 block Phase 0.
 |---|---|---|---|---|---|
 | F1 | ⬜ Not started | | | | |
 | F2 | ⬜ Not started | | | | |
-| F3 | ⬜ Not started | | | | |
+| F3 | 🟡 In progress | | | | Steps 1–4 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Step 5 open: the `PAYMENT#` key already ties a card to its user, a test is still to prove it |
 | F4 | ⬜ Not started | | | | |
 | F5 | ⬜ Not started | | | | |
 | F6 | ⬜ Not started | | | | |
@@ -178,16 +178,18 @@ it with `event.requestContext.authorizer.userId`. Any signed-in customer can lis
 customer's cards (which reveals the `paymentId`s) and then charge them.
 
 **Fix.**
-- [ ] **1.** In all four handlers, use `event.requestContext.authorizer.userId` as the only source
+- [x] **1.** In all four handlers, use `event.requestContext.authorizer.userId` as the only source
    of the user identity for `role: 'user'`. Ignore or reject a body or query `userId` that
    differs from it.
-- [ ] **2.** For the `admin` role (B2B keys), allow acting on behalf of a user only if that user is
+- [x] **2.** For the `admin` role (B2B keys), allow acting on behalf of a user only if that user is
    mapped to the calling platform. Check that `EXT#<platform>#…` maps to the user, or that
-   `USERPROFILE.platform` matches.
-- [ ] **3.** Add `allowedRoles` to all four routes in `router.ts` (`['user', 'admin']`). Today they
+   `USERPROFILE.platform` matches. *Done with `USERPROFILE.merchantId` against the key's
+   merchant; the authorizer now says `authType: 'key'`, since the Cognito group `admin` has
+   role `admin` too.*
+- [x] **3.** Add `allowedRoles` to all four routes in `router.ts` (`['user', 'admin']`). Today they
    have none.
-- [ ] **4.** Add a new error code to `amplify/errors/http.ts` for "not your resource". Don't reuse
-   one blindly (see `CLAUDE.md`).
+- [x] **4.** Add a new error code to `amplify/errors/http.ts` for "not your resource". Don't reuse
+   one blindly (see `CLAUDE.md`). *`100053`, answered with 403.*
 - [ ] **5.** In `paymentHandler.ts`, add a second check: re-confirm that the `PAYMENT#` row belongs
    to the `userId` in the message. The queue currently trusts its input completely.
 

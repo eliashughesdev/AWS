@@ -13,6 +13,10 @@ info:
     - A **signed-in user** calls with a Cognito access token (`userToken`). Every
       account, card and KYC route acts on that user only.
 
+    The card routes take either credential. A signed-in user acts on their own cards and
+    need not send `userId`; one naming another user is refused. A merchant names the
+    payer in `userId`, and only its own payers are allowed.
+
     Two routes, `/onboarding/verify` and `/onboarding/claim`, take no
     credential: the one-time token from the payer's claim link is the credential.
 
@@ -44,7 +48,8 @@ info:
     **Errors**
 
     A request the API refuses answers `400` with an `Error` body; `error_code` is stable,
-    `message` is for people and may change. A missing or refused credential answers `403`
+    `message` is for people and may change. `100053` (a user the caller may not act for)
+    answers `403` with an `Error` body instead. A missing or refused credential answers `403`
     from the gateway, before the request reaches the API, with a `GatewayError` body. Too
     many requests answer `429`.
 
@@ -829,18 +834,25 @@ paths:
         Stores a card for later deposits. `paymentMethod.cardData` must be encrypted with
         Evervault in the browser; this request goes through the Evervault relay, never
         straight from the browser with plain card data.
+      security:
+        - userToken: []
+        - merchantSignature: []
+          merchantProject: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [paymentMethod, userId]
+              required: [paymentMethod]
               properties:
                 userId:
                   type: string
                   minLength: 1
-                  description: The signed-in user's id.
+                  description: |
+                    Whose card it is. Required with a merchant key, and must be one of the
+                    merchant's own payers. A signed-in user may leave it out; if sent, it
+                    must be their own id.
                 paymentMethod:
                   type: object
                   required: [lastFour, bin, cardType, cardData]
@@ -869,14 +881,15 @@ paths:
                       paymentId: { type: string, format: uuid }
         '400':
           description: |
-            - `100029` `paymentMethod`, `userId` or a field of `paymentMethod` is missing
+            - `100029` `paymentMethod` or a field of it is missing, or a merchant key sent no
+              `userId`
             - `100031` a field is malformed, or `cardData` is not Evervault ciphertext
             - `100003` the card could not be saved
-            - `100002` the card could not be saved
+            - `100002` the card could not be saved, or the payer could not be checked
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/ForbiddenPayer' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /payments/list:
@@ -884,11 +897,18 @@ paths:
       tags: [Cards]
       operationId: listCards
       summary: A user's saved cards
+      security:
+        - userToken: []
+        - merchantSignature: []
+          merchantProject: []
       parameters:
         - name: userId
           in: query
-          required: true
-          description: The signed-in user's id.
+          required: false
+          description: |
+            Whose cards to list. Required with a merchant key, and must be one of the
+            merchant's own payers. A signed-in user may leave it out; if sent, it must be
+            their own id.
           schema: { type: string, minLength: 1, maxLength: 128 }
       responses:
         '200':
@@ -905,14 +925,14 @@ paths:
                     items: { $ref: '#/components/schemas/Card' }
         '400':
           description: |
-            - `100029` `userId` is missing
+            - `100029` a merchant key sent no `userId`
             - `100031` `userId` is empty or longer than 128 characters
             - `100003` the cards could not be read
-            - `100002` the cards could not be read
+            - `100002` the cards could not be read, or the payer could not be checked
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/ForbiddenPayer' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
 components:
@@ -942,6 +962,18 @@ components:
             oneOf:
               - $ref: '#/components/schemas/GatewayError'
               - $ref: '#/components/schemas/Message'
+    ForbiddenPayer:
+      description: |
+        The credential is missing or was refused, or the caller may not use this route; or
+        `100053`: `userId` names a user the caller may not act for (another user, or not
+        one of the merchant's own payers, including one that does not exist).
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/GatewayError'
+              - $ref: '#/components/schemas/Message'
+              - $ref: '#/components/schemas/Error'
     TooManyRequests:
       description: Too many requests. Wait and retry.
       content:
