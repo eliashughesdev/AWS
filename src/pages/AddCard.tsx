@@ -78,7 +78,8 @@ export default function AddCard({ user }: AddCardProps) {
               }
             })
         },
-        userId: user.username,
+        // The Cognito id: the API refuses any other user's (PCI F3)
+        userId: user.userId,
       }, {
         headers: {
           'X-Project': 'e2e-hmac',

@@ -140,7 +140,8 @@ const PaymentWidget = ({ user }: PaymentWidgetProps) => {
     setView('processing')
 
     try {
-      const userId = user?.username
+      // The API sends the result to the Cognito id it charged for (userId), not the username
+      const userId = user?.userId
       await connectWebSocket(txnId, userId)
 
       const session = await fetchAuthSession()
@@ -164,7 +165,6 @@ const PaymentWidget = ({ user }: PaymentWidgetProps) => {
         API_URL,
         {
           cardData: paymentMethodPayload,
-          userId,
           amount: AMOUNT,
           currency: CURRENCY,
           transactionId: txnId,

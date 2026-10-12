@@ -107,9 +107,6 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
             'X-Project': 'e2e-hmac',
             Authorization: `Bearer ${token}`,
           },
-          params: {
-            userId: user.username,
-          },
         }
       )
 
@@ -127,7 +124,8 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
   const connectWebSocket = (paymentId: string) => {
     return new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(
-        `${WS_URL}?userId=${encodeURIComponent(user.username)}&paymentId=${encodeURIComponent(paymentId)}`
+        // The API sends the result to the Cognito id it charged for (userId), not the username
+        `${WS_URL}?userId=${encodeURIComponent(user.userId)}&paymentId=${encodeURIComponent(paymentId)}`
       )
 
       ws.onopen = () => {
@@ -206,7 +204,6 @@ export default function ProcessPayment({ user }: ProcessPaymentProps) {
         `${API_BASE}/payments/process`,
         {
           paymentId: selectedPaymentId,
-          userId: user.username,
           amount,
           currency,
           provider,

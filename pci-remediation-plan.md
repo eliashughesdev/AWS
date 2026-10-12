@@ -76,7 +76,7 @@ D1 and D2 block Phase 0.
 |---|---|---|---|---|---|
 | F1 | ⬜ Not started | | | | |
 | F2 | ⬜ Not started | | | | |
-| F3 | 🟡 In progress | | | | Steps 1–4 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Step 5 open: the `PAYMENT#` key already ties a card to its user, a test is still to prove it |
+| F3 | 🟡 In progress | | | | Steps 1–5 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Frontends no longer send another id. Verified needs a deploy: `e2e/payments/CardOwnershipTest.ts` |
 | F4 | ⬜ Not started | | | | |
 | F5 | ⬜ Not started | | | | |
 | F6 | ⬜ Not started | | | | |
@@ -190,8 +190,10 @@ customer's cards (which reveals the `paymentId`s) and then charge them.
    have none.
 - [x] **4.** Add a new error code to `amplify/errors/http.ts` for "not your resource". Don't reuse
    one blindly (see `CLAUDE.md`). *`100053`, answered with 403.*
-- [ ] **5.** In `paymentHandler.ts`, add a second check: re-confirm that the `PAYMENT#` row belongs
+- [x] **5.** In `paymentHandler.ts`, add a second check: re-confirm that the `PAYMENT#` row belongs
    to the `userId` in the message. The queue currently trusts its input completely.
+   *Already true: the row is read by the message's `userId` and the card id together, so another
+   user's card is not found. `paymentHandler.test.ts` proves it; no second check was needed.*
 
 - [ ] **Verified:** E2E: user A's JWT calling `/payments/list?userId=<B>` gets a 403 (or only
 A's cards). User A calling `/payments/process` with B's `paymentId` gets a 403. A merchant

@@ -36,7 +36,7 @@ onMounted(async () => {
   try {
     await Promise.all([
       loadAccounts(),
-      loadCards(userId.value),
+      loadCards(),
     ])
 
     if (accounts.value.length > 0) selectedAccount.value = accounts.value[0].accountNo

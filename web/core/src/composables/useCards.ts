@@ -17,10 +17,10 @@ export function useCards() {
   const loading = ref(true)
 
   // Throws when the request itself fails; the list on screen is left as it was.
-  async function load(userId: string) {
+  async function load() {
     loading.value = true
     try {
-      const { data } = await listPaymentMethods(userId)
+      const { data } = await listPaymentMethods()
       cards.value = data.res ?? []
     } finally {
       loading.value = false
@@ -28,7 +28,7 @@ export function useCards() {
   }
 
   // Resolves false when the card is refused. The list is not re-read here.
-  async function save(userId: string, card: { number: string; cvc: string; month: string; year: string }) {
+  async function save(card: { number: string; cvc: string; month: string; year: string }) {
     const clean = card.number.replace(/\s/g, '')
     const { ok } = await savePaymentMethod({
       paymentMethod: {
@@ -37,7 +37,6 @@ export function useCards() {
         cardType: detectCardType(clean),
         cardData: JSON.stringify({ number: clean, cvc: card.cvc, expiry: { month: card.month, year: card.year } }),
       },
-      userId,
     })
     return ok
   }

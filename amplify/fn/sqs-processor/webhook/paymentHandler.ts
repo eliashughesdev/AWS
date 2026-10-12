@@ -58,7 +58,10 @@ export const handlePayment = async (message: any): Promise<boolean> => {
       return false
     }
   } else {
-    // Saved-card path — retrieve encrypted card data and stored credentials from DynamoDB
+    // Saved-card path — retrieve encrypted card data and stored credentials from DynamoDB.
+    // The key is the owner's id and the card id together, so another user's card id finds
+    // nothing: this is what keeps a payment to the owner's cards (F3; the route takes userId
+    // from the caller, utils/payer.ts). Never look a card up by its id alone.
     console.log('DEBUG: Querying for payment record...')
     const paymentRecord = await queryRecord('v2CustomerTable', 'id = :id AND sk = :sk', {
       ':id': userId,

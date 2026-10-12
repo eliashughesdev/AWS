@@ -8,7 +8,7 @@ import { useCards, detectCardType } from '@loudibly/core/composables/useCards'
 
 const router = useRouter()
 
-const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
+const { userEmail, displayName, load: loadUser } = useCurrentUser()
 const { cards, loading: cardsLoading, load, save } = useCards()
 
 const cardName   = ref('')
@@ -20,7 +20,7 @@ const saving     = ref(false)
 
 async function loadCards() {
   try {
-    await load(userId.value)
+    await load()
   } catch (e) {
     console.error('Failed to load cards', e)
   }
@@ -77,7 +77,7 @@ async function saveCard() {
 
   saving.value = true
   try {
-    const ok = await save(userId.value, { number: cardNumber.value, cvc: cvc.value, month, year })
+    const ok = await save({ number: cardNumber.value, cvc: cvc.value, month, year })
 
     if (!ok) {
       saveError.value = 'Failed to save card. Please try again.'
