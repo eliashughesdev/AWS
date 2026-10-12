@@ -5,6 +5,9 @@ import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
 
+// Nothing was charged when the job could not be queued, so the caller may send it again
+const NOT_QUEUED = 'the deposit could not be queued; nothing was charged'
+
 /**
  * Queues a deposit for async processing.
  * Charges the user's saved card and credits the target account balance on success.
@@ -121,10 +124,13 @@ export default class DepositHandler {
           }
         })
       }
+
+      console.error('ERROR: The queue refused the deposit job')
+      return processError(100002, NOT_QUEUED)
     } catch (err: any) {
       console.error('FATAL ERROR: Failed to queue deposit:', err)
       console.error('Error stack:', err.stack)
-      return processError(100029, 'Failed to queue deposit for processing')
+      return processError(100002, NOT_QUEUED)
     }
   }
 }

@@ -631,13 +631,14 @@ paths:
               schema: { $ref: '#/components/schemas/QueuedOperation' }
         '400':
           description: |
-            - `100029` a required field is missing, or the deposit could not be queued
+            - `100029` a required field is missing
             - `100031` a field is malformed: the account number, a `currency` that is not a
               3-letter code, an `amount` that is not a number above 0, or `email`
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` `currency` is not the account's
             - `100009` this coin cannot be bought with a card
+            - `100002` the deposit could not be queued; nothing was charged, so it can be sent again
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
