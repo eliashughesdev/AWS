@@ -565,7 +565,9 @@ paths:
             - `100029` a required field is missing
             - `100031` a field is malformed: an account number, `provider`, or an `amount` that is
               not a plain decimal above zero
+            - `100051` the sender and the recipient are the same account
             - `100001` the sender is not one of the user's accounts, or the recipient does not exist
+            - `100052` the recipient holds a different currency from the sender
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

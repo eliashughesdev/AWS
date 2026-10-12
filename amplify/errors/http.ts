@@ -30,6 +30,8 @@ const httpErrors: any = {
   100048: () => 'invalid destination address',
   100049: () => 'this user is not an active member of this merchant',
   100050: (params: any) => `this merchant is not set up for ${params} yet — its master must be provisioned first`,
+  100051: () => 'the sender and the recipient are the same account',
+  100052: (params: any) => `the recipient account does not hold ${params}`,
 }
 
 export const processError = (code: any, params?: any) => {
