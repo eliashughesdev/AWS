@@ -13,7 +13,8 @@ backend:
         - yarn install --frozen-lockfile
         # A failing test stops the job here: nothing is deployed, backend or frontend
         - yarn test --ci
-        - yarn ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+        # Deploys only when amplify/, package.json or yarn.lock changed since the last deploy
+        - scripts/ci/backend.sh
         - |
           if [ -d "evFunctions" ]; then
             CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "evFunctions/")

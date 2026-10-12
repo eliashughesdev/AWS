@@ -393,4 +393,10 @@ add new codes there rather than inlining error responses in handlers.
 - Standalone scripts live under `scripts/`, not the repo root: `setup/`, `migrations/`,
   `cleanup/`, `incidents/` are CloudShell runbooks against live AWS/Tatum (dry run by default,
   `--commit` to write); `tron-lab/` holds local testnet experiments run with `npx tsx`;
-  `checks/` holds checks that run locally with no deployed stack (see Commands).
+  `checks/` holds checks that run locally with no deployed stack (see Commands); `ci/` holds what
+  `amplify.yml` runs. `ci/backend.sh` deploys the backend only when `amplify/`, the root
+  `package.json` or `yarn.lock` changed since the branch's last deploy (a hash of them is kept in
+  SSM at `/amplify/ci/<appId>/<branch>/backend-inputs`); otherwise it only writes
+  `amplify_outputs.json`. So nothing in `amplify/` may read the environment at synth time, or a
+  console change would go undeployed: when one must, set `FORCE_BACKEND_DEPLOY=true` on the branch.
+  `ci/node.sh` picks the image's Node 20 instead of installing one.
