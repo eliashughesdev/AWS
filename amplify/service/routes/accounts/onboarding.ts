@@ -53,9 +53,9 @@ export default class OnboardingHandler {
 
     const { externalId, firstName, lastName, email, chain, transaction } = event.body
 
-    if (!transaction.id || typeof transaction.amount !== 'number' || !transaction.currency) {
-      return processError(100029, 'transaction.id, transaction.amount, transaction.currency')
-    }
+    // The body's shape is checked by its schema (schemas/accounts/onboarding.json). This is
+    // stricter than its email format: no quotes or backslashes, as the address goes into a
+    // Cognito ListUsers filter
     if (!EMAIL_RE.test(email)) return processError(100031, 'email')
     // No server-side default on purpose: a fallback would quietly create the wrong
     // kind of account, and a KMS key plus a Tatum account cannot be taken back.

@@ -32,6 +32,7 @@ import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
+import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -57,7 +58,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
-  ['/accounts/onboarding', { handler: accountsOnboarding, requiredParams: ['externalId', 'firstName', 'lastName', 'email', 'chain', 'transaction'], method: 'POST', allowedRoles: ['admin'] }],
+  ['/accounts/onboarding', { handler: accountsOnboarding, schema: accountsOnboardingSchema, method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, requiredParams: ['externalId'], method: 'POST', allowedRoles: ['admin'] }],
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
   ['/onboarding/verify', { handler: onboardingVerify, requiredParams: ['token'], method: 'POST' }],

@@ -38,6 +38,26 @@ describe('router body validation', () => {
     })
   })
 
+  describe('a route with a schema and allowed roles', () => {
+    const onboarding = (body: unknown, role: string) =>
+      router({ path: '/accounts/onboarding', httpMethod: 'POST', body: JSON.stringify(body), requestContext: { authorizer: { role } } } as any, {})
+
+    it('refuses the wrong role before looking at the body', async () => {
+      const execute = stubHandler('/accounts/onboarding')
+      const res = await onboarding({}, 'user')
+      expect(res.statusCode).toBe(403)
+      expect(execute).not.toHaveBeenCalled()
+    })
+
+    it('answers 100029 for a missing nested field without running the handler', async () => {
+      const execute = stubHandler('/accounts/onboarding')
+      const body = { externalId: 'e', firstName: 'J', lastName: 'P', email: 'j@example.com', chain: 'TRON', transaction: { id: 't', currency: 'EUR' } }
+      const res = await onboarding(body, 'admin')
+      expect(JSON.parse(res.body)).toMatchObject({ error_code: 100029, message: 'required parameters for this request are transaction.id,transaction.amount,transaction.currency' })
+      expect(execute).not.toHaveBeenCalled()
+    })
+  })
+
   describe('a route with requiredParams', () => {
     it('still answers 100029 when one is missing', async () => {
       const execute = stubHandler('/accounts/transactions')
