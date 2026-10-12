@@ -599,10 +599,13 @@ paths:
               type: object
               required: [accountNumber, currency, amount, paymentId]
               properties:
-                accountNumber: { type: string }
+                accountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                 currency:
                   type: string
-                  description: Fiat currency of the charge.
+                  pattern: '^[A-Z]{3}$'
+                  description: Fiat currency of the charge, as an ISO 4217 code.
                   example: USD
                 amount:
                   type: number
@@ -610,9 +613,11 @@ paths:
                   description: In `currency`.
                 paymentId:
                   type: string
+                  minLength: 1
                   description: A card from `/payments/list`.
                 transactionId:
                   type: string
+                  minLength: 1
                   description: Your reference for this deposit. One is generated when omitted.
                 email:
                   type: string
@@ -627,6 +632,8 @@ paths:
         '400':
           description: |
             - `100029` a required field is missing, or the deposit could not be queued
+            - `100031` a field is malformed: the account number, a `currency` that is not a
+              3-letter code, an `amount` that is not a number above 0, or `email`
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` `currency` is not the account's
