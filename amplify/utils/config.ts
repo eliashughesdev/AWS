@@ -47,3 +47,18 @@ export function claimTokenTtlSeconds(): number {
   const raw = Number(process.env.CLAIM_TOKEN_TTL_SECONDS)
   return raw > 0 ? raw : DEFAULT_CLAIM_TOKEN_TTL_SECONDS
 }
+
+const DEFAULT_FRONTEND_APP_PATH = '/v2'
+
+/**
+ * Address of the UI that emailed links open: FRONTEND_URL plus the folder in
+ * FRONTEND_APP_PATH, with no trailing slash. An unset path means /v2 and "/"
+ * the site root. Undefined when FRONTEND_URL is unset — each caller decides
+ * what that means. Call after loadConfig().
+ */
+export function frontendAppUrl(): string | undefined {
+  const site = process.env.FRONTEND_URL?.trim().replace(/\/+$/, '')
+  if (!site) return undefined
+  const path = (process.env.FRONTEND_APP_PATH?.trim() || DEFAULT_FRONTEND_APP_PATH).replace(/^\/+|\/+$/g, '')
+  return path ? `${site}/${path}` : site
+}

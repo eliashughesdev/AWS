@@ -1,5 +1,5 @@
 import { ClaimToken } from './claimToken'
-import { brandName } from './config'
+import { brandName, frontendAppUrl } from './config'
 import { getEmailProvider } from './EmailProvider'
 import { claimInviteEmail } from './emailTemplates'
 
@@ -10,13 +10,13 @@ import { claimInviteEmail } from './emailTemplates'
  *  */
 export const sendClaimInvite = async (email: string, firstName: string | null | undefined, claim: ClaimToken, intro?: string): Promise<boolean> => {
   try {
-    const base = process.env.FRONTEND_URL?.replace(/\/+$/, '')
+    const base = frontendAppUrl()
     if (!base) throw new Error('FRONTEND_URL is not set')
 
     const message = claimInviteEmail({
       brand: brandName(),
       firstName,
-      link: `${base}/v2/set-password?token=${encodeURIComponent(claim.token)}`,
+      link: `${base}/set-password?token=${encodeURIComponent(claim.token)}`,
       expiresAt: claim.expiresAt,
       intro,
     })

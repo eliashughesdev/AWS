@@ -1,5 +1,5 @@
 import type { CustomMessageTriggerHandler } from 'aws-lambda'
-import { brandName, loadConfig } from '../../utils/config'
+import { brandName, frontendAppUrl, loadConfig } from '../../utils/config'
 
 export const handler: CustomMessageTriggerHandler = async (event) => {
   if (
@@ -9,17 +9,17 @@ export const handler: CustomMessageTriggerHandler = async (event) => {
     await loadConfig()
     const brand = brandName()
     // From SSM. Without it the email ships code-only, with no one-click link.
-    const frontendUrl = process.env.FRONTEND_URL
+    const appUrl = frontendAppUrl()
 
     const email = event.request.userAttributes.email ?? ''
     // codeParameter is the literal placeholder "{####}" — Cognito substitutes the
     // real code everywhere it appears in the message, including inside the link URL
     const code = event.request.codeParameter
 
-    const linkBlock = frontendUrl
+    const linkBlock = appUrl
       ? [
           '<p>Enter it in the app, or confirm your email with one click:</p>',
-          `<p style="margin: 16px 0 24px;"><a href="${frontendUrl}/v2/confirm?email=${encodeURIComponent(email)}&code=${code}" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; border: 2px solid #3d3d3d;">Confirm my email</a></p>`,
+          `<p style="margin: 16px 0 24px;"><a href="${appUrl}/confirm?email=${encodeURIComponent(email)}&code=${code}" style="display: inline-block; padding: 12px 24px; background-color: #1a1a1a; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; border: 2px solid #3d3d3d;">Confirm my email</a></p>`,
         ]
       : ['<p>Enter it in the app to confirm your email.</p>']
 

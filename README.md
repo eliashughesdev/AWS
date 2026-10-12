@@ -61,7 +61,8 @@ must exist in SSM Parameter Store for those functions to work:
 | `DIDIT_WEBHOOK_SECRET` | Secret used to verify Didit KYC webhook signatures |
 | `EMAIL_PROVIDER` | Which email provider implementation to use; defaults to `AWS_SIMPLE_EMAIL_SERVICE` if unset |
 | `SES_FROM_EMAIL` | "From" address used when sending email through Amazon SES |
-| `FRONTEND_URL` | Base URL of the frontend; used to build password-claim/verification links and Stripe 3-D-Secure return URLs |
+| `FRONTEND_URL` | Base URL of the frontend site; used to build password-claim/verification links (with `FRONTEND_APP_PATH`) and Stripe 3-D-Secure return URLs |
+| `FRONTEND_APP_PATH` | Folder of the UI that emailed links open (the confirmation link and the password-claim link), appended to `FRONTEND_URL`: `/noda` gives `{FRONTEND_URL}/noda/confirm` and `{FRONTEND_URL}/noda/set-password`. Optional — falls back to `/v2` if unset; `/` means the site root. To go back, set it to `/v2` rather than deleting it: a deleted parameter stays in a warm Lambda's environment |
 | `BRAND_NAME` | Product name used in every user-facing email (e.g. `NODA`). No default: the email senders throw if it is missing. Must match the frontend's `VITE_BRAND`, which is set separately in the Amplify console — otherwise payers get an email for one brand and land on a site skinned as another |
 | `CLAIM_TOKEN_TTL_SECONDS` | How many seconds a password-claim link (onboarding + resend) stays valid before `100035`. Optional — falls back to `604800` (7 days) if unset or not a positive number |
 | `TATUM_BASE_URL` | Base URL for the Tatum API; defaults to `https://api.tatum.io/v3` if unset |

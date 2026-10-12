@@ -250,7 +250,16 @@ file per route in `amplify/service/schemas/` mirroring its path (`/accounts/deta
 (`utils/params.ts`), whose handlers must still validate their own nested fields. Routes are being
 moved to schemas one at a time; a new route gets a schema and its tests. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
 into `process.env` on cold start / at most once a minute; env access after that is normal
-`process.env.X`.
+`process.env.X`. It only adds and overwrites: a parameter deleted in SSM stays in a warm Lambda,
+so a setting is undone by writing its old value, never by deleting it.
+
+**Emailed links go through `frontendAppUrl()`** (`utils/config.ts`): `FRONTEND_URL` plus the
+folder in `FRONTEND_APP_PATH` (unset means `/v2`, `/` the site root), with no trailing slash, and
+`undefined` when `FRONTEND_URL` is unset. The confirmation email (`auth/custom-message/handler.ts`)
+and the claim invite (`utils/claimInvite.ts`, used by onboarding, its resend and
+`/merchants/members-invite`) append `/confirm` and `/set-password` to it; a new link into a UI
+does the same and never writes a folder itself. Stripe's 3-D Secure return uses `FRONTEND_URL`
+alone (the React pages), and Didit returns to `DIDIT_CALLBACK_URL`, a whole address of its own.
 
 **Two auth paths, one authorizer.** `amplify/fn/authorizer/handler.ts` is a CDK-defined
 `RequestAuthorizer` (not part of the Amplify-managed backend, added directly to `apiStack`)
