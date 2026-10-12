@@ -75,7 +75,15 @@ export default class DepositHandler {
 
     if (accountChain) {
       console.log(`DEBUG: Crypto account detected (chain: ${accountChain}). Fetching exchange rate ${accountChain}/${currency}`)
-      exchangeRate = await fetchCryptoPrice(accountChain, currency)
+      try {
+        exchangeRate = await fetchCryptoPrice(accountChain, currency)
+      } catch (err) {
+        console.error('ERROR: Exchange rate lookup failed:', err)
+      }
+      // A zero or unreadable rate would credit Infinity or NaN coins
+      if (!exchangeRate || !(exchangeRate > 0)) {
+        return processError(100002, `no ${accountChain} price in ${currency} could be read; nothing was charged`)
+      }
       cryptoAmount = parseFloat((amount / exchangeRate).toFixed(8))
       console.log(`DEBUG: Exchange rate: 1 ${accountChain} = ${exchangeRate} ${currency} → crediting ${cryptoAmount} ${accountChain}`)
     }

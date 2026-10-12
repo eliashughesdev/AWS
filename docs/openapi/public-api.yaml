@@ -638,7 +638,8 @@ paths:
             - `100005` the account belongs to someone else
             - `100006` `currency` is not the account's
             - `100009` this coin cannot be bought with a card
-            - `100002` the deposit could not be queued; nothing was charged, so it can be sent again
+            - `100002` nothing was charged: the deposit could not be queued (send it again), or no
+              price for the account's coin in `currency` could be read
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
