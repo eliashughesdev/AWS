@@ -58,6 +58,33 @@ describe('router body validation', () => {
     })
   })
 
+  describe('a GET route with a schema', () => {
+    const get = (path: string, query: Record<string, string> | null) =>
+      router({ path, httpMethod: 'GET', body: null, queryStringParameters: query } as any, {})
+
+    it('checks the query string and runs the handler when it matches', async () => {
+      const execute = stubHandler('/payments/list')
+      const res = await get('/v1/payments/list', { userId: 'user-1' })
+      expect(res.statusCode).toBe(200)
+      expect(execute).toHaveBeenCalledTimes(1)
+    })
+
+    // A GET with no query string has queryStringParameters null
+    it('answers 100029 without running the handler when there is no query string', async () => {
+      const execute = stubHandler('/payments/list')
+      const res = await get('/payments/list', null)
+      expect(JSON.parse(res.body)).toMatchObject({ error_code: 100029, message: 'required parameters for this request are userId' })
+      expect(execute).not.toHaveBeenCalled()
+    })
+
+    it('answers 100031 without running the handler when a value is wrong', async () => {
+      const execute = stubHandler('/payments/list')
+      const res = await get('/payments/list', { userId: '' })
+      expect(JSON.parse(res.body)).toMatchObject({ error_code: 100031, message: 'invalid value for userId' })
+      expect(execute).not.toHaveBeenCalled()
+    })
+  })
+
   describe('a route with requiredParams', () => {
     it('still answers 100029 when one is missing', async () => {
       const execute = stubHandler('/accounts/transactions')

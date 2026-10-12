@@ -256,7 +256,8 @@ webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowed
 then body validation. A route either names a JSON schema (draft-07, Ajv, `utils/schema.ts`), one
 file per route in `amplify/service/schemas/` mirroring its path (`/accounts/details` →
 `schemas/accounts/details.json`): a missing required field answers `100029`, any other mismatch
-`100031` with the field. Or it lists `requiredParams`, the older top-level-only check
+`100031` with the field. A GET route's schema describes its query string
+(`queryStringParameters`, every value a string) instead. Or it lists `requiredParams`, the older top-level-only check
 (`utils/params.ts`), whose handlers must still validate their own nested fields. Routes are being
 moved to schemas one at a time; a new route gets a schema and its tests. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
 into `process.env` on cold start / at most once a minute; env access after that is normal

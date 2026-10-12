@@ -10,12 +10,8 @@ export default class ListPaymentsHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: ListPaymentsHandler execution started.')
 
-    // Get userId from query parameters
-    const userId = event.queryStringParameters?.userId
-
-    if (!userId) {
-      return processError(100029, 'Missing userId parameter')
-    }
+    // The query string is shaped by schemas/payments/list.json
+    const userId = event.queryStringParameters.userId
 
     try {
       console.log(`DEBUG: Querying payment methods for user: ${userId}`)

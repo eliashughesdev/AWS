@@ -889,7 +889,7 @@ paths:
           in: query
           required: true
           description: The signed-in user's id.
-          schema: { type: string }
+          schema: { type: string, minLength: 1, maxLength: 128 }
       responses:
         '200':
           description: The cards.
@@ -906,6 +906,7 @@ paths:
         '400':
           description: |
             - `100029` `userId` is missing
+            - `100031` `userId` is empty or longer than 128 characters
             - `100003` the cards could not be read
             - `100002` the cards could not be read
           content:

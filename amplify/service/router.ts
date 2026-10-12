@@ -40,6 +40,7 @@ import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
 import accountsWithdrawSchema from './schemas/accounts/withdraw.json'
 import paymentsSaveSchema from './schemas/payments/save.json'
+import paymentsListSchema from './schemas/payments/list.json'
 import paymentsProcessSchema from './schemas/payments/process.json'
 import paymentsProcessGuestSchema from './schemas/payments/process/guest.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
@@ -54,7 +55,8 @@ type RoutesMap = Map<string, {
   method: string
   allowedRoles?: ('admin' | 'user' | 'staff' | 'merchant')[]
 } & (
-  // A JSON schema for the body (amplify/service/schemas/), or the older top-level-only check
+  // A JSON schema for the body, or for a GET route the query string (amplify/service/schemas/),
+  // or the older top-level-only check
   { schema: Record<string, any>, requiredParams?: never } | { requiredParams: string[], schema?: never }
 )>
 
@@ -81,7 +83,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
   ['/payments/save', { handler: savePayment, schema: paymentsSaveSchema, method: 'POST' }],
-  ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
+  ['/payments/list', { handler: listPayments, schema: paymentsListSchema, method: 'GET' }],
   ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST' }],
   ['/payments/process/guest', { handler: processGuestPayment, schema: paymentsProcessGuestSchema, method: 'POST' }],
   ['/merchants/register', { handler: merchantRegister, requiredParams: ['name'], method: 'POST', allowedRoles: ['staff'] }],
@@ -92,7 +94,7 @@ export const routes: RoutesMap = new Map([
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
 ])
 
-export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null }, context: any) => {
+export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null, queryStringParameters?: Record<string, string | undefined> | null }, context: any) => {
   // Never the event itself: its body and headers carry passwords, tokens and credentials
   console.log('DEBUG: Router initiated:', JSON.stringify(describeRequest(event)))
 
@@ -150,7 +152,9 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
 
     // Parameter Validation
     if (route.schema) {
-      const _check = checkBodyAgainstSchema(event.body, route.schema)
+      // A GET has no body: its schema describes the query string
+      const input = route.method === 'GET' ? event.queryStringParameters ?? {} : event.body
+      const _check = checkBodyAgainstSchema(input, route.schema)
       console.log('DEBUG: Schema Check Result:', _check.valid ? 'Valid' : `${_check.code} ${_check.message}`)
 
       if (!_check.valid) return processError(_check.code, _check.message)
