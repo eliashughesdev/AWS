@@ -5,6 +5,23 @@ import { sendToQueue } from '../../../utils/sqs'
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the payment could not be queued; nothing was charged'
 
+// The schema lets cardData.cardData be one ev: value or a JSON object; the object must hold
+// number, cvc and expiry.month/year as ciphertext and nothing else, or a plain card would be
+// queued and logged (pci-remediation-plan.md F6 step 4)
+export const isEncryptedCard = (cardData: string): boolean => {
+  if (cardData.startsWith('ev:')) return true
+  let card: any
+  try {
+    card = JSON.parse(cardData)
+  } catch {
+    return false
+  }
+  const encrypted = (value: unknown) => typeof value === 'string' && value.startsWith('ev:')
+  const keys = (value: unknown) => value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort().join() : ''
+  return keys(card) === 'cvc,expiry,number' && keys(card.expiry) === 'month,year' &&
+    [card.number, card.cvc, card.expiry.month, card.expiry.year].every(encrypted)
+}
+
 /**
  * Queues a guest (widget) payment for async processing.
  * Card data is provided inline and encrypted client-side via Evervault SDK.
@@ -14,7 +31,12 @@ export default class ProcessGuestPaymentHandler {
   async execute(event: any) {
     console.log('DEBUG: ProcessGuestPaymentHandler execution started.')
 
+    // The body is shaped by schemas/payments/process/guest.json
     const { cardData, userId, amount, currency, provider = 'stripe', transactionId } = event.body
+
+    if (!isEncryptedCard(cardData.cardData)) {
+      return processError(100031, 'cardData.cardData')
+    }
 
     const effectiveTransactionId = transactionId || `txn_${Date.now()}`
     // Synthetic paymentId used only for logging — never persisted to DynamoDB
