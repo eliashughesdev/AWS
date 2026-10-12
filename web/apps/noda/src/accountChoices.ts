@@ -3,7 +3,7 @@
 // account's name. Coins go in the New Account dialog's order.
 import type { Account } from '@loudibly/core/api/types'
 import { coinFor, networkName, newAccountChains } from './coins'
-import { placeholderName } from './placeholders/accountNames'
+import { accountLabel } from './format'
 
 const coinOrder = newAccountChains.map(chain => coinFor(chain).symbol)
 const rank = (symbol: string) => (coinOrder.indexOf(symbol) + 1) || coinOrder.length + 1
@@ -12,7 +12,7 @@ export function accountChoices(accounts: Account[]) {
   return accounts
     .map(account => {
       const coin = coinFor(account.chain)
-      const name = placeholderName(account.accountNo)
+      const name = accountLabel(account)
       const title = coin.name === coin.symbol ? coin.symbol : `${coin.name} (${coin.symbol})`
       return {
         value:     account.accountNo,

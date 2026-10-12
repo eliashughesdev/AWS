@@ -54,6 +54,7 @@ import cardSm from './assets/icons/card-sm.png'
 import bankSm from './assets/icons/bank-sm.png'
 import copyLight from './assets/icons/copy-light.png'
 import copyLightSm from './assets/icons/copy-light-sm.png'
+import pencil from './assets/icons/pencil.png'
 
 export const icons = {
   dashboard:      { src: dashboard,    w: 22, h: 19 },
@@ -111,6 +112,8 @@ export const icons = {
   'card-sm':      { src: cardSm,       w: 16.5, h: 13.5 },
   'bank-sm':      { src: bankSm,       w: 15, h: 15 },
   'copy-light-sm': { src: copyLightSm, w: 16.5, h: 16 },
+  // Not in Figma: Material Symbols' "edit", made into a mask by brand-source/tools/pencil-mask.cjs.
+  pencil:         { src: pencil,       w: 16, h: 16 },
 }
 
 export type IconName = keyof typeof icons

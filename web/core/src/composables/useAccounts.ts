@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref } from 'vue'
-import { createAccount, listAccounts } from '../api/accounts'
+import { createAccount, listAccounts, renameAccount } from '../api/accounts'
 import { LEDGER_PROVIDER } from '../config'
 import type { Account } from '../api/types'
 
@@ -63,7 +63,7 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
   // Sends the request only — the view decides what counts as success and re-reads the list.
   function create({ chain, accountName, email, userId }: {
     chain: string
-    accountName: string
+    accountName?: string
     email: string
     userId?: string
   }) {
@@ -77,5 +77,10 @@ export function useAccounts({ pollWhileImporting = false } = {}) {
     })
   }
 
-  return { accounts, cryptoAccounts, loading, failed, load, refresh, create }
+  // Sends the request only, like create.
+  function rename(accountNumber: string, name: string) {
+    return renameAccount({ accountNumber, name })
+  }
+
+  return { accounts, cryptoAccounts, loading, failed, load, refresh, create, rename }
 }

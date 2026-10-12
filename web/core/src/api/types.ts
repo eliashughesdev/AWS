@@ -3,6 +3,8 @@
 
 export interface Account {
   accountNo: string
+  // What its owner typed, or the account number when they typed nothing.
+  name: string
   chain: string
   currency: string
   depositAddress: string

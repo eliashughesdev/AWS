@@ -73,7 +73,6 @@ async function createAccount(chain: string) {
   createError.value   = ''
   try {
     const { ok } = await postAccount({
-      accountName: `${meta(chain).label} Account`,
       chain,
       userId:      userId.value,
       email:       userEmail.value,

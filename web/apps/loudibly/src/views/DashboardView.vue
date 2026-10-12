@@ -61,7 +61,6 @@ async function createAccount(chain: string) {
   accountLoading.value = chain
   try {
     const { data } = await postAccount({
-      accountName: displayName.value,
       email: userEmail.value,
       chain,
     })

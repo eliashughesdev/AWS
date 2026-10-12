@@ -13,7 +13,7 @@ export function listTransactions(accountNumber: string) {
 }
 
 export function createAccount(body: {
-  accountName: string
+  accountName?: string
   email: string
   chain: string
   provider: string
@@ -21,6 +21,11 @@ export function createAccount(body: {
   userId?: string
 }) {
   return request<{ success?: boolean }>('/accounts/account', { method: 'POST', body })
+}
+
+// A blank name gives the account its number back as its name.
+export function renameAccount(body: { accountNumber: string; name: string }) {
+  return request<{ success?: boolean }>('/accounts/rename', { method: 'POST', body })
 }
 
 export function deposit(body: {

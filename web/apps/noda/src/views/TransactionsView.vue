@@ -12,8 +12,7 @@ import ListState from '../components/ListState.vue'
 import StatusPill from '../components/StatusPill.vue'
 import { activityKind } from '../activity'
 import { coinFor } from '../coins'
-import { BLANK, coinAmount, dateTime, priced, shorten, usdSum, usdValue } from '../format'
-import { placeholderName } from '../placeholders/accountNames'
+import { BLANK, accountLabel, coinAmount, dateTime, priced, shorten, usdSum, usdValue } from '../format'
 import { fees, summary } from '../placeholders/transactions'
 
 const columns = ['ID', 'Type', 'Currency', 'Amount', 'From/To', 'Fee', 'Status', 'Date/Time']
@@ -62,10 +61,10 @@ const valueOf = (amount: number, chain: string) => usdValue(amount, prices.value
 // Every transaction the page lists, newest first. A FEE and a type activity.ts does not know are left out.
 const rows = computed(() => {
   const chainOf = new Map(cryptoAccounts.value.map(account => [account.accountNo, account.chain]))
-  // The user's own accounts under their made-up names, by number (a transfer) and by address.
-  const names = new Map(cryptoAccounts.value.flatMap(({ accountNo, depositAddress }): [string, string][] => {
-    const name = placeholderName(accountNo)
-    return [[accountNo, name], [depositAddress, name]]
+  // The user's own accounts under their names, by number (a transfer) and by address.
+  const names = new Map(cryptoAccounts.value.flatMap((account): [string, string][] => {
+    const name = accountLabel(account)
+    return [[account.accountNo, name], [account.depositAddress, name]]
   }))
   const party = (value: unknown) => {
     const text = String(value ?? '')
@@ -82,7 +81,7 @@ const rows = computed(() => {
     // A withdrawal that failed or is uncertain has no chain transaction, only its request's id.
     const id = String(tx.txId ?? tx.reference ?? '')
     // The user's side is the account, whichever address signed (a token leaves from the master's).
-    const own = placeholderName(tx.accountNo)
+    const own = party(tx.accountNo)
     const other = party(kind.incoming ? tx.from : tx.to)
     return [{
       key:      `${tx.accountNo}:${tx.type}:${id || tx.createdAt}`,
@@ -239,9 +238,10 @@ const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font
         </p>
         <p class="mt-[3.5px] text-[10px] leading-none font-medium text-muted">{{ priced(row.value) }}</p>
       </div>
-      <div role="cell" class="min-w-0 pb-[2px] pl-[2.5px] pr-[8px] text-[12px] leading-[14px] font-semibold">
-        <p class="truncate">{{ row.from }}</p>
-        <p class="flex items-center gap-[3px] pl-[2px]"><AppIcon name="arrow-right" /><span class="truncate">{{ row.to }}</span></p>
+      <!-- A long account name is cut to the column: without the containment it would widen the whole table. -->
+      <div role="cell" class="min-w-0 contain-inline-size pb-[2px] pl-[2.5px] pr-[8px] text-[12px] leading-[14px] font-semibold">
+        <p class="truncate" :title="row.from">{{ row.from }}</p>
+        <p class="flex items-center gap-[3px] pl-[2px]"><AppIcon name="arrow-right" /><span class="truncate" :title="row.to">{{ row.to }}</span></p>
       </div>
       <span role="cell" class="text-[14px] font-medium">{{ row.fee }}</span>
       <span role="cell"><StatusPill :status="row.status" /></span>

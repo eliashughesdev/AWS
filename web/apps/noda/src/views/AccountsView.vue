@@ -11,13 +11,12 @@ import AppIcon from '../components/AppIcon.vue'
 import CoinImage from '../components/CoinImage.vue'
 import ListState from '../components/ListState.vue'
 import { coinFor, newAccountChains } from '../coins'
-import { priced, usdValue } from '../format'
-import { placeholderName } from '../placeholders/accountNames'
+import { accountLabel, priced, typedName, usdValue } from '../format'
 
 const router = useRouter()
-const { cryptoAccounts, failed, load, refresh, create } = useAccounts()
+const { cryptoAccounts, failed, load, refresh, create, rename } = useAccounts()
 const { prices, load: loadPrices } = usePrices()
-const { userEmail, displayName, load: loadUser } = useCurrentUser()
+const { userEmail, load: loadUser } = useCurrentUser()
 
 const state = ref<'loading' | 'failed' | 'ready'>('loading')
 
@@ -39,7 +38,8 @@ onMounted(read)
 
 const cards = computed(() => cryptoAccounts.value.map(account => ({
   accountNo: account.accountNo,
-  name:      placeholderName(account.accountNo),
+  name:      accountLabel(account),
+  typed:     typedName(account),
   status:    account.status,
   balance:   priced(usdValue(account.balance, prices.value[account.chain])),
   address:   account.depositAddress,
@@ -48,10 +48,11 @@ const cards = computed(() => cryptoAccounts.value.map(account => ({
 })))
 
 // New Account. Not in Figma: the whole dialog, put together from Deposit's tiles and Withdraw's
-// warning box and button. Light draws a chosen tile like the others, so here it keeps its border.
+// field, warning box and button. Light draws a chosen tile like the others, so here it keeps its border.
 const options = newAccountChains.map(chain => ({ chain, ...coinFor(chain) }))
 const dialogOpen = ref(false)
 const chain = ref(newAccountChains[0])
+const accountName = ref('')
 const creating = ref(false)
 const problem = ref('')
 
@@ -63,14 +64,15 @@ const problems = {
 
 function openDialog() {
   chain.value = newAccountChains[0]
+  accountName.value = ''
   problem.value = ''
   dialogOpen.value = true
 }
 
 async function requestAccount(): Promise<'created' | keyof typeof problems> {
   try {
-    // The backend takes this name for the person's profile, when they have none yet.
-    const { ok, status, data } = await create({ chain: chain.value, accountName: displayName.value, email: userEmail.value })
+    // Without a name the backend names the account by its number.
+    const { ok, status, data } = await create({ chain: chain.value, accountName: accountName.value.trim() || undefined, email: userEmail.value })
     if (ok && data.success) return 'created'
     // The merchant has no master for this token.
     if (data.error_code === 100050) return 'unavailable'
@@ -101,9 +103,42 @@ async function createAccount() {
   else problem.value = problems[outcome]
 }
 
+// Rename. Not in Figma: the pencil on a card and this dialog.
+const renaming = ref('')
+const newName = ref('')
+const saving = ref(false)
+const renameProblem = ref('')
+
+function openRename(card: { accountNo: string; typed: string }) {
+  newName.value = card.typed
+  renameProblem.value = ''
+  renaming.value = card.accountNo
+}
+
+async function saveName() {
+  saving.value = true
+  renameProblem.value = ''
+  // Sending it again does no harm, so every failure is the same to the user.
+  const result = await rename(renaming.value, newName.value.trim()).catch(() => null)
+  const saved = !!result?.ok && !!result.data.success
+  if (saved) await refresh().catch(() => {})
+  saving.value = false
+
+  if (saved) renaming.value = ''
+  else renameProblem.value = 'The name could not be saved. Try again.'
+}
+
 const frame = 'card bg-account mt-[20px] rounded-[10px] lg:-ml-px lg:-mr-[2px] lg:mt-[24px]'
 const newAccount = 'bg-cta h-[32px] w-[100px] rounded-[7.5px] text-[10px] font-semibold text-white lg:h-[40px] lg:w-[128px] lg:rounded-[10px] lg:text-[14px] lg:font-medium'
 const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:opacity-60 lg:h-[50px] lg:text-[16px] lg:font-medium'
+const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[14px]'
+// A hint stays grey in light too: in ink it would read as a name already typed.
+const input = 'mt-[16.5px] flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field px-[9px] text-[12px] font-medium light:shadow-(--shadow-card) lg:mt-[20px] lg:h-[50px] lg:px-[17px] lg:text-[14px]'
+const field = 'min-w-0 flex-1 bg-transparent text-ink text-ellipsis placeholder:text-muted'
+const warning = 'mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-warn-ink [--icon-scale:0.78] lg:mt-[20px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]'
+const warningText = 'ml-[9px] text-[12px] leading-[14px] lg:ml-[9.5px] lg:text-[14px] lg:leading-[18px]'
+const dialogButtons = 'mt-[20px] grid grid-cols-2 gap-[15px] lg:mt-[28.5px]'
+const mainButton = 'bg-cta border-[0.5px] border-card-line text-white light:border-0'
 </script>
 
 <template>
@@ -135,12 +170,13 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
       :balance="card.balance"
       :address="card.address"
       :holdings="card.holdings"
+      @rename="openRename(card)"
     />
   </div>
 
   <AppDialog v-if="dialogOpen" title="New Account" :locked="creating" @close="dialogOpen = false">
     <form @submit.prevent="createAccount">
-      <p class="text-[12px] leading-none font-semibold text-muted lg:text-[14px]">Select Currency</p>
+      <p :class="label">Select Currency</p>
       <div class="mt-[16.5px] space-y-[15px] lg:mt-[20px]">
         <button
           v-for="option in options"
@@ -160,14 +196,40 @@ const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:
         </button>
       </div>
 
-      <div v-if="problem" role="alert" class="mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-warn-ink [--icon-scale:0.78] lg:mt-[20px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]">
+      <p class="mt-[20px] lg:mt-[28.5px]" :class="label">Account Name</p>
+      <label :class="input">
+        <input v-model="accountName" type="text" maxlength="40" autocomplete="off" placeholder="Leave empty to use the account number" aria-label="Account name" :disabled="creating" :class="field" />
+      </label>
+
+      <div v-if="problem" role="alert" :class="warning">
         <AppIcon name="info" />
-        <p class="ml-[9px] text-[12px] leading-[14px] lg:ml-[9.5px] lg:text-[14px] lg:leading-[18px]">{{ problem }}</p>
+        <p :class="warningText">{{ problem }}</p>
       </div>
 
-      <div class="mt-[20px] grid grid-cols-2 gap-[15px] lg:mt-[28.5px]">
+      <div :class="dialogButtons">
         <button type="button" class="button-outline" :class="dialogButton" :disabled="creating" @click="dialogOpen = false">Cancel</button>
-        <button type="submit" class="bg-cta border-[0.5px] border-card-line text-white light:border-0" :class="dialogButton" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
+        <button type="submit" :class="[mainButton, dialogButton]" :disabled="creating">{{ creating ? 'Creating…' : 'Create account' }}</button>
+      </div>
+    </form>
+  </AppDialog>
+
+  <AppDialog v-if="renaming" title="Rename Account" :locked="saving" @close="renaming = ''">
+    <form @submit.prevent="saveName">
+      <p :class="label">Account Name</p>
+      <label :class="input">
+        <!-- At 10px the whole number fits a 320px screen. -->
+        <input v-model="newName" type="text" maxlength="40" autocomplete="off" :placeholder="renaming" aria-label="Account name" :disabled="saving" class="max-lg:placeholder:text-[10px]" :class="field" />
+      </label>
+      <p class="mt-[10.5px] text-[10px] leading-none font-medium text-muted lg:mt-[14.5px] lg:text-[14px]">Leave empty to use the account number.</p>
+
+      <div v-if="renameProblem" role="alert" :class="warning">
+        <AppIcon name="info" />
+        <p :class="warningText">{{ renameProblem }}</p>
+      </div>
+
+      <div :class="dialogButtons">
+        <button type="button" class="button-outline" :class="dialogButton" :disabled="saving" @click="renaming = ''">Cancel</button>
+        <button type="submit" :class="[mainButton, dialogButton]" :disabled="saving">{{ saving ? 'Saving…' : 'Save' }}</button>
       </div>
     </form>
   </AppDialog>

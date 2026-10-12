@@ -4,6 +4,7 @@ import AppIcon from './AppIcon.vue'
 
 // `status` is the backend's own word for the account's state.
 const props = defineProps<{ name: string; status: string; balance: string; address: string; holdings: string[] }>()
+const emit = defineEmits<{ rename: [] }>()
 
 // Only "Active" is drawn. The other two looks are not from the design.
 const state = computed(() => {
@@ -32,8 +33,19 @@ const label = 'text-[12px] leading-none font-semibold text-muted lg:ml-[2.5px] l
 <template>
   <div class="card bg-account rounded-[10px] pb-[29px] pl-[11px] pr-[14px] pt-[24.5px] lg:px-[19px] lg:pb-[23px] lg:pt-[24px]">
     <div class="flex items-start">
-      <h2 class="text-[18px] leading-none font-[450] max-lg:ml-[2.5px] lg:text-[22px] lg:font-semibold">{{ name }}</h2>
-      <p class="ml-auto mr-px flex items-center gap-[4px] text-[12px] leading-none font-semibold text-muted max-lg:mt-[4.5px]">
+      <!-- The padding keeps the letters' tails inside the box that cuts a long name. -->
+      <h2 :title="name" class="-my-[4px] min-w-0 truncate py-[4px] text-[18px] leading-none font-[450] max-lg:ml-[2.5px] lg:text-[22px] lg:font-semibold">{{ name }}</h2>
+      <!-- Not in Figma: the pencil, where the design's first card has its star. -->
+      <button
+        type="button"
+        aria-label="Rename account"
+        title="Rename account"
+        class="-my-[4px] ml-[2px] grid size-[26px] shrink-0 place-items-center text-muted [--icon-scale:0.875] lg:-my-[3px] lg:size-[28px] lg:[--icon-scale:1]"
+        @click="emit('rename')"
+      >
+        <AppIcon name="pencil" />
+      </button>
+      <p class="ml-auto mr-px flex shrink-0 items-center gap-[4px] pl-[8px] text-[12px] leading-none font-semibold text-muted max-lg:mt-[4.5px]">
         <span class="size-[7px] rounded-full" :class="state.dot" />
         {{ state.label }}
       </p>

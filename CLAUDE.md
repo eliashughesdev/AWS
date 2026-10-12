@@ -35,10 +35,16 @@ There are three deployable pieces in this one repo:
     it in `PageAction`),
     Convert, Payments and Earn, whose
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
-    user's accounts with their value in USD and opens new ones from the New Account dialog.
-    Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
-    number): the backend stores one now (`name` on `/accounts/list`, `/accounts/rename`), and
-    the app does not read it yet. `src/coins.ts`
+    user's accounts with their value in USD, opens new ones from the New Account dialog, which
+    takes an optional name, and renames one from the pencil on its card (a blank name goes back
+    to the account number). An account is shown everywhere under `accountLabel()`
+    (`src/format.ts`): the name its owner typed, whole, or the account number cut short when they
+    typed none. The backend then answers the number as the name, which is how `typedName()`
+    tells the two apart. A typed name can be 40 characters long, so a line that shows one must be
+    able to end in "…" (`min-w-0 truncate`, with a little vertical padding where the line is
+    `leading-none`, or the letters' tails are cut). In a `DataTable` its cell also takes
+    `contain-inline-size`: the table is as wide as its content, and a long name would widen
+    every column. `src/coins.ts`
     maps a backend `chain` to the symbol, name and coin art shown, and names its network
     (`networkName()`, the test network's name unless the build is for mainnet). `src/format.ts` formats
     money, coin amounts, dates and relative times, and cuts an id or an address short; a value in
@@ -51,7 +57,7 @@ There are three deployable pieces in this one repo:
     still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
     the user's crypto accounts, a search, three filters, and four totals that cover the chosen
     date range. It opens on the type and range given in the address
-    (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's made-up name. Its Fee column and
+    (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column and
     the % line under each total are still mockup data (`placeholders/transactions.ts`); the
     real fee waits for a backend change (`fee` on the withdrawal rows of
     `/accounts/transactions`). Deposit is real for the Crypto method: a dropdown with one line
@@ -129,7 +135,8 @@ There are three deployable pieces in this one repo:
     what an image there shows. The design has no SVG
     icons: they are cut from those images as mask PNGs (`src/assets/icons/`, sizes in
     `src/icons.ts`, drawn by `AppIcon` in the text colour; its `mobile` prop names a second
-    cut for below the `lg` breakpoint). The coins are masks too (`src/assets/coins/`, cut by
+    cut for below the `lg` breakpoint). One icon is not from the design: `pencil`, Material
+    Symbols' "edit" made into a mask by `brand-source/tools/pencil-mask.cjs`. The coins are masks too (`src/assets/coins/`, cut by
     `brand-source/tools/coin-masks.cjs`): each is one ink on a flat disc, so `src/coins.ts` gives
     a coin its mask and a tone (disc colour and ink), and `CoinImage` draws the disc, the mark
     and a 1px ring that light does not have.
@@ -152,7 +159,9 @@ There are three deployable pieces in this one repo:
   instead of calling `api/*` themselves: a `load()` throws when the request itself fails and
   the view decides what to show. It does not throw when the server refuses the read:
   `useAccounts().failed` says so, and a view must check it before showing an empty list as the
-  user's; `useTransactions().failed` and `useKyc().failed` say the same for theirs. Opening a
+  user's; `useTransactions().failed` and `useKyc().failed` say the same for theirs.
+  `useAccounts().create()` and `rename()` only send the request: the view decides what counts as
+  success and reads the list again with `refresh()`. Opening a
   Didit session resets the stored KYC status, so a view offers `useKyc().start()` only when the
   status was read and is not approved or pending. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
   value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text

@@ -59,3 +59,11 @@ export function dateTime(iso: string) {
 // "92d2be…d2fb": the two ends of a transaction id or an address.
 export const shorten = (text: string, head = 6, tail = 4) =>
   text.length <= head + tail + 1 ? text : `${text.slice(0, head)}…${text.slice(-tail)}`
+
+// The name an account's owner typed. With none the backend answers the account number, and this is empty.
+export const typedName = ({ name, accountNo }: { name?: string; accountNo: string }) =>
+  name && name !== accountNo ? name : ''
+
+// An account's name as shown: a typed one whole, the account number cut short.
+export const accountLabel = (account: { name?: string; accountNo: string }) =>
+  typedName(account) || shorten(account.accountNo)
