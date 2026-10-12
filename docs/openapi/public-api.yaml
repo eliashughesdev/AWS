@@ -472,7 +472,10 @@ paths:
               type: object
               required: [accountNumber]
               properties:
-                accountNumber: { type: string }
+                accountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
+                  description: The account's number, as `/accounts/list` gives it.
       responses:
         '200':
           description: The transactions.
@@ -488,6 +491,7 @@ paths:
         '400':
           description: |
             - `100029` `accountNumber` is missing
+            - `100031` `accountNumber` is not an account number
             - `100001` no such account
           content:
             application/json:

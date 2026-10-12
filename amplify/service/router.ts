@@ -33,6 +33,7 @@ import { checkBodyAgainstSchema } from '../utils/schema'
 import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
+import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -59,7 +60,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
   ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
-  ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
+  ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, schema: accountsOnboardingSchema, method: 'POST', allowedRoles: ['admin'] }],
