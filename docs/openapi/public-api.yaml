@@ -229,7 +229,7 @@ paths:
               type: object
               required: [token]
               properties:
-                token: { type: string, description: The token from the claim link. }
+                token: { type: string, minLength: 1, description: The token from the claim link. }
       responses:
         '200':
           description: The link can be used.
@@ -253,6 +253,7 @@ paths:
         '400':
           description: |
             - `100029` `token` is missing
+            - `100031` `token` is empty or not a string
             - `100034` the link is not valid
             - `100035` the link has expired
             - `100036` the link has already been used
