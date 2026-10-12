@@ -17,9 +17,10 @@ export default class ProcessPaymentHandler {
 
     console.log('DEBUG: Queueing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', transactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider)
 
-    // Validate required parameters
-    if (!paymentId || !userId || !amount || !currency) {
-      return processError(100029, 'Missing required parameters: paymentId, userId, amount, or currency')
+    // The body is shaped by schemas/payments/process.json, which cannot require userId:
+    // only a platform key sends it
+    if (!userId) {
+      return processError(100029, 'userId')
     }
 
     try {

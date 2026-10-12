@@ -38,6 +38,7 @@ import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
 import accountsWithdrawSchema from './schemas/accounts/withdraw.json'
 import paymentsSaveSchema from './schemas/payments/save.json'
+import paymentsProcessSchema from './schemas/payments/process.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -77,7 +78,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
   ['/payments/save', { handler: savePayment, schema: paymentsSaveSchema, method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
-  ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
+  ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST' }],
   ['/payments/process/guest', { handler: processGuestPayment, requiredParams: ['cardData', 'userId', 'amount', 'currency'], method: 'POST' }],
   ['/merchants/register', { handler: merchantRegister, requiredParams: ['name'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/masters/provision', { handler: provisionMerchantMaster, requiredParams: ['merchantId', 'currency'], method: 'POST', allowedRoles: ['staff'] }],
