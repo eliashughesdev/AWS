@@ -43,7 +43,6 @@ export default class AccountHandler {
       sk: 'USERPROFILE',
       created_at: Date.now(),
       deleted_at: null,
-      name: event.body.accountName,
       email: email ?? null,
       // Not onboarded by a merchant, so a direct customer of the system
       merchantId: SYSTEM_MERCHANT_ID,
@@ -57,6 +56,7 @@ export default class AccountHandler {
         provider,
         accountingCurrency: event.body.accountingCurrency,
         merchantId,
+        name: event.body.accountName,
       })
 
       const result = await transactWriteItems({

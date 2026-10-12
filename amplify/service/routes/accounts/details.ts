@@ -52,6 +52,7 @@ export default class DetailsHandler {
 
     const res = { ...accountDet, ...balance }
 
+    res.name = accountDet.name ?? accountDet.accountNo
     delete res.vAccountId
     delete res.providerId
 

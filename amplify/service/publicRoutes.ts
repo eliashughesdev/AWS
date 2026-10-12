@@ -28,6 +28,7 @@ export const publicRoutes: PublicRoute[] = [
   { path: '/accounts/profile/save', method: 'POST', auth: 'custom' },
   { path: '/accounts/list', method: 'GET', auth: 'custom' },
   { path: '/accounts/account', method: 'POST', auth: 'custom' },
+  { path: '/accounts/rename', method: 'POST', auth: 'custom' },
   { path: '/accounts/transactions', method: 'POST', auth: 'custom' },
   { path: '/accounts/kyc/status', method: 'GET', auth: 'custom' },
   { path: '/accounts/kyc/didit/session', method: 'POST', auth: 'custom' },

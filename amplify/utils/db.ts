@@ -163,13 +163,15 @@ interface IUpdateItemRequest {
  * }
  */
 export const updateItem = async (r: IUpdateItemRequest) => {
+  const values = marshall(r.attributeValues, { removeUndefinedValues: true })
   const command = new UpdateItemCommand({
     TableName: r.tableName,
     Key: marshall(r.key, { removeUndefinedValues: true }),
     UpdateExpression: r.updateExpression,
     ConditionExpression: r.conditionExpression,
     ExpressionAttributeNames: r.attributeNames,
-    ExpressionAttributeValues: marshall(r.attributeValues, { removeUndefinedValues: true }),
+    // DynamoDB refuses an empty map, which an expression with no values (a bare REMOVE) would send
+    ExpressionAttributeValues: Object.keys(values).length ? values : undefined,
     ReturnValues: r.returnValues,
   })
 

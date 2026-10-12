@@ -5,6 +5,7 @@ import accountsKycStatus from './routes/accounts/kyc-status'
 import accountsDetails from './routes/accounts/details'
 import accountsAccount from './routes/accounts/account'
 import accountsList from './routes/accounts/list'
+import accountsRename from './routes/accounts/rename'
 import accountsProfile from './routes/accounts/profile'
 import accountsProfileSave from './routes/accounts/profile-save'
 import accountsTransactions from './routes/accounts/transactions'
@@ -33,6 +34,7 @@ import { checkBodyAgainstSchema } from '../utils/schema'
 import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
+import accountsRenameSchema from './schemas/accounts/rename.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -62,6 +64,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
+  ['/accounts/rename', { handler: accountsRename, schema: accountsRenameSchema, method: 'POST' }],
   ['/accounts/onboarding', { handler: accountsOnboarding, schema: accountsOnboardingSchema, method: 'POST', allowedRoles: ['admin'] }],
   ['/accounts/onboarding/resend', { handler: accountsOnboardingResend, schema: accountsOnboardingResendSchema, method: 'POST', allowedRoles: ['admin'] }],
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.

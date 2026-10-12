@@ -40,6 +40,7 @@ export default class AccountsListHandler {
       const bal = balanceResults[i].res
       return {
         accountNo: item.accountNo,
+        name: item.name ?? item.accountNo,
         chain: item.chain ?? null,
         depositAddress: item.depositAddress,
         currency: item.currency,

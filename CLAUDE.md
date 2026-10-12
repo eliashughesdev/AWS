@@ -37,7 +37,8 @@ There are three deployable pieces in this one repo:
     content is all mockup data kept in `src/placeholders/`. Accounts is real: it lists the
     user's accounts with their value in USD and opens new ones from the New Account dialog.
     Only an account's name is made up (`placeholders/accountNames.ts`, picked from the account
-    number), because the backend stores none; storing one waits for the client. `src/coins.ts`
+    number): the backend stores one now (`name` on `/accounts/list`, `/accounts/rename`), and
+    the app does not read it yet. `src/coins.ts`
     maps a backend `chain` to the symbol, name and coin art shown, and names its network
     (`networkName()`, the test network's name unless the build is for mainnet). `src/format.ts` formats
     money, coin amounts, dates and relative times, and cuts an id or an address short; a value in
@@ -309,6 +310,14 @@ cancels the subscription, removes the address and deactivates the VA (an unused 
 an index). It writes nothing, so a caller whose
 own write then fails must call `discardProvisionedAccount(provider, account, writeError)`.
 
+**An account's name is optional.** `name` is on the `ACCOUNT#` row only when its owner typed one:
+`accountName` on `/accounts/account` (optional, 40 characters at most, trimmed), or
+`/accounts/rename`, which is keyed on the caller's user id and removes the name when sent a blank
+one. `/accounts/list` and `/accounts/details` answer `name ?? accountNo`, so a client never gets
+a missing name. `accountName` no longer names the person: the profile a first account creates has
+no `name` until `/accounts/profile/save` gives it one. `updateItem` (`utils/db.ts`) sends no
+`ExpressionAttributeValues` when it has none, which a bare `REMOVE` needs.
+
 **DynamoDB is single-table-ish per concern**, all defined in `amplify/backend.ts` (not in
 `amplify/data/resource.ts` — that file only has an unrelated placeholder `User` model on the
 Amplify Data/AppSync side, not the real schema). Key tables: `v2CustomerTable` (composite
@@ -395,7 +404,11 @@ add new codes there rather than inlining error responses in handlers.
   is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
   rule in the Amplify console, above the general rule that sends every address without a dot to
   the root app (NODA's: `</^/noda(/[^.]*)?$/>` to `/noda/index.html`, type 200). Without it,
-  that app's addresses show the root app.
+  that app's addresses show the root app. The old UI's rule, `</^/v2/[^.]+$/>`, wants a
+  character after the slash, so the bare `/v2/` shows the root app.
+- The site's bare address is a console rule too, the first in the list: `/` answers 302 to
+  `/noda/` on staging, and still to `/v2/auth` on `my.noda.money` until that console is changed.
+  The rules are kept in each Amplify console only; no file in the repo holds them.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 

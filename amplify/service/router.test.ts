@@ -67,3 +67,25 @@ describe('router body validation', () => {
     })
   })
 })
+
+describe('router on the public API', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  const accountNumber = 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4'
+  const publicPost = (path: string, body: unknown) =>
+    router({ path, httpMethod: 'POST', body: JSON.stringify(body), stageVariables: { API_SURFACE: 'public' } }, {})
+
+  it('runs a route that is in publicRoutes', async () => {
+    const execute = stubHandler('/accounts/rename')
+    const res = await publicPost('/v1/accounts/rename', { accountNumber, name: 'Savings' })
+    expect(res.statusCode).toBe(200)
+    expect(execute).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers 404 for a route that is not', async () => {
+    const execute = stubHandler('/accounts/details')
+    const res = await publicPost('/v1/accounts/details', { accountNumber })
+    expect(res.statusCode).toBe(404)
+    expect(execute).not.toHaveBeenCalled()
+  })
+})

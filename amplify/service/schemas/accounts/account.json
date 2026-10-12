@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "POST /accounts/account",
   "type": "object",
-  "required": ["accountName", "chain", "provider", "accountingCurrency"],
+  "required": ["chain", "provider", "accountingCurrency"],
   "properties": {
-    "accountName": { "type": "string", "minLength": 1 },
+    "accountName": { "type": "string", "maxLength": 40 },
     "chain": { "type": "string", "minLength": 1 },
     "provider": { "type": "string", "enum": ["PCF0001"] },
     "accountingCurrency": { "type": "string", "minLength": 1 },
