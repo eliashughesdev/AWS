@@ -48,6 +48,8 @@ frontend:
   phases:
     preBuild:
       commands:
+        # Temporary: checks that a variable set in the Amplify console reaches these commands.
+        - echo "Console variable test VITE_API_BASE='$VITE_API_BASE'"
         - yarn install --frozen-lockfile
         - cd web && yarn install --frozen-lockfile && cd ..
     build:
