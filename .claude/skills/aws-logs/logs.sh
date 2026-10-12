@@ -45,7 +45,7 @@ to_seconds() {
 stack_groups() {
   local filter="${1:-}"
   aws_ logs describe-log-groups --query 'logGroups[].logGroupName' --output text | tr '\t' '\n' |
-    grep -E "^/aws/lambda/amplify-${APP_ID}-|^/aws/lambda/(custom-authorizer-fn|sqsV1WebhookProcessorFn|sqsV1GeneralProcessorFn|streamTopicHandlerFn|wsConnectHandlerFn|wsDisconnectHandlerFn)$|^/aws/apigateway/LoudiblyRestApi$|^API-Gateway-Execution-Logs_" |
+    grep -E "^/aws/lambda/amplify-${APP_ID}-|^/aws/lambda/(custom-authorizer-fn|sqsV1WebhookProcessorFn|sqsV1GeneralProcessorFn|streamTopicHandlerFn|wsConnectHandlerFn|wsDisconnectHandlerFn)$|^/aws/apigateway/Loudibly(Rest|Public)Api$|^API-Gateway-Execution-Logs_" |
     grep -vE 'BranchLinker|BucketDeploy|S3AutoDeleteObject|TableManagerCustomProvid' |
     { if [[ -n "$filter" ]]; then grep -i -- "$filter"; else cat; fi; } || true
 }

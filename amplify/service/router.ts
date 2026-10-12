@@ -28,6 +28,7 @@ import inviteMerchantMember from './routes/merchants/members-invite'
 import removeMerchantMember from './routes/merchants/members-remove'
 import setTreasuryPolicy from './routes/merchants/policy'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
+import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
@@ -72,7 +73,7 @@ export const routes: RoutesMap = new Map([
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
 ])
 
-export const router = async (event: { body: any, path: string, httpMethod: string }, context: any) => {
+export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null }, context: any) => {
   // DEBUG: Log the full incoming event object
   console.log('DEBUG: Router initiated. Incoming Event:', JSON.stringify(event))
 
@@ -80,6 +81,14 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   // Custom-domain requests arrive as /v1/<route>; direct execute-api calls as /<route>.
   const routePath = event.path.replace(/^\/v1(?=\/)/, '')
   const route = routes.get(routePath)
+
+  // The public API has a resource for its routes only; this keeps it that way
+  // if a resource is ever added there by mistake
+  const viaPublicApi = event.stageVariables?.API_SURFACE === PUBLIC_API_SURFACE
+  if (route && viaPublicApi && !isPublicRoute(routePath, event.httpMethod)) {
+    console.log(`DEBUG: Route ${routePath} is not public, refused on the public API`)
+    return response({ statusCode: 404, headers: null, bodyObject: { message: 'Not Found' } })
+  }
 
   if (!route) {
     // DEBUG: Route not found

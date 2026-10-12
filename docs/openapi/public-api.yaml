@@ -1,0 +1,1047 @@
+openapi: 3.1.0
+info:
+  title: Loudibly Public API
+  version: '2.0.6'
+  description: |
+    The Loudibly API for merchant platforms and their users.
+
+    **Two kinds of caller**
+
+    - A **merchant platform** calls from its server, signing each request with its
+      API key (`merchantSignature` + `merchantProject`). It registers payers after
+      charging them (`/accounts/onboarding`) and reissues their claim links.
+    - A **signed-in user** calls with a Cognito access token (`userToken`). Every
+      account, card and KYC route acts on that user only.
+
+    Two routes, `/onboarding/verify` and `/onboarding/claim`, take no
+    credential: the one-time token from the payer's claim link is the credential.
+
+    **Signing a merchant request**
+
+    ```
+    X-Project:     <merchant id>
+    Authorization: Signature <timestamp>:<bodyHash>:<signature>
+    ```
+
+    - `timestamp`: milliseconds since the Unix epoch. A request older than 10 seconds
+      is refused.
+    - `bodyHash`: the hex MD5 of the request body exactly as sent.
+    - `signature`: `base64(HMAC-SHA256(key, path + timestamp + bodyHash))`, where `key` is
+      the API key's secret (hex-decoded) and `path` is the request path including the
+      stage, e.g. `/v1/accounts/onboarding`.
+
+    ```js
+    const path = '/v1/accounts/onboarding'
+    const body = JSON.stringify(payload)
+    const timestamp = Date.now()
+    const bodyHash = crypto.createHash('md5').update(body).digest('hex')
+    const signature = crypto
+      .createHmac('sha256', Buffer.from(secret, 'hex'))
+      .update(`${path}${timestamp}${bodyHash}`)
+      .digest('base64')
+    ```
+
+    **Errors**
+
+    A request the API refuses answers `400` with an `Error` body; `error_code` is stable,
+    `message` is for people and may change. A missing or refused credential answers `403`
+    from the gateway, before the request reaches the API, with a `GatewayError` body. Too
+    many requests answer `429`.
+
+    **Amounts and times** are JSON numbers. Times named `createdAt`, `expiresAt` or
+    `claimExpiresAt` are milliseconds since the epoch unless a field says it is an ISO
+    8601 string.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/v1
+    description: The deployed public API (`loudiblyPublicApi`, stage `v1`)
+    variables:
+      apiId:
+        default: your-api-id
+        description: The public API's id, from the stack outputs
+      region:
+        default: eu-west-3
+        enum: [eu-west-3, us-east-2]
+tags:
+  - name: Merchant onboarding
+    description: Called by a merchant platform's server with its API key.
+  - name: Claim link
+    description: The payer's first visit. No credential beyond the link's token.
+  - name: Profile
+    description: The signed-in user's name and email.
+  - name: Accounts
+    description: The signed-in user's custodial accounts, balances and history.
+  - name: Money movement
+    description: Transfers act at once; deposits and withdrawals are queued and finish later.
+  - name: KYC
+    description: Identity checks, run by Didit.
+  - name: Cards
+    description: Cards saved for deposits.
+
+security:
+  - userToken: []
+
+paths:
+  /accounts/onboarding:
+    post:
+      tags: [Merchant onboarding]
+      operationId: onboardPayer
+      summary: Register a payer after a card payment
+      description: |
+        Call after charging a payer's card on your platform. A payer you have not sent
+        before gets a login, a custodial account on `chain` and a one-time claim link,
+        emailed to them, for choosing a password. A payer you have sent before is only
+        acknowledged. No money is moved.
+
+        `transaction.id` makes the call idempotent: sending the same id again answers
+        `200` with `replayed: true` and creates nothing.
+
+        `externalId` is the payer's id on your platform; it only has to be unique among
+        your own payers.
+      security:
+        - merchantSignature: []
+          merchantProject: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OnboardingRequest' }
+            example:
+              externalId: usr_9f3a2b
+              firstName: Juan
+              lastName: Perez
+              email: juan@example.com
+              chain: TRON
+              transaction:
+                id: txn_abc123
+                amount: 50.00
+                currency: EUR
+                paidAt: '2026-09-09T10:22:31Z'
+      responses:
+        '201':
+          description: A new payer was registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingResponse' }
+              example:
+                success: true
+                res:
+                  data:
+                    userId: 0b9e4a7c-3f1d-4e0a-9d2b-6c8f1e2a3b4c
+                    isNew: true
+                    accountNo: '1000000123'
+                    depositAddress: TQ5n8aV7xY3m2kP9wR4sJ6tL1cE8bH7dG2
+                    claimToken: q3J8k...base64url
+                    claimExpiresAt: 1789000000000
+                    emailSent: true
+        '200':
+          description: A known payer, or a replay of a `transaction.id` already received.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OnboardingResponse' }
+        '400':
+          description: |
+            - `100029` a required field is missing
+            - `100031` a field is not valid (`email`)
+            - `100009` `chain` is not supported
+            - `100040` the merchant does not exist or is not active
+            - `100050` the merchant cannot hold `chain` yet
+            - `100032` the email belongs to another user
+            - `100033` the transaction was already processed
+            - `100003` the records could not be saved; retry with the same `transaction.id`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/onboarding/resend:
+    post:
+      tags: [Merchant onboarding]
+      operationId: resendClaimLink
+      summary: Reissue a payer's claim link
+      description: |
+        Sends the payer a new claim link and makes the previous one unusable. Only for a
+        payer who has not chosen a password yet.
+      security:
+        - merchantSignature: []
+          merchantProject: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [externalId]
+              properties:
+                externalId:
+                  type: string
+                  description: The payer's id on your platform, as sent to `/accounts/onboarding`.
+            example:
+              externalId: usr_9f3a2b
+      responses:
+        '200':
+          description: A new link was issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [userId, claimToken, claimExpiresAt, emailSent]
+                        properties:
+                          userId: { type: string }
+                          claimToken: { type: string }
+                          claimExpiresAt: { type: integer, format: int64 }
+                          emailSent: { type: boolean }
+        '400':
+          description: |
+            - `100029` `externalId` is missing
+            - `100038` no payer with this `externalId`
+            - `100039` the payer has already chosen a password
+            - `100003` the new link could not be saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /onboarding/verify:
+    post:
+      tags: [Claim link]
+      operationId: verifyClaimLink
+      summary: Check a claim link
+      description: Says whether the link can still be used and who it is for. Does not use it up.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: The token from the claim link. }
+      responses:
+        '200':
+          description: The link can be used.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [email, firstName, expiresAt]
+                        properties:
+                          email: { type: string, format: email }
+                          firstName: { type: [string, 'null'] }
+                          expiresAt: { type: integer, format: int64 }
+        '400':
+          description: |
+            - `100029` `token` is missing
+            - `100034` the link is not valid
+            - `100035` the link has expired
+            - `100036` the link has already been used
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /onboarding/claim:
+    post:
+      tags: [Claim link]
+      operationId: claimAccount
+      summary: Choose a password with a claim link
+      description: |
+        Sets the payer's password and uses up the link. The payer can sign in at once. A
+        password the policy refuses leaves the link usable.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: The password is set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [email]
+                        properties:
+                          email: { type: string, format: email }
+        '400':
+          description: |
+            - `100029` `token` or `password` is missing
+            - `100031` `password` is not a string
+            - `100034` the link is not valid
+            - `100035` the link has expired
+            - `100036` the link has already been used
+            - `100037` the password does not meet the policy (the message says why)
+            - `100003` the password could not be set
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/profile:
+    get:
+      tags: [Profile]
+      operationId: getProfile
+      summary: The signed-in user's profile
+      responses:
+        '200':
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name, email]
+                properties:
+                  name: { type: [string, 'null'] }
+                  email: { type: [string, 'null'], format: email }
+        '400':
+          description: '`100001` the user has no profile yet.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/profile/save:
+    post:
+      tags: [Profile]
+      operationId: saveProfile
+      summary: Change the signed-in user's name or email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1 }
+                email: { type: string, format: email, description: Left as it is when omitted. }
+      responses:
+        '200':
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Success' }
+        '400':
+          description: |
+            - `100029` `name` is missing or blank
+            - `100003` the profile could not be saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/list:
+    get:
+      tags: [Accounts]
+      operationId: listAccounts
+      summary: The signed-in user's accounts and balances
+      responses:
+        '200':
+          description: Every account, with its balance.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Account' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500':
+          description: The accounts could not be read.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+
+  /accounts/account:
+    post:
+      tags: [Accounts]
+      operationId: createAccount
+      summary: Open an account for the signed-in user
+      description: Opens a custodial account on `chain`, with its own deposit address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [account_name, chain, provider, accounting_currency]
+              properties:
+                account_name:
+                  type: string
+                  description: Stored as the user's name when this is their first account.
+                chain: { $ref: '#/components/schemas/Currency' }
+                provider: { $ref: '#/components/schemas/LedgerProvider' }
+                accounting_currency:
+                  type: string
+                  description: Fiat currency the account is valued in.
+                  example: USD
+                email:
+                  type: string
+                  format: email
+                  description: When given, a welcome email is sent there.
+            example:
+              account_name: Savings
+              chain: USDT_TRON
+              provider: PCF0001
+              accounting_currency: USD
+      responses:
+        '200':
+          description: The account is open.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [id, accountNo, depositAddress]
+                        properties:
+                          id: { type: string, description: The user's id. }
+                          accountNo: { type: string }
+                          depositAddress: { type: string }
+        '400':
+          description: |
+            - `100029` `account_name` is missing
+            - `100009` `chain` is not supported
+            - `100050` the user's merchant cannot hold `chain` yet
+            - `100003` the account could not be saved
+            - `100002` the account could not be created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/transactions:
+    post:
+      tags: [Accounts]
+      operationId: listTransactions
+      summary: One account's transactions, newest first
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountNumber]
+              properties:
+                accountNumber: { type: string }
+      responses:
+        '200':
+          description: The transactions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transactions]
+                properties:
+                  transactions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+        '400':
+          description: |
+            - `100029` `accountNumber` is missing
+            - `100001` no such account
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: The account belongs to someone else, or the credential was refused.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Message'
+                  - $ref: '#/components/schemas/GatewayError'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500':
+          description: The transactions could not be read.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+
+  /accounts/transfer:
+    post:
+      tags: [Money movement]
+      operationId: transfer
+      summary: Move funds from one of the user's accounts to another account
+      description: |
+        Moves `amount` from the user's account to any account, at once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, senderAccountNumber, recipientAccountNumber, amount]
+              properties:
+                provider: { $ref: '#/components/schemas/LedgerProvider' }
+                senderAccountNumber:
+                  type: string
+                  description: Must be one of the signed-in user's accounts.
+                recipientAccountNumber: { type: string }
+                amount:
+                  type: string
+                  description: In the accounts' currency, as a decimal string.
+                  example: '12.5'
+      responses:
+        '200':
+          description: The funds were moved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [transactionId]
+                        properties:
+                          transactionId: { type: string }
+        '400':
+          description: |
+            - `100029` a required field is missing
+            - `100001` the sender is not one of the user's accounts, or the recipient does not exist
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500':
+          description: The ledger refused the transfer (for instance, too little balance).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+
+  /accounts/deposit:
+    post:
+      tags: [Money movement]
+      operationId: deposit
+      summary: Fund an account from a saved card
+      description: |
+        Queues a charge of `amount` in `currency` to the saved card `paymentId`, credited
+        to the account once the charge succeeds. For a crypto account the amount is
+        converted at the current rate; the response gives the expected coin amount. The
+        result arrives later: the deposit appears in `/accounts/transactions`.
+
+        Only native coins (`TRON`, `SOL`) can be bought with a card.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountNumber, currency, amount, paymentId]
+              properties:
+                accountNumber: { type: string }
+                currency:
+                  type: string
+                  description: Fiat currency of the charge.
+                  example: USD
+                amount:
+                  type: number
+                  exclusiveMinimum: 0
+                  description: In `currency`.
+                paymentId:
+                  type: string
+                  description: A card from `/payments/list`.
+                transactionId:
+                  type: string
+                  description: Your reference for this deposit. One is generated when omitted.
+                email:
+                  type: string
+                  format: email
+                  description: Receipt address.
+      responses:
+        '200':
+          description: The deposit is queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuedOperation' }
+        '400':
+          description: |
+            - `100029` a required field is missing, or the deposit could not be queued
+            - `100001` no such account
+            - `100005` the account belongs to someone else
+            - `100006` `currency` is not the account's
+            - `100009` this coin cannot be bought with a card
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/withdraw:
+    post:
+      tags: [Money movement]
+      operationId: withdraw
+      summary: Send coins from an account to an outside address
+      description: |
+        Takes the amount from the account's available balance at once and queues the
+        send. Give either `cryptoAmount` (in the account's coin) or `amount` (in fiat
+        `currency`, converted at the current rate).
+
+        The send finishes later and shows in `/accounts/transactions` as `WITHDRAWAL`,
+        `WITHDRAWAL_FAILED` or `WITHDRAWAL_UNCERTAIN` (the result is not known yet). A withdrawal whose result is not known must not be sent
+        again: the coins may already have left.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountNumber, currency, destinationAddress]
+              properties:
+                accountNumber: { type: string }
+                currency:
+                  type: string
+                  description: Fiat currency of `amount`.
+                  example: USD
+                amount:
+                  type: number
+                  exclusiveMinimum: 0
+                  description: In `currency`. Used when `cryptoAmount` is omitted.
+                cryptoAmount:
+                  type: number
+                  exclusiveMinimum: 0
+                  description: In the account's coin, up to 8 decimals.
+                destinationAddress:
+                  type: string
+                  description: An address on the account's network.
+                transactionId:
+                  type: string
+                  description: Your reference for this withdrawal. One is generated when omitted.
+            example:
+              accountNumber: '1000000123'
+              currency: USD
+              cryptoAmount: 25
+              destinationAddress: TQ5n8aV7xY3m2kP9wR4sJ6tL1cE8bH7dG2
+      responses:
+        '200':
+          description: The withdrawal is queued.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueuedOperation' }
+        '400':
+          description: |
+            - `100029` a required field is missing, or the withdrawal could not be queued
+            - `100001` no such account
+            - `100005` the account belongs to someone else
+            - `100006` the account cannot send coins
+            - `100007` the available balance is too low
+            - `100008` `destinationAddress` is missing
+            - `100009` withdrawals of this coin are not available
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/kyc/status:
+    get:
+      tags: [KYC]
+      operationId: getKycStatus
+      summary: The signed-in user's identity check
+      responses:
+        '200':
+          description: The KYC state; `null` when no check was ever started.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kyc]
+                properties:
+                  kyc:
+                    oneOf:
+                      - type: 'null'
+                      - $ref: '#/components/schemas/Kyc'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: The user has no profile yet.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /accounts/kyc/didit/session:
+    post:
+      tags: [KYC]
+      operationId: startKyc
+      summary: Start an identity check
+      description: |
+        Opens a verification session with Didit and returns the page the user completes
+        it on. Starting a session resets the stored status to `Not Started`, so only call
+        it when the status is neither approved nor pending.
+      responses:
+        '200':
+          description: The session is open.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [verification_url]
+                properties:
+                  verification_url: { type: string, format: uri }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500':
+          description: The session could not be opened.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+
+  /payments/save:
+    post:
+      tags: [Cards]
+      operationId: saveCard
+      summary: Save a card
+      description: |
+        Stores a card for later deposits. `paymentMethod.cardData` must be encrypted with
+        Evervault in the browser; this request goes through the Evervault relay, never
+        straight from the browser with plain card data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paymentMethod, userId]
+              properties:
+                userId:
+                  type: string
+                  description: The signed-in user's id.
+                paymentMethod:
+                  type: object
+                  required: [lastFour, bin, cardType, cardData]
+                  properties:
+                    lastFour: { type: string, pattern: '^[0-9]{4}$' }
+                    bin: { type: string }
+                    cardType: { type: string, example: visa }
+                    cardData:
+                      type: string
+                      description: Evervault-encrypted card details.
+      responses:
+        '200':
+          description: The card is saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: object
+                    required: [paymentId]
+                    properties:
+                      paymentId: { type: string, format: uuid }
+        '400':
+          description: |
+            - `100029` `paymentMethod` or `userId` is missing
+            - `100003` the card could not be saved
+            - `100002` the card could not be saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /payments/list:
+    get:
+      tags: [Cards]
+      operationId: listCards
+      summary: A user's saved cards
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          description: The signed-in user's id.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The cards.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, res]
+                properties:
+                  success: { type: boolean, const: true }
+                  res:
+                    type: array
+                    items: { $ref: '#/components/schemas/Card' }
+        '400':
+          description: |
+            - `100029` `userId` is missing
+            - `100003` the cards could not be read
+            - `100002` the cards could not be read
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+components:
+  securitySchemes:
+    userToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: A Cognito access token (not the ID token) of a signed-in user.
+    merchantSignature:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: '`Signature <timestamp>:<bodyHash>:<signature>`, as described above.'
+    merchantProject:
+      type: apiKey
+      in: header
+      name: X-Project
+      description: The merchant id the API key was issued for.
+
+  responses:
+    Forbidden:
+      description: The credential is missing or was refused (bad signature, old timestamp, expired token), or the caller may not use this route.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/GatewayError'
+              - $ref: '#/components/schemas/Message'
+    TooManyRequests:
+      description: Too many requests. Wait and retry.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GatewayError' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error_code, message]
+      properties:
+        error_code: { type: integer, example: 100029 }
+        message: { type: string }
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    GatewayError:
+      type: object
+      description: Written by the gateway; the key is `message` or `Message`.
+      properties:
+        message: { type: string }
+        Message: { type: string }
+    Success:
+      type: object
+      required: [success]
+      properties:
+        success: { type: boolean, const: true }
+
+    Currency:
+      type: string
+      description: |
+        What an account holds. `TUSDT_TRON` is USDT on the TRON test network and exists
+        on test deployments only.
+      enum: [TRON, SOL, USDT_TRON, TUSDT_TRON]
+    LedgerProvider:
+      type: string
+      description: The ledger the account lives on. Only `PCF0001` exists.
+      enum: [PCF0001]
+
+    OnboardingRequest:
+      type: object
+      required: [externalId, firstName, lastName, email, chain, transaction]
+      properties:
+        externalId:
+          type: string
+          description: The payer's id on your platform.
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, format: email }
+        chain:
+          $ref: '#/components/schemas/Currency'
+        transaction:
+          type: object
+          required: [id, amount, currency]
+          properties:
+            id:
+              type: string
+              description: Your id for the card payment. Sending it again replays the first answer.
+            amount: { type: number }
+            currency: { type: string, example: EUR }
+            paidAt: { type: string, format: date-time }
+    OnboardingResponse:
+      type: object
+      required: [success, res]
+      properties:
+        success: { type: boolean, const: true }
+        res:
+          type: object
+          properties:
+            data:
+              type: object
+              required: [userId, isNew]
+              properties:
+                userId: { type: string }
+                isNew: { type: boolean }
+                replayed:
+                  type: boolean
+                  description: Present and `true` when `transaction.id` was received before.
+                accountNo:
+                  type: string
+                  description: Present when an account was opened by this call.
+                depositAddress:
+                  type: string
+                  description: Present when an account was opened by this call.
+                claimToken:
+                  type: string
+                  description: Present for a new payer. The token in the claim link.
+                claimExpiresAt:
+                  type: integer
+                  format: int64
+                  description: Present for a new payer.
+                emailSent:
+                  type: boolean
+                  description: Present for a new payer. Whether the claim email went out.
+
+    Account:
+      type: object
+      required: [accountNo, chain, depositAddress, currency, status, createdAt, balance, availableBalance]
+      properties:
+        accountNo: { type: string }
+        chain:
+          oneOf:
+            - $ref: '#/components/schemas/Currency'
+            - type: 'null'
+        depositAddress: { type: string }
+        currency:
+          type: string
+          description: The fiat currency the account is valued in.
+        status: { type: string, example: active }
+        createdAt: { type: integer, format: int64 }
+        balance: { type: number }
+        availableBalance:
+          type: number
+          description: What can be withdrawn now.
+    Transaction:
+      type: object
+      required: [txId, type, amount, currency, createdAt]
+      properties:
+        txId: { type: string }
+        type:
+          type: string
+          enum:
+            - DEPOSIT
+            - WITHDRAWAL
+            - WITHDRAWAL_FAILED
+            - WITHDRAWAL_UNCERTAIN
+            - TRANSFER_SENT
+            - TRANSFER_RECEIVED
+            - FEE
+            - SWEEP
+            - SWEEP_FEE
+            - TREASURY_SEND
+        amount: { type: number }
+        currency: { type: string }
+        from: { type: string }
+        to: { type: string }
+        blockHeight: { type: integer }
+        blockHash: { type: string }
+        reference: { type: string }
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601.
+    QueuedOperation:
+      type: object
+      required: [success, jobId, transactionId, status, message, res]
+      properties:
+        success: { type: boolean, const: true }
+        jobId: { type: string }
+        transactionId: { type: string }
+        status: { type: string, const: queued }
+        message: { type: string }
+        res:
+          type: object
+          required: [jobId, transactionId, status]
+          properties:
+            jobId: { type: string }
+            transactionId: { type: string }
+            status: { type: string, const: queued }
+            cryptoAmount:
+              type: number
+              description: The amount in the account's coin.
+            cryptoCurrency: { type: string }
+            exchangeRate:
+              type: number
+              description: Fiat per coin used for the conversion; `1` when `cryptoAmount` was given.
+    Kyc:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: Didit's status name as Didit reports it; `Not Started` right after a session opens.
+          example: Approved
+        sessionId: { type: string }
+        provider: { type: string, const: didit }
+        updatedAt: { type: integer, format: int64 }
+    Card:
+      type: object
+      required: [id, lastFour, bin, cardType, createdAt, isRecurringReady]
+      properties:
+        id: { type: string, description: The `paymentId` deposits take. }
+        lastFour: { type: string }
+        bin: { type: [string, 'null'] }
+        cardType: { type: string }
+        createdAt: { type: integer, format: int64 }
+        isRecurringReady:
+          type: boolean
+          description: Whether the card can be charged without the user present.

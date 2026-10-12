@@ -230,6 +230,18 @@ merchant: the system's own direct customers belong to `internal-001`, named `Int
 to be publicly callable but also need auth must live under `/accounts/` or `/payments/`
 instead, not `/webhook/`.
 
+**Two REST APIs, one Lambda.** `loudiblyRestApi` is the internal one: `{proxy+}` under
+`/accounts`, `/payments`, `/merchants`, `/webhook` and `/onboarding`, used by staff tools and
+provider webhooks (and, for now, the frontends). `loudiblyPublicApi` faces the public internet
+for merchant platforms and signed-in users: it has one resource per route in
+`amplify/service/publicRoutes.ts` and nothing else, with the same authorizer function and stage
+name `v1` (HMAC callers sign the path, `/v1` included). Its stage variable
+`API_SURFACE=public` makes the router answer 404 to any route not on that list. To expose a
+route publicly, add it to `publicRoutes` and document it in `docs/openapi/public-api.yaml`;
+staff (`/merchants/*`) and `/webhook/*` routes never go there. That document is rendered per
+branch, with the branch's URL, coins and brand, into `docs/openapi/branches/<branch>/` by the
+`api-docs` project skill (`.claude/skills/api-docs/`; wording and look in its `branding.yaml`).
+
 **Provider abstraction pattern.** Payment processing (`providers/payment/`), the crypto ledger
 (`providers/ledger/`, Tatum), KYC (`providers/kyc/`, Didit), and email (`providers/email/`,
 SES) are each defined as a TS interface plus one or more concrete implementations, selected at

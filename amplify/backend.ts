@@ -32,6 +32,7 @@ import { customMessageFn } from './auth/custom-message/resource'
 import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
 import { SYSTEM_MERCHANT_ID, SYSTEM_MERCHANT_NAME } from './utils/systemMerchant'
+import { PUBLIC_API_SURFACE, publicRoutes } from './service/publicRoutes'
 
 
 const backend = defineBackend({
@@ -321,6 +322,71 @@ onboardingPath.addProxy({
   defaultIntegration: lambdaIntegration,
   defaultMethodOptions: { authorizationType: AuthorizationType.NONE },
 })
+
+// The API for the public internet: merchants' platforms and signed-in users. It has
+// one resource per route in publicRoutes and nothing else, so staff routes, provider
+// webhooks and internal operations can only be reached through loudiblyRestApi.
+// Same Lambda and authorizer; the stage variable tells the router where a request
+// came in. Documented in docs/openapi/public-api.yaml.
+const publicApiLogGroup = new LogGroup(apiStack, 'PublicApiLogGroup', {
+  logGroupName: '/aws/apigateway/LoudiblyPublicApi',
+  retention: RetentionDays.ONE_YEAR
+})
+
+const publicApi = new RestApi(apiStack, 'LoudiblyPublicApi', {
+  restApiName: 'loudiblyPublicApi',
+  deploy: true,
+  deployOptions: {
+    // Same stage name as the internal API: HMAC callers sign the path, /v1 included
+    stageName: 'v1',
+    loggingLevel: MethodLoggingLevel.INFO,
+    accessLogDestination: new LogGroupLogDestination(publicApiLogGroup),
+    accessLogFormat: AccessLogFormat.jsonWithStandardFields(),
+    throttlingRateLimit: 50,
+    throttlingBurstLimit: 100,
+    variables: { API_SURFACE: PUBLIC_API_SURFACE },
+  },
+  defaultCorsPreflightOptions: {
+    allowOrigins: Cors.ALL_ORIGINS,
+    allowMethods: Cors.ALL_METHODS,
+    allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project'],
+  },
+})
+publicApi.addGatewayResponse('Default4xxCors', {
+  type: ResponseType.DEFAULT_4XX,
+  responseHeaders: corsGatewayHeaders,
+})
+publicApi.addGatewayResponse('Default5xxCors', {
+  type: ResponseType.DEFAULT_5XX,
+  responseHeaders: corsGatewayHeaders,
+})
+
+// An authorizer belongs to one API, so the same function gets a second one
+const publicApiAuthorizer = new RequestAuthorizer(apiStack, 'PublicApiAuthorizer', {
+  handler: customAuthorizerFn,
+  identitySources: [
+    IdentitySource.header('X-Project'),
+    IdentitySource.header('Authorization'),
+  ],
+  resultsCacheTtl: Duration.seconds(0)
+})
+
+// Every method adds a statement to mainApiFn's resource policy, which is capped at
+// 20 KB; the console's test-invoke permission would double them and pass the cap
+const publicLambdaIntegration = new LambdaIntegration(
+  backend.mainApiFn.resources.lambda,
+  { allowTestInvoke: false }
+)
+
+for (const route of publicRoutes) {
+  publicApi.root.resourceForPath(route.path).addMethod(
+    route.method,
+    publicLambdaIntegration,
+    route.auth === 'none'
+      ? { authorizationType: AuthorizationType.NONE }
+      : { ...authOptions, authorizer: publicApiAuthorizer }
+  )
+}
 
 const apiRestPolicy = new iam.Policy(apiStack, 'LoudiblyRestApiPolicy', {
   statements: [
@@ -707,6 +773,11 @@ backend.addOutput({
         endpoint: loudiblyRestApi.url,
         region: Stack.of(loudiblyRestApi).region,
         apiName: loudiblyRestApi.restApiName,
+      },
+      [publicApi.restApiName]: {
+        endpoint: publicApi.url,
+        region: Stack.of(publicApi).region,
+        apiName: publicApi.restApiName,
       },
     },
     WebSocket: {

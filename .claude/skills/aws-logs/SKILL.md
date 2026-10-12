@@ -45,7 +45,7 @@ as part of this skill. Code fixes go in the repo, and the user decides when to d
 - `streamTopicHandlerFn`: `amplify/fn/stream/handler.ts` (DynamoDB Streams → SNS).
 - `wsConnectHandlerFn` / `wsDisconnectHandlerFn`: `amplify/fn/websocket/*`.
 - `...custommessagelambda...`: Cognito custom message trigger.
-- `/aws/apigateway/LoudiblyRestApi`: access log (JSON: status, path, ip, requestId).
+- `/aws/apigateway/LoudiblyRestApi`, `/aws/apigateway/LoudiblyPublicApi`: access logs of the internal and public APIs (JSON: status, path, ip, requestId).
   `API-Gateway-Execution-Logs_<apiId>/v1`: gateway execution log, which includes authorizer results.
 
 ## Workflow
