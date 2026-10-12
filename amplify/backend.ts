@@ -588,6 +588,8 @@ const systemMerchant = new cr.AwsCustomResource(apiStack, 'SystemMerchant', {
   onCreate: ensureSystemMerchant,
   onUpdate: ensureSystemMerchant,
   policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [v1MerchantTable.tableArn] }),
+  // The runtime's own SDK has DynamoDB; installing the latest took ~80 s of every deploy
+  installLatestAwsSdk: false,
 })
 systemMerchant.node.addDependency(v1MerchantTable)
 
