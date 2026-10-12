@@ -176,8 +176,19 @@ yarn workspace loudibly build         # vue-tsc -b && vite build (what CI runs)
 yarn workspace noda dev               # same scripts for the NODA app
 ```
 
-There is no unit/integration test runner (no jest/vitest config, no `test` script). Backend
-verification is done with standalone scripts in `amplify/service/routes/e2e/**/*Test.ts` —
+Backend unit and regression tests run with Jest (`jest.config.js`, root):
+```
+yarn test                             # every amplify/**/*.test.ts
+yarn test amplify/service/router      # one file or folder
+```
+A test sits beside the code it covers as `<name>.test.ts` (a route's schema tests beside its
+JSON in `amplify/service/schemas/`). New functionality comes with its tests, and a fixed bug
+with a test that fails without the fix, its name or comment pointing at the commit or bug id.
+Tests never reach AWS, Tatum or a chain: stub a route's handler with
+`jest.spyOn(routes.get(path)!.handler.prototype, 'execute')`, or mock the module. SWC compiles
+them without type-checking, so run `npx tsc --noEmit -p amplify` too. The frontends have no tests.
+
+Live verification is done with standalone scripts in `amplify/service/routes/e2e/**/*Test.ts` —
 each one builds a signed request and `fetch()`s a **live, already-deployed** API Gateway URL
 that's hardcoded in the file. Run one with `tsx`:
 ```
