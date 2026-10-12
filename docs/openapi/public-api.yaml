@@ -176,6 +176,7 @@ paths:
               properties:
                 externalId:
                   type: string
+                  minLength: 1
                   description: The payer's id on your platform, as sent to `/accounts/onboarding`.
             example:
               externalId: usr_9f3a2b
@@ -203,6 +204,7 @@ paths:
         '400':
           description: |
             - `100029` `externalId` is missing
+            - `100031` `externalId` is empty or not a string
             - `100038` no payer with this `externalId`
             - `100039` the payer has already chosen a password
             - `100003` the new link could not be saved
