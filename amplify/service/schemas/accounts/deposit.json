@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/deposit",
+  "type": "object",
+  "required": ["accountNumber", "currency", "amount", "paymentId"],
+  "properties": {
+    "accountNumber": { "type": "string", "pattern": "^PCF[0-9]{4}[0-9a-f]{32}$" },
+    "currency": { "$comment": "The fiat currency charged, an ISO 4217 code", "type": "string", "pattern": "^[A-Z]{3}$" },
+    "amount": { "type": "number", "exclusiveMinimum": 0 },
+    "paymentId": { "type": "string", "minLength": 1 },
+    "transactionId": { "type": "string", "minLength": 1 },
+    "email": { "type": "string", "format": "email" }
+  }
+}

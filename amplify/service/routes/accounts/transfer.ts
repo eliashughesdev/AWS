@@ -18,11 +18,10 @@ type Event = {
 
 export default class TransferFundsHandler {
   async execute(event: Event, context: Context) {
+    // All four present and shaped, the amount a decimal above zero (schemas/accounts/transfer.json)
     const { provider, senderAccountNumber, recipientAccountNumber, amount } = event.body
 
-    if (!provider || !senderAccountNumber || !recipientAccountNumber || !amount) {
-      return processError(100029, 'Missing required parameters')
-    }
+    if (senderAccountNumber === recipientAccountNumber) return processError(100051)
 
     // Look up sender account to get its Tatum vAccountId
     const senderResult = await queryItemFromIndex({
@@ -57,6 +56,15 @@ export default class TransferFundsHandler {
       return processError(100001)
     }
 
+    // The ledger currency each account holds (USDT_TRON, SOL…); a transfer stays within one. Only
+    // chain names it: an account's currency field is its accounting currency (USD)
+    const currencyOf = (account: Record<string, any>) => String(account.chain ?? '').toUpperCase()
+    const currency = currencyOf(senderResult.res[0])
+    if (!currency || currencyOf(recipientResult.res[0]) !== currency) {
+      console.error(`ERROR: Transfer from a ${currency} account to a ${currencyOf(recipientResult.res[0])} account refused`)
+      return processError(100052, currency || 'this currency')
+    }
+
     const senderVAccountId = senderResult.res[0].vAccountId
     const recipientVAccountId = recipientResult.res[0].vAccountId
 
@@ -70,8 +78,6 @@ export default class TransferFundsHandler {
 
       const createdAt = new Date().toISOString()
       const txId = result.reference
-      const currency = senderResult.res[0].chain ?? senderResult.res[0].currency ?? ''
-
       const parsedAmount = parseFloat(amount)
 
       await Promise.all([

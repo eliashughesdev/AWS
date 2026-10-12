@@ -6,6 +6,7 @@ import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
+import { isValidAddressFor } from '../../../utils/addresses'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -16,6 +17,7 @@ export default class WithdrawHandler {
     console.log('DEBUG: WithdrawHandler execution started.')
 
     const userId = event.requestContext?.authorizer?.userId
+    // Exactly one of amount and cryptoAmount, above zero, and a destination (schemas/accounts/withdraw.json)
     const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body
 
     if (!userId) {
@@ -76,9 +78,11 @@ export default class WithdrawHandler {
       }
     }
 
-    if (!destinationAddress) {
-      console.error(`ERROR: Crypto withdrawal requires a destination address (chain: ${accountChain})`)
-      return processError(100008)
+    // Before anything is debited: an address on another network, or a cut paste, would otherwise
+    // fail in the queue processor after the balance was taken
+    if (!isValidAddressFor(accountChain, destinationAddress)) {
+      console.error(`ERROR: Destination is not a ${accountChain} address`)
+      return processError(100048)
     }
 
     // If a direct crypto amount is provided, skip the fiat conversion
@@ -120,7 +124,7 @@ export default class WithdrawHandler {
         return processError(100007)
       }
       console.error('ERROR: Failed to deduct balance:', deductResult.error)
-      return processError(100029, 'Failed to process withdrawal')
+      return processError(100002, 'the withdrawal could not be started; nothing was debited')
     }
 
     console.log(`DEBUG: Balance deducted. vAccountId: ${vAccountId}, cryptoAmount: ${cryptoAmount} ${accountChain}`)
@@ -171,14 +175,15 @@ export default class WithdrawHandler {
 
       throw new Error('SQS send returned no success')
     } catch (err: any) {
-      // Balance was deducted but queuing failed — credit it back
+      // Balance was deducted but queuing failed — credit back both amounts the debit took
       console.error('ERROR: Failed to queue withdrawal, rolling back balance deduction:', err)
-      await updateItem({
+      const restored = await updateItem({
         tableName: 'v1AccountBalanceTable',
         key: { id: vAccountId },
-        updateExpression: 'SET #balance = #balance + :amount, #lastUpdated = :now',
+        updateExpression: 'SET #balance = #balance + :amount, #availableBalance = #availableBalance + :amount, #lastUpdated = :now',
         attributeNames: {
           '#balance': 'balance',
+          '#availableBalance': 'availableBalance',
           '#lastUpdated': 'lastUpdated',
         },
         attributeValues: {
@@ -186,7 +191,12 @@ export default class WithdrawHandler {
           ':now': new Date().toISOString(),
         },
       })
-      return processError(100029, 'Failed to queue withdrawal for processing')
+      if (!restored.success) {
+        // Nothing was sent, but the balance stays short until someone credits it back
+        console.error(`CRITICAL: Withdrawal ${effectiveTransactionId} was not queued and ${cryptoAmount} ${accountChain} could not be credited back to ${vAccountId}`, restored.error)
+        return processError(100002, 'the withdrawal could not be started; nothing was sent, but the balance could not be restored yet')
+      }
+      return processError(100002, 'the withdrawal could not be started; nothing was sent and the balance was restored')
     }
   }
 }

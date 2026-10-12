@@ -6,13 +6,11 @@ import { processError } from '../../../errors/http'
 export default class TransactionsHandler {
   async execute(event: any, context: Context) {
     const userId = event.requestContext?.authorizer?.userId
-    const accountNumber: string | undefined = event.body?.accountNumber
+    // Shaped as an account number (schemas/accounts/transactions.json)
+    const accountNumber: string = event.body.accountNumber
 
     if (!userId) {
       return response({ statusCode: 401, headers: null, bodyObject: { message: 'User ID not found in authorization context' } })
-    }
-    if (!accountNumber) {
-      return response({ statusCode: 400, headers: null, bodyObject: { message: 'accountNumber is required' } })
     }
 
     const accountResult = await queryItemFromIndex({

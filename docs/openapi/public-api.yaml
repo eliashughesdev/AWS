@@ -512,7 +512,10 @@ paths:
               type: object
               required: [accountNumber]
               properties:
-                accountNumber: { type: string }
+                accountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
+                  description: The account's number, as `/accounts/list` gives it.
       responses:
         '200':
           description: The transactions.
@@ -528,6 +531,7 @@ paths:
         '400':
           description: |
             - `100029` `accountNumber` is missing
+            - `100031` `accountNumber` is not an account number
             - `100001` no such account
           content:
             application/json:
@@ -565,11 +569,18 @@ paths:
                 provider: { $ref: '#/components/schemas/LedgerProvider' }
                 senderAccountNumber:
                   type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                   description: Must be one of the signed-in user's accounts.
-                recipientAccountNumber: { type: string }
+                recipientAccountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                 amount:
                   type: string
-                  description: In the accounts' currency, as a decimal string.
+                  maxLength: 38
+                  pattern: '^(?!0+(\.0+)?$)(0|[1-9][0-9]*)(\.[0-9]+)?$'
+                  description: |
+                    In the accounts' currency, as a plain decimal string above zero: no sign,
+                    exponent, leading zero or thousands separator.
                   example: '12.5'
       responses:
         '200':
@@ -592,7 +603,11 @@ paths:
         '400':
           description: |
             - `100029` a required field is missing
+            - `100031` a field is malformed: an account number, `provider`, or an `amount` that is
+              not a plain decimal above zero
+            - `100051` the sender and the recipient are the same account
             - `100001` the sender is not one of the user's accounts, or the recipient does not exist
+            - `100052` the recipient holds a different currency from the sender
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -624,10 +639,13 @@ paths:
               type: object
               required: [accountNumber, currency, amount, paymentId]
               properties:
-                accountNumber: { type: string }
+                accountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                 currency:
                   type: string
-                  description: Fiat currency of the charge.
+                  pattern: '^[A-Z]{3}$'
+                  description: Fiat currency of the charge, as an ISO 4217 code.
                   example: USD
                 amount:
                   type: number
@@ -635,9 +653,11 @@ paths:
                   description: In `currency`.
                 paymentId:
                   type: string
+                  minLength: 1
                   description: A card from `/payments/list`.
                 transactionId:
                   type: string
+                  minLength: 1
                   description: Your reference for this deposit. One is generated when omitted.
                 email:
                   type: string
@@ -651,11 +671,15 @@ paths:
               schema: { $ref: '#/components/schemas/QueuedOperation' }
         '400':
           description: |
-            - `100029` a required field is missing, or the deposit could not be queued
+            - `100029` a required field is missing
+            - `100031` a field is malformed: the account number, a `currency` that is not a
+              3-letter code, an `amount` that is not a number above 0, or `email`
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` `currency` is not the account's
             - `100009` this coin cannot be bought with a card
+            - `100002` nothing was charged: the deposit could not be queued (send it again), or no
+              price for the account's coin in `currency` could be read
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -682,29 +706,39 @@ paths:
             schema:
               type: object
               required: [accountNumber, currency, destinationAddress]
+              oneOf:
+                - required: [amount]
+                - required: [cryptoAmount]
               properties:
-                accountNumber: { type: string }
+                accountNumber:
+                  type: string
+                  pattern: '^PCF[0-9]{4}[0-9a-f]{32}$'
                 currency:
                   type: string
-                  description: Fiat currency of `amount`.
+                  description: |
+                    With `amount`, its fiat currency as an ISO 4217 code (`USD`). With
+                    `cryptoAmount`, the account's coin (`TRON`), which is only recorded.
                   example: USD
                 amount:
                   type: number
                   exclusiveMinimum: 0
-                  description: In `currency`. Used when `cryptoAmount` is omitted.
+                  description: In `currency`. Send this or `cryptoAmount`, not both.
                 cryptoAmount:
                   type: number
                   exclusiveMinimum: 0
-                  description: In the account's coin, up to 8 decimals.
+                  description: In the account's coin, up to 8 decimals. Send this or `amount`, not both.
                 destinationAddress:
                   type: string
+                  minLength: 1
+                  maxLength: 128
                   description: An address on the account's network.
                 transactionId:
                   type: string
+                  minLength: 1
                   description: Your reference for this withdrawal. One is generated when omitted.
             example:
-              accountNumber: '1000000123'
-              currency: USD
+              accountNumber: PCF00018604bbd641df4bb0aa5243e1e78f5cc4
+              currency: TRON
               cryptoAmount: 25
               destinationAddress: TQ5n8aV7xY3m2kP9wR4sJ6tL1cE8bH7dG2
       responses:
@@ -715,13 +749,18 @@ paths:
               schema: { $ref: '#/components/schemas/QueuedOperation' }
         '400':
           description: |
-            - `100029` a required field is missing, or the withdrawal could not be queued
+            - `100029` a required field is missing (`amount or cryptoAmount` when neither was
+              sent)
+            - `100031` a field is malformed: the account number, an amount that is not a number
+              above 0, both amounts sent, or with `amount` a `currency` that is not a 3-letter code
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` the account cannot send coins
             - `100007` the available balance is too low
-            - `100008` `destinationAddress` is missing
             - `100009` withdrawals of this coin are not available
+            - `100048` `destinationAddress` is not an address on the account's network
+            - `100002` the withdrawal could not be started and nothing was sent; the message says
+              whether the balance was restored
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -800,17 +839,19 @@ paths:
               properties:
                 userId:
                   type: string
+                  minLength: 1
                   description: The signed-in user's id.
                 paymentMethod:
                   type: object
                   required: [lastFour, bin, cardType, cardData]
                   properties:
                     lastFour: { type: string, pattern: '^[0-9]{4}$' }
-                    bin: { type: string }
-                    cardType: { type: string, example: visa }
+                    bin: { type: string, pattern: '^[0-9]{6,8}$' }
+                    cardType: { type: string, minLength: 1, maxLength: 32, example: visa }
                     cardData:
                       type: string
-                      description: Evervault-encrypted card details.
+                      pattern: '^ev:'
+                      description: Evervault-encrypted card details; anything else is refused.
       responses:
         '200':
           description: The card is saved.
@@ -828,7 +869,8 @@ paths:
                       paymentId: { type: string, format: uuid }
         '400':
           description: |
-            - `100029` `paymentMethod` or `userId` is missing
+            - `100029` `paymentMethod`, `userId` or a field of `paymentMethod` is missing
+            - `100031` a field is malformed, or `cardData` is not Evervault ciphertext
             - `100003` the card could not be saved
             - `100002` the card could not be saved
           content:

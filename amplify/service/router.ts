@@ -35,6 +35,13 @@ import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
+import accountsTransactionsSchema from './schemas/accounts/transactions.json'
+import accountsTransferSchema from './schemas/accounts/transfer.json'
+import accountsDepositSchema from './schemas/accounts/deposit.json'
+import accountsWithdrawSchema from './schemas/accounts/withdraw.json'
+import paymentsSaveSchema from './schemas/payments/save.json'
+import paymentsProcessSchema from './schemas/payments/process.json'
+import paymentsProcessGuestSchema from './schemas/payments/process/guest.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -61,7 +68,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
   ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
-  ['/accounts/transactions', { handler: accountsTransactions, requiredParams: ['accountNumber'], method: 'POST' }],
+  ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
   ['/accounts/rename', { handler: accountsRename, schema: accountsRenameSchema, method: 'POST' }],
@@ -70,13 +77,13 @@ export const routes: RoutesMap = new Map([
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
   ['/onboarding/verify', { handler: onboardingVerify, schema: onboardingVerifySchema, method: 'POST' }],
   ['/onboarding/claim', { handler: onboardingClaim, schema: onboardingClaimSchema, method: 'POST' }],
-  ['/accounts/transfer', { handler: transferFunds, requiredParams: ['senderAccountNumber', 'recipientAccountNumber', 'amount'], method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/deposit', { handler: accountDeposit, requiredParams: ['accountNumber', 'currency', 'amount', 'paymentId'], method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/withdraw', { handler: accountWithdraw, requiredParams: ['accountNumber', 'currency', 'destinationAddress'], method: 'POST' }],
-  ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
+  ['/accounts/transfer', { handler: transferFunds, schema: accountsTransferSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
+  ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
+  ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
+  ['/payments/save', { handler: savePayment, schema: paymentsSaveSchema, method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
-  ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
-  ['/payments/process/guest', { handler: processGuestPayment, requiredParams: ['cardData', 'userId', 'amount', 'currency'], method: 'POST' }],
+  ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST' }],
+  ['/payments/process/guest', { handler: processGuestPayment, schema: paymentsProcessGuestSchema, method: 'POST' }],
   ['/merchants/register', { handler: merchantRegister, requiredParams: ['name'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/masters/provision', { handler: provisionMerchantMaster, requiredParams: ['merchantId', 'currency'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/members/invite', { handler: inviteMerchantMember, requiredParams: ['merchantId', 'email', 'name', 'roles'], method: 'POST', allowedRoles: ['staff'] }],

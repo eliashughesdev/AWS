@@ -52,7 +52,7 @@ This uses the same convention as `pci-remediation-plan.md`:
 | B13 | P1 | Processor failover can charge the card twice | ⬜ | | | | |
 | B14 | P1 | Error codes 100002 / 100004 / 100030 are not defined, so 8 error paths return 500 | ⬜ | | | | |
 | B15 | P1 | Merchant master currency case isn't normalized, so its sweeps and withdrawals fail | ⬜ | | | | |
-| B16 | P1 | A failed queue send in deposit / process / guest returns nothing (502) | ⬜ | | | | |
+| B16 | P1 | A failed queue send in deposit / process / guest returns nothing (502) | 🟡 | | | | Step 1 in code 2026-10-12 for all three (e892902 deposit), not deployed |
 | B22 | P1 | Tatum webhook answers 200 even when enqueueing failed, so the deposit is lost | ⬜ | | | | |
 | B17 | P2 | WebSocket subscribe is unauthenticated, so others can read payment results (incl. 3DS `clientSecret`) | ⬜ | | | | |
 | B18 | P2 | Didit KYC webhook trusts unsigned `vendor_data`, has no replay window, and can crash on bad signatures | ⬜ | | | | |
@@ -409,7 +409,8 @@ calls `httpErrors[code](params)`, which throws for a missing code.
 `payments/processGuest.ts:44-60`. When `sendToQueue` returns `{success:false}`, nothing
 is returned, and API Gateway answers 502.
 
-- [ ] **1.** Return an explicit error after the `if (result.success)` block in all three.
+- [x] **1.** Return an explicit error after the `if (result.success)` block in all three
+  (`100002`, "nothing was charged"; also when `sendToQueue` throws).
 - [ ] **Verified:** with the queue URL pointed at a non-existent queue, each route returns a
   defined error code.
 
