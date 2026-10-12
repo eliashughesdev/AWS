@@ -220,8 +220,12 @@ top of `router.ts`). To add an endpoint: create a handler class with an `execute
 context)` method under `service/routes/<area>/`, then register it in that map. The router
 does, in order: parse body (preserving `rawBody` for signature verification, e.g. Stripe
 webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowedRoles` is set,
-then top-level-only required-param validation (`utils/params.ts`) — handlers must still
-validate their own nested fields. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
+then body validation. A route either names a JSON schema (draft-07, Ajv, `utils/schema.ts`), one
+file per route in `amplify/service/schemas/` mirroring its path (`/accounts/details` →
+`schemas/accounts/details.json`): a missing required field answers `100029`, any other mismatch
+`100031` with the field. Or it lists `requiredParams`, the older top-level-only check
+(`utils/params.ts`), whose handlers must still validate their own nested fields. Routes are being
+moved to schemas one at a time; a new route gets a schema and its tests. `loadConfig()` (`utils/config.ts`) pulls parameters from SSM
 into `process.env` on cold start / at most once a minute; env access after that is normal
 `process.env.X`.
 
