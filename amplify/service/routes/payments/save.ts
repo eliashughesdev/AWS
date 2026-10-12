@@ -10,11 +10,8 @@ export default class SavePaymentHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: SavePaymentHandler execution started.')
 
+    // paymentMethod is shaped and its cardData is Evervault ciphertext (schemas/payments/save.json)
     const { paymentMethod, userId } = event.body
-
-    if (!paymentMethod || !userId) {
-      return processError(100029, 'Missing paymentMethod or userId')
-    }
 
     const paymentId = crypto.randomUUID()
     const paymentRecord: Record<string, any> = {
@@ -25,7 +22,8 @@ export default class SavePaymentHandler {
       updated_at: Date.now(),
     }
 
-    console.log('DEBUG: Payment Record:', JSON.stringify(paymentRecord))
+    // Never the record: it holds the card
+    console.log(`DEBUG: Saving card ${paymentId} for ${userId}`)
 
     try {
       const itemsToTransact = [

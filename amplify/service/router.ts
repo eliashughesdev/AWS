@@ -37,6 +37,7 @@ import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
 import accountsWithdrawSchema from './schemas/accounts/withdraw.json'
+import paymentsSaveSchema from './schemas/payments/save.json'
 import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
@@ -74,7 +75,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/transfer', { handler: transferFunds, schema: accountsTransferSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
   ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
-  ['/payments/save', { handler: savePayment, requiredParams: ['paymentMethod', 'userId'], method: 'POST' }],
+  ['/payments/save', { handler: savePayment, schema: paymentsSaveSchema, method: 'POST' }],
   ['/payments/list', { handler: listPayments, requiredParams: [], method: 'GET' }],
   ['/payments/process', { handler: processPayment, requiredParams: ['paymentId', 'userId', 'amount', 'currency'], method: 'POST' }],
   ['/payments/process/guest', { handler: processGuestPayment, requiredParams: ['cardData', 'userId', 'amount', 'currency'], method: 'POST' }],
