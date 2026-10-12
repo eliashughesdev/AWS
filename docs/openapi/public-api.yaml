@@ -140,8 +140,9 @@ paths:
               schema: { $ref: '#/components/schemas/OnboardingResponse' }
         '400':
           description: |
-            - `100029` a required field is missing
-            - `100031` a field is not valid (`email`)
+            - `100029` a required field is missing, `transaction`'s included (`transaction.id`)
+            - `100031` a field is empty or of the wrong type, `email` is not an email address,
+              `transaction.amount` is not above 0 or `transaction.paidAt` is not a date-time
             - `100009` `chain` is not supported
             - `100040` the merchant does not exist or is not active
             - `100050` the merchant cannot hold `chain` yet
@@ -902,9 +903,10 @@ components:
       properties:
         externalId:
           type: string
+          minLength: 1
           description: The payer's id on your platform.
-        firstName: { type: string }
-        lastName: { type: string }
+        firstName: { type: string, minLength: 1 }
+        lastName: { type: string, minLength: 1 }
         email: { type: string, format: email }
         chain:
           $ref: '#/components/schemas/Currency'
@@ -914,9 +916,10 @@ components:
           properties:
             id:
               type: string
+              minLength: 1
               description: Your id for the card payment. Sending it again replays the first answer.
-            amount: { type: number }
-            currency: { type: string, example: EUR }
+            amount: { type: number, exclusiveMinimum: 0 }
+            currency: { type: string, minLength: 1, example: EUR }
             paidAt: { type: string, format: date-time }
     OnboardingResponse:
       type: object

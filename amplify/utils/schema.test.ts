@@ -26,6 +26,12 @@ describe('checkBodyAgainstSchema', () => {
     expect(checkBodyAgainstSchema({ name: 'a', amount: '1' }, schema)).toEqual({ valid: false, code: 100031, message: 'amount' })
   })
 
+  it('answers 100029 with the dotted paths of a nested level\'s required fields', () => {
+    const nested = { type: 'object', properties: { contact: { type: 'object', required: ['email', 'phone'] } } }
+    expect(checkBodyAgainstSchema({ contact: { phone: '1' } }, nested))
+      .toEqual({ valid: false, code: 100029, message: 'contact.email,contact.phone' })
+  })
+
   it('names a nested field by its dotted path', () => {
     expect(checkBodyAgainstSchema({ name: 'a', amount: 1, contact: { email: 'nope' } }, schema))
       .toEqual({ valid: false, code: 100031, message: 'contact.email' })

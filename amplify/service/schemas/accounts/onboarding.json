@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/onboarding",
+  "type": "object",
+  "required": ["externalId", "firstName", "lastName", "email", "chain", "transaction"],
+  "properties": {
+    "externalId": { "type": "string", "minLength": 1 },
+    "firstName": { "type": "string", "minLength": 1 },
+    "lastName": { "type": "string", "minLength": 1 },
+    "email": { "type": "string", "format": "email" },
+    "chain": { "type": "string", "minLength": 1 },
+    "transaction": {
+      "type": "object",
+      "required": ["id", "amount", "currency"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "amount": { "type": "number", "exclusiveMinimum": 0 },
+        "currency": { "type": "string", "minLength": 1 },
+        "paidAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

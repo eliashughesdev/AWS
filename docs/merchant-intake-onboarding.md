@@ -78,19 +78,22 @@ Sin cambios en ningún almacén.
 
 `loadConfig()` baja los parámetros de SSM a `process.env` (cacheado 60 s). El router busca
 la ruta, chequea el método, aplica RBAC — `allowedRoles: ['admin']` contra el `role` del
-authorizer — y valida que los params de primer nivel estén presentes y no sean falsy.
+authorizer — y valida el body contra su JSON schema
+(`amplify/service/schemas/accounts/onboarding.json`, Ajv): los seis campos y, dentro de
+`transaction`, `id`, `amount` (número mayor que 0) y `currency`; `paidAt`, si viene, tiene que
+ser date-time. Un campo que falta devuelve `100029` con su ruta (`transaction.id`); un valor
+vacío o de otro tipo, `100031`.
 
 **Consecuencia del RBAC:** un usuario final autenticado con JWT llega con `role: 'user'` y
 recibe 403 acá. Solo una key B2B firmada alcanza el handler.
 
 Sin cambios en ningún almacén.
 
-### 4. `OnboardingHandler` valida lo que el router no ve
+### 4. `OnboardingHandler` valida lo que el schema no puede
 
-El validador del router es solo de primer nivel, así que el handler chequea
-`transaction.id`, que `transaction.amount` sea `number` y que `transaction.currency`
-exista. El email pasa por un regex que además excluye comillas y backslashes, porque
-después se interpola en el filtro de `ListUsers`.
+El schema ya validó la forma del body. El handler pasa el email por un regex más estricto
+que el formato `email` de Ajv: excluye comillas y backslashes, porque después se interpola en
+el filtro de `ListUsers`. Y `chain` tiene que estar en `currencies.ts` (`100009`).
 
 Sin cambios en ningún almacén.
 
@@ -444,7 +447,7 @@ se sostiene, la respuesta es fea.
 | `amplify/utils/custodialAccount.ts` | cuenta | `provisionCustodialAccount`: KMS + Tatum, devuelve registros sin escribir. |
 | `amplify/service/routes/accounts/account.ts` | cuenta | Usa el util; mismo comportamiento, 157 → 83 líneas. |
 | `amplify/service/routes/accounts/onboarding.ts` | cuenta | `chain` obligatorio, provisión y reparación, `accountNo` en la respuesta. |
-| `amplify/service/router.ts` | cuenta | `chain` en `requiredParams`. |
+| `amplify/service/router.ts` | cuenta | `chain` requerido (hoy en `schemas/accounts/onboarding.json`). |
 
 **Antes de probar:** la ruta no puede funcionar sin deploy — `COGNITO_USER_POOL_ID` y los
 permisos de Cognito se agregan en `backend.ts`, así que hace falta un
