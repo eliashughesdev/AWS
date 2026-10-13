@@ -49,6 +49,7 @@ import onboardingVerifySchema from './schemas/onboarding/verify.json'
 import onboardingClaimSchema from './schemas/onboarding/claim.json'
 import merchantsRegisterSchema from './schemas/merchants/register.json'
 import merchantsMastersProvisionSchema from './schemas/merchants/masters/provision.json'
+import merchantsMembersInviteSchema from './schemas/merchants/members/invite.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -90,7 +91,7 @@ export const routes: RoutesMap = new Map([
   ['/payments/process/guest', { handler: processGuestPayment, schema: paymentsProcessGuestSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
   ['/merchants/register', { handler: merchantRegister, schema: merchantsRegisterSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/masters/provision', { handler: provisionMerchantMaster, schema: merchantsMastersProvisionSchema, method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/members/invite', { handler: inviteMerchantMember, requiredParams: ['merchantId', 'email', 'name', 'roles'], method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/members/invite', { handler: inviteMerchantMember, schema: merchantsMembersInviteSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/members/remove', { handler: removeMerchantMember, requiredParams: ['merchantId', 'userId'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy', { handler: setTreasuryPolicy, requiredParams: ['merchantId', 'thresholds'], method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
