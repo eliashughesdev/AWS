@@ -133,8 +133,9 @@ const newAccount = 'bg-cta h-[32px] w-[100px] rounded-[7.5px] text-[10px] font-s
 const dialogButton = 'h-[45px] rounded-[5px] text-[12px] font-semibold disabled:opacity-60 lg:h-[50px] lg:text-[16px] lg:font-medium'
 const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[14px]'
 // A hint stays grey in light too: in ink it would read as a name already typed.
-const input = 'mt-[16.5px] flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field px-[9px] text-[12px] font-medium light:shadow-(--shadow-card) lg:mt-[20px] lg:h-[50px] lg:px-[17px] lg:text-[14px]'
-const field = 'min-w-0 flex-1 bg-transparent text-ink text-ellipsis placeholder:text-muted'
+// Not in Figma: the box shows the focus. The browser's ring around the bare <input> covers the caret.
+const input = 'mt-[16.5px] flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field px-[9px] text-[12px] font-medium focus-within:border-accent light:shadow-(--shadow-card) lg:mt-[20px] lg:h-[50px] lg:px-[17px] lg:text-[14px]'
+const field = 'min-w-0 flex-1 bg-transparent text-ink text-ellipsis outline-none placeholder:text-muted'
 const warning = 'mt-[15px] flex rounded-[10px] border-[0.5px] border-yellow bg-warn px-[11px] py-[13px] text-warn-ink [--icon-scale:0.78] lg:mt-[20px] lg:border lg:px-[17px] lg:py-[16px] lg:[--icon-scale:1]'
 const warningText = 'ml-[9px] text-[12px] leading-[14px] lg:ml-[9.5px] lg:text-[14px] lg:leading-[18px]'
 const dialogButtons = 'mt-[20px] grid grid-cols-2 gap-[15px] lg:mt-[28.5px]'

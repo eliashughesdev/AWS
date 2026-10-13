@@ -58,9 +58,9 @@ const cell = 'text-[12px] font-semibold lg:text-[14px] lg:font-medium'
     <!-- The mobile design has no search or filter. -->
     <template #tools>
       <div class="mt-[0.5px] flex gap-[15px] max-lg:hidden">
-        <label class="card flex h-[45px] w-[333px] items-center rounded-[10px] pl-[14px] pr-[10px] text-muted [--icon-scale:0.78]">
+        <label class="card flex h-[45px] w-[333px] items-center rounded-[10px] pl-[14px] pr-[10px] text-muted [--icon-scale:0.78] focus-within:border-accent">
           <AppIcon name="search" />
-          <input type="search" placeholder="Search payments..." class="ml-[10.5px] min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-ink placeholder:text-muted" />
+          <input type="search" placeholder="Search payments..." class="ml-[10.5px] min-w-0 flex-1 bg-transparent text-[12px] font-semibold text-ink outline-none placeholder:text-muted" />
         </label>
         <button type="button" class="card flex h-[45px] w-[122px] items-center rounded-[10px] pl-[12px] pr-[13px] text-[12px] font-semibold light:text-muted">
           <AppIcon name="funnel" />

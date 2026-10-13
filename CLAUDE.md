@@ -117,7 +117,10 @@ There are three deployable pieces in this one repo:
     takes the inset colours, which differ from a card's own in light only. A quick-action tile is
     `tile`, and a small box inside a card is `chip`. A value shown in a box with a hairline
     (Deposit's chosen account, its address) is `value-box`. A text input is `bg-field` inside a
-    `card-line` hairline, with `light:shadow-(--shadow-card)`: light draws it flat with a card's shadow. Convert's inputs and dropdown buttons are `slot` and `select`
+    `card-line` hairline, with `light:shadow-(--shadow-card)`: light draws it flat with a card's shadow. The box
+    that holds an `<input>` shows the focus (`focus-within:border-accent`, which an error's `border-red!` still
+    beats) and the `<input>` takes `outline-none`: the browser's ring around a bare input covers the caret of an
+    empty field. Convert's inputs and dropdown buttons are `slot` and `select`
     (white and `#F3F9F9` in light), and its swap button is `bg-swap`.
     A `bg-cta` button says `text-white`, and `light:border-0` when dark gives it a hairline. `AppDialog` and `DataTable` are
     `panel`s, and an open `DropdownList` is a `card`. The line under a

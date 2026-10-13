@@ -219,8 +219,9 @@ const inCoinUnits = (value: string) => state.value === 'loading' ? BLANK : accou
 const card = 'panel rounded-[10px]'
 const title = 'border-b border-rule pb-[20.5px] pl-[14px] pt-[19.5px] text-[18px] leading-none font-medium lg:pb-[31px] lg:pl-[29px] lg:pt-[29px] lg:text-[22px] lg:font-semibold'
 const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[16px] lg:font-medium lg:text-ink light:text-muted'
-const input = 'flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field pl-[9px] pr-[10.5px] text-[12px] font-medium text-muted light:shadow-(--shadow-card) lg:h-[50px] lg:pl-[17px] lg:pr-[19px] lg:text-[14px]'
-const field = 'min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted light:placeholder:text-ink'
+// Not in Figma: the box shows the focus. The browser's ring around the bare <input> covers the caret.
+const input = 'flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field pl-[9px] pr-[10.5px] text-[12px] font-medium text-muted focus-within:border-accent light:shadow-(--shadow-card) lg:h-[50px] lg:pl-[17px] lg:pr-[19px] lg:text-[14px]'
+const field = 'min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-muted light:placeholder:text-ink'
 const line = 'flex items-center justify-between text-[12px] leading-none lg:text-[16px]'
 const problem = 'mt-[8px] text-[10px] leading-[14px] font-medium text-red lg:mt-[10px] lg:text-[14px] lg:leading-[18px]'
 const tryAgain = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font-semibold lg:text-[14px]'

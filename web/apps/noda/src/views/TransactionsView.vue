@@ -201,9 +201,9 @@ const action = 'button-outline h-[40px] rounded-[5px] px-[24px] text-[12px] font
 
   <!-- Positioned while a filter is open, so that on mobile its list hangs under the whole block. -->
   <div class="mt-[20px] has-[[aria-expanded=true]]:relative lg:-ml-px lg:mt-[30px] lg:flex lg:gap-[15px]">
-    <label class="flex h-[40px] items-center card rounded-[10px] pl-[9px] pr-[10px] text-muted [--icon-scale:0.78] lg:h-[50px] lg:max-w-[684px] lg:flex-1 lg:pl-[14px] lg:[--icon-scale:1]">
+    <label class="flex h-[40px] items-center card rounded-[10px] pl-[9px] pr-[10px] text-muted [--icon-scale:0.78] focus-within:border-accent lg:h-[50px] lg:max-w-[684px] lg:flex-1 lg:pl-[14px] lg:[--icon-scale:1]">
       <AppIcon name="search" />
-      <input v-model="query" type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-ink placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
+      <input v-model="query" type="search" placeholder="Search payments..." class="ml-[8px] min-w-0 flex-1 bg-transparent text-[12px] font-medium text-ink outline-none placeholder:text-muted lg:ml-[10px] lg:text-[16px]" />
     </label>
     <!-- On mobile the buttons run past the screen's edge and scroll sideways. -->
     <div class="no-scrollbar -mr-[10px] mt-[10px] flex gap-[10px] overflow-x-auto pr-[10px] lg:m-0 lg:gap-[15px] lg:overflow-visible lg:p-0">
