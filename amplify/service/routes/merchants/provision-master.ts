@@ -2,7 +2,6 @@ import type { Context } from 'aws-lambda'
 
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
-import { networkFor } from '../../../utils/currencies'
 import { getMerchant } from '../../../utils/merchant'
 import { provisionMerchantMaster } from '../../../utils/merchantMaster'
 
@@ -16,8 +15,8 @@ type Event = {
  */
 export default class ProvisionMerchantMasterHandler {
   async execute(event: Event, context: Context) {
+    // The body was checked against schemas/merchants/masters/provision.json
     const { merchantId, currency } = event.body
-    if (!networkFor(currency)) return processError(100009)
 
     const merchant = await getMerchant(merchantId)
     if (!merchant.success) return processError(100003)
