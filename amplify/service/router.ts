@@ -34,6 +34,7 @@ import { checkBodyAgainstSchema } from '../utils/schema'
 import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
+import accountsListSchema from './schemas/accounts/list.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
 import accountsProfileSchema from './schemas/accounts/profile.json'
 import accountsProfileSaveSchema from './schemas/accounts/profile/save.json'
@@ -75,7 +76,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, requiredParams: [], method: 'POST' }],
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
-  ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
+  ['/accounts/list', { handler: accountsList, schema: accountsListSchema, method: 'GET' }],
   ['/accounts/profile', { handler: accountsProfile, schema: accountsProfileSchema, method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, schema: accountsProfileSaveSchema, method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],

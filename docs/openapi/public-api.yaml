@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.4.0'
+  version: '2.5.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -382,6 +382,7 @@ paths:
       tags: [Accounts]
       operationId: listAccounts
       summary: The signed-in user's accounts and balances
+      description: Always the caller's own accounts; the route takes no parameters.
       responses:
         '200':
           description: Every account, with its balance.
@@ -394,6 +395,11 @@ paths:
                   accounts:
                     type: array
                     items: { $ref: '#/components/schemas/Account' }
+        '400':
+          description: '`100031` a query parameter was sent (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':
