@@ -37,6 +37,7 @@ import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsListSchema from './schemas/accounts/list.json'
 import accountsKycStatusSchema from './schemas/accounts/kyc/status.json'
 import accountsKycDiditSessionSchema from './schemas/accounts/kyc/didit/session.json'
+import accountsKycDiditIdVerifySchema from './schemas/accounts/kyc/didit/id-verify.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
 import accountsProfileSchema from './schemas/accounts/profile.json'
 import accountsProfileSaveSchema from './schemas/accounts/profile/save.json'
@@ -75,7 +76,7 @@ export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, schema: accountsKycDiditSessionSchema, method: 'POST' }],
-  ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, schema: accountsKycDiditIdVerifySchema, method: 'POST', allowedRoles: ['user', 'staff'] }],
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, schema: accountsKycStatusSchema, method: 'GET' }],
   ['/accounts/list', { handler: accountsList, schema: accountsListSchema, method: 'GET' }],
