@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.2.0'
+  version: '2.3.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -355,7 +355,7 @@ paths:
               type: object
               required: [name]
               properties:
-                name: { type: string, minLength: 1 }
+                name: { type: string, pattern: '\S', maxLength: 200, description: Saved without the spaces around it. }
                 email: { type: string, format: email, description: Left as it is when omitted. }
       responses:
         '200':
@@ -365,7 +365,8 @@ paths:
               schema: { $ref: '#/components/schemas/Success' }
         '400':
           description: |
-            - `100029` `name` is missing or blank
+            - `100029` `name` is missing
+            - `100031` `name` is blank or longer than 200 characters, or `email` is not an email address
             - `100003` the profile could not be saved
           content:
             application/json:

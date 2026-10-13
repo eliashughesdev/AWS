@@ -11,11 +11,11 @@ export default class ProfileSaveHandler {
       return response({ statusCode: 401, headers: null, bodyObject: { message: 'Unauthorized' } })
     }
 
-    const name: string | undefined = event.body?.name
-    if (!name?.trim()) return processError(100029, 'name is required')
+    // The body was checked against schemas/accounts/profile/save.json
+    const name: string = event.body.name
+    const email: string | undefined = event.body.email
 
     // Update in place: the profile also carries merchantId, KYC and tier
-    const email: string | undefined = event.body?.email
     const result = await updateItem({
       tableName: 'v2CustomerTable',
       key: { id: userId, sk: 'USERPROFILE' },

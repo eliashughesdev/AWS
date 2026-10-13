@@ -35,6 +35,7 @@ import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
+import accountsProfileSaveSchema from './schemas/accounts/profile/save.json'
 import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
@@ -75,7 +76,7 @@ export const routes: RoutesMap = new Map([
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
   ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
   ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
-  ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
+  ['/accounts/profile/save', { handler: accountsProfileSave, schema: accountsProfileSaveSchema, method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
