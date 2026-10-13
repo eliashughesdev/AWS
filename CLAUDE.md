@@ -382,11 +382,13 @@ must succeed or fail together.
 **Async work is queue-driven.** Four SQS queues (`v1WebhookQueue`, `v1GeneralQueue`,
 `v1PaymentProcessingQueue`, `v1WithdrawalProcessingQueue`, `v1AccountBackfillQueue`) feed two
 processor Lambdas (`fn/sqs-processor/webhook`, `fn/sqs-processor/general`); a DynamoDB Streams
-Lambda (`fn/stream/handler.ts`) fans out changes from `v1UserKeysTable`, `v2CustomerTable`, and
-`v1WebhookIPWhitelistTable` to an SNS topic. Anything persisted to those streamed tables is
-logged in full by the stream handler — never write a secret (e.g. a plaintext claim token) into
-one of them; store a hash instead (see how `utils/claimToken.ts` is used in
-`routes/accounts/onboarding.ts`).
+Lambda (`fn/stream/handler.ts`) reads changes from `v1UserKeysTable`, `v2CustomerTable`, and
+`v1WebhookIPWhitelistTable`; it only logs each one's event, table and keys, and publishes nothing
+yet. The streams are `KEYS_ONLY` (PCI F4): a stream that carries images hands merchant keys and
+card rows to whatever reads it, so a consumer that needs a row reads it from the table itself.
+The handler must return for every batch, or Lambda retries the same records for 24 hours. Still
+never write a secret (e.g. a plaintext claim token) into a table; store a hash instead (see how
+`utils/claimToken.ts` is used in `routes/accounts/onboarding.ts`).
 
 **Queue messages are not trusted.** The webhook processor (`fn/sqs-processor/webhook/handler.ts`)
 routes each record by the queue it was delivered from (`eventSourceARN`), not by the `queue` field

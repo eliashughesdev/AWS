@@ -415,7 +415,9 @@ const v1UserKeysTable = new dynamo.Table(apiStack, 'UserKeysTable', {
     type: dynamo.AttributeType.STRING,
   },
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-  stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+  // Keys only, on every streamed table: a stream with images puts merchant keys, card rows and
+  // customers' details into whatever reads it (PCI F4). Nothing needs the images yet.
+  stream: dynamo.StreamViewType.KEYS_ONLY,
   tableName: 'v1UserKeysTable',
 })
 
@@ -429,7 +431,7 @@ const v2CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
     type: dynamo.AttributeType.STRING,
   },
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-  stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+  stream: dynamo.StreamViewType.KEYS_ONLY,
   tableName: 'v2CustomerTable',
 })
 
@@ -462,7 +464,7 @@ const v1AccountBalanceTable = new dynamo.Table(apiStack, 'AccountBalanceTable', 
     type: dynamo.AttributeType.STRING,
   },
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-  stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+  stream: dynamo.StreamViewType.KEYS_ONLY,
   tableName: 'v1AccountBalanceTable',
 })
 
@@ -472,7 +474,7 @@ const v1WebhookIPWhitelistTable = new dynamo.Table(apiStack, 'WebhookIPWhitelist
     type: dynamo.AttributeType.STRING,
   },
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
-  stream: dynamo.StreamViewType.NEW_AND_OLD_IMAGES,
+  stream: dynamo.StreamViewType.KEYS_ONLY,
   tableName: 'v1WebhookIPWhitelistTable',
 })
 

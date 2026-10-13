@@ -14,6 +14,7 @@ was found). Bugs and security findings themselves are tracked in `bug-fix-plan.m
 | 4 | The e2e-hmac payment scripts charge a card | `main` | 2026-10-13 | a saved card for `e13b35a0` |
 | 5 | The payment queue's consumer is disabled | `main` | 2026-10-13 | a decision |
 | 6 | Credentials in an e2e script comment | repo | 2026-10-13 | a person |
+| 7 | PCI F4: stream logs keys only; leaked keys rotated | `main`, then `nodapay_ui` | 2026-10-13 | a deploy, then a decision |
 
 ---
 
@@ -78,9 +79,29 @@ never charged.
 
 - [ ] Find out whether it was disabled on purpose; enable it, or note here why not
 
+The three DynamoDB stream mappings of `streamTopicHandlerFn` on `main` were disabled on
+2026-10-09 around 07:00 UTC, each saying "PROBLEM: Resource owner account is disabled". The
+account may have been suspended briefly then, and every event-source mapping was left
+disabled; this consumer may be one of them.
+
 ## 6. Credentials in `AccountsTransferRBACTest.ts`
 
 A comment at line 34 holds a test user's sign-in name and password.
 
 - [ ] Check whether the password is real; if it is, change it in Cognito and remove it from
       the comment (it stays in git history)
+
+## 7. PCI F4: stream logs
+
+`fn/stream/handler.ts` logs only each change's event, table and keys, and the streams are
+`KEYS_ONLY` (`pci-remediation-plan.md`, F4). The switch gives each table a new stream, so the
+deploy replaces the stream mappings, which on `main` also brings back the ones left disabled
+(item 5).
+
+- [ ] `main`: after the deploy, the stack updated without error and `streamTopicHandlerFn`'s
+      three mappings are Enabled
+- [ ] `main`: register a merchant and save a card; the stream logs show only
+      `Stream record: {"eventName":…,"table":…,"keys":…}`
+- [ ] Rotate the five keys of `main`'s `v1UserKeysTable` (all are in the logs), then purge the
+      stream log groups (F4 steps 3 and 3a); this changes the keys the e2e scripts sign with
+- [ ] `nodapay_ui`: the same checks after its deploy; purge its group (customer rows, no keys)
