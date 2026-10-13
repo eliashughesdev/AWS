@@ -8,7 +8,7 @@ was found). Bugs and security findings themselves are tracked in `bug-fix-plan.m
 
 | # | Check | Where | Since | Waiting on |
 |---|---|---|---|---|
-| 1 | Didit webhooks pass the new signature check | `main`, then `nodapay_ui` | 2026-10-13 | a deploy |
+| 1 | Didit webhooks pass the new signature check | `main`, then `nodapay_ui` | 2026-10-13 | a webhook sent by Didit |
 | 2 | The dashboard still works with the new schemas | `main`, then `nodapay_ui` | 2026-10-13 | a deploy |
 | 3 | PCI F3 card ownership, live | `nodapay_ui` | 2026-10-13 | a person (verified on `main`) |
 | 4 | The e2e-hmac payment scripts charge a card | `main` | 2026-10-13 | a saved card for `e13b35a0` |
@@ -24,6 +24,13 @@ or `X-Signature` (raw body), within 300 seconds of `X-Timestamp`; `X-Signature-S
 refused, as it left out `vendor_data`. The unit tests follow Didit's documented algorithm but
 cannot prove it matches what Didit really sends. If it does not, every KYC webhook answers
 401, which Didit does not retry, so status changes are lost.
+
+On 2026-10-13 the 2026-10-10 delivery on `main` (session `3d1839d2…`, `Expired`) was rebuilt
+and signed by hand with the stack's `DIDIT_WEBHOOK_SECRET`, with a fresh timestamp (our logs
+keep no body or header, so Didit's own delivery could not be replayed). `X-Signature-V2` and
+`X-Signature` were answered 200 and the user's `kyc` row rewritten; `X-Signature-Simple` alone,
+a changed `vendor_data` and a 400-second-old timestamp were answered 401. So the deployed path
+works; what is still open is whether Didit signs as its documentation says.
 
 - [ ] `main`: send a test webhook from Didit's console ("Try Webhook") or finish a sandbox
       session; the logs show `Didit webhook processed`, not `Didit webhook signature mismatch`
