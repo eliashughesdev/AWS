@@ -98,9 +98,11 @@ A comment at line 34 holds a test user's sign-in name and password.
 deploy replaces the stream mappings, which on `main` also brings back the ones left disabled
 (item 5).
 
-- [ ] `main`: after the deploy, the stack updated without error and `streamTopicHandlerFn`'s
-      three mappings are Enabled
-- [ ] `main`: register a merchant and save a card; the stream logs show only
+- [x] `main`: after the deploy, the stack updated without error and `streamTopicHandlerFn`'s
+      three mappings are Enabled (build 479, 2026-10-13: four tables `KEYS_ONLY`, new streams;
+      a `v2CustomerTable` change logged only its event, table and keys and returned in 51 ms)
+- [ ] `main`: register a merchant and save a card (a customer row is checked; a key row and
+      a card row are not yet); the stream logs show only
       `Stream record: {"eventName":…,"table":…,"keys":…}`
 - [ ] Rotate the five keys of `main`'s `v1UserKeysTable` (all are in the logs), then purge the
       stream log groups (F4 steps 3 and 3a); this changes the keys the e2e scripts sign with
