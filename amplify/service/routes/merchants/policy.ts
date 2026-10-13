@@ -3,7 +3,6 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { putItem } from '../../../utils/db'
-import { isNativeCurrency, networkFor } from '../../../utils/currencies'
 import { getMerchant } from '../../../utils/merchant'
 
 type Event = {
@@ -20,12 +19,9 @@ type Event = {
 export default class SetTreasuryPolicyHandler {
   async execute(event: Event, context: Context) {
     const staffUserId = event.requestContext?.authorizer?.userId
+    // The body was checked against schemas/merchants/policy.json
     const { merchantId, thresholds } = event.body
-
-    const entries = thresholds && typeof thresholds === 'object' && !Array.isArray(thresholds) ? Object.entries(thresholds) : []
-    const valid = entries.length > 0 && entries.every(([currency, threshold]) =>
-      networkFor(currency) && !isNativeCurrency(currency) && typeof threshold === 'number' && threshold > 0)
-    if (!valid) return processError(100031, 'thresholds')
+    const entries = Object.entries(thresholds)
 
     const merchant = await getMerchant(merchantId)
     if (!merchant.success) return processError(100003)

@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/policy",
+  "$comment": "thresholds maps each token currency (USDT_TRON, TUSDT_TRON: a native coin has no treasury send) to an amount above 0, in any case, as the handler upper-cases it. The whole set is replaced, so at least one is required.",
+  "type": "object",
+  "required": ["merchantId", "thresholds"],
+  "properties": {
+    "merchantId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "thresholds": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[Tt]?[Uu][Ss][Dd][Tt]_[Tt][Rr][Oo][Nn]$" },
+      "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}

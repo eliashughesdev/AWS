@@ -4,10 +4,17 @@ import { customer } from '../credentials'
 const path = '/v1/payments/process'
 console.log('path: ', path)
 
-// A payment method that has already been charged at least once so that
-// cloverCredentials / stripeCredentials are saved in v2CustomerTable.
-const paymentId = 'fe4fa0d6-1f80-4a23-81ee-b7e2692d91b0'
-const userId = '210b5590-3041-7060-f7c6-2fb484965a71'
+// A payer of the e2e-hmac merchant: since PCI F3 a merchant key may act only for its own payers
+const userId = 'e13b35a0-1021-7007-2676-937353245fe2'
+// One of that payer's saved cards, charged at least once already so that cloverCredentials /
+// stripeCredentials are saved in v2CustomerTable. It has none yet: save one, charge it with
+// ProcessPaymentTest.ts, then run with CARD_ID=<its id>. A card of anyone else is not found by
+// the queue, so nothing would be charged or tested
+const paymentId = process.env.CARD_ID
+if (!paymentId) {
+  console.error('Missing CARD_ID: a saved card of the e2e-hmac payer (see the top of this file)')
+  process.exit(1)
+}
 
 const body = JSON.stringify({
   paymentId,

@@ -7,7 +7,7 @@ import { addUserToGroup, adminCreateUser, EMAIL_RE, findUserByEmail } from '../.
 import { claimPointerItem, claimRecordId, createClaimToken } from '../../../utils/claimToken'
 import { sendClaimInvite } from '../../../utils/claimInvite'
 import { brandName } from '../../../utils/config'
-import { getMerchant, MEMBER_ROLES } from '../../../utils/merchant'
+import { getMerchant } from '../../../utils/merchant'
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string } }
@@ -25,11 +25,12 @@ type Event = {
 export default class InviteMerchantMemberHandler {
   async execute(event: Event, context: Context) {
     const staffUserId = event.requestContext?.authorizer?.userId
+    // The body was checked against schemas/merchants/members/invite.json
     const { merchantId, email, name, roles } = event.body
 
+    // Stricter than the schema's email format: no quotes or backslashes, as the address goes
+    // into a Cognito ListUsers filter
     if (!EMAIL_RE.test(email)) return processError(100031, 'email')
-    if (typeof name !== 'string' || !name.trim()) return processError(100031, 'name')
-    if (!Array.isArray(roles) || !roles.length || roles.some(r => !MEMBER_ROLES.includes(r))) return processError(100031, 'roles')
 
     const merchant = await getMerchant(merchantId)
     if (!merchant.success) return processError(100003)

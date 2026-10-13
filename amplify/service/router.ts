@@ -34,7 +34,13 @@ import { checkBodyAgainstSchema } from '../utils/schema'
 import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
+import accountsListSchema from './schemas/accounts/list.json'
+import accountsKycStatusSchema from './schemas/accounts/kyc/status.json'
+import accountsKycDiditSessionSchema from './schemas/accounts/kyc/didit/session.json'
+import accountsKycDiditIdVerifySchema from './schemas/accounts/kyc/didit/id-verify.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
+import accountsProfileSchema from './schemas/accounts/profile.json'
+import accountsProfileSaveSchema from './schemas/accounts/profile/save.json'
 import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsTransferSchema from './schemas/accounts/transfer.json'
 import accountsDepositSchema from './schemas/accounts/deposit.json'
@@ -47,6 +53,12 @@ import accountsOnboardingSchema from './schemas/accounts/onboarding.json'
 import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend.json'
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
 import onboardingClaimSchema from './schemas/onboarding/claim.json'
+import merchantsRegisterSchema from './schemas/merchants/register.json'
+import merchantsMastersProvisionSchema from './schemas/merchants/masters/provision.json'
+import merchantsMembersInviteSchema from './schemas/merchants/members/invite.json'
+import merchantsMembersRemoveSchema from './schemas/merchants/members/remove.json'
+import merchantsPolicySchema from './schemas/merchants/policy.json'
+import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury-send.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -63,13 +75,13 @@ type RoutesMap = Map<string, {
 export const routes: RoutesMap = new Map([
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
-  ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, requiredParams: [], method: 'POST' }],
-  ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, requiredParams: [], method: 'POST' }],
+  ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, schema: accountsKycDiditSessionSchema, method: 'POST' }],
+  ['/accounts/kyc/didit/id-verify', { handler: accountsKycDiditIdVerify, schema: accountsKycDiditIdVerifySchema, method: 'POST', allowedRoles: ['user', 'staff'] }],
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
-  ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
-  ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
-  ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
-  ['/accounts/profile/save', { handler: accountsProfileSave, requiredParams: ['name'], method: 'POST' }],
+  ['/accounts/kyc/status', { handler: accountsKycStatus, schema: accountsKycStatusSchema, method: 'GET' }],
+  ['/accounts/list', { handler: accountsList, schema: accountsListSchema, method: 'GET' }],
+  ['/accounts/profile', { handler: accountsProfile, schema: accountsProfileSchema, method: 'GET' }],
+  ['/accounts/profile/save', { handler: accountsProfileSave, schema: accountsProfileSaveSchema, method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],
   ['/accounts/account', { handler: accountsAccount, schema: accountsAccountSchema, method: 'POST' }],
@@ -86,12 +98,12 @@ export const routes: RoutesMap = new Map([
   ['/payments/list', { handler: listPayments, schema: paymentsListSchema, method: 'GET', allowedRoles: ['user', 'admin'] }],
   ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
   ['/payments/process/guest', { handler: processGuestPayment, schema: paymentsProcessGuestSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
-  ['/merchants/register', { handler: merchantRegister, requiredParams: ['name'], method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/masters/provision', { handler: provisionMerchantMaster, requiredParams: ['merchantId', 'currency'], method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/members/invite', { handler: inviteMerchantMember, requiredParams: ['merchantId', 'email', 'name', 'roles'], method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/members/remove', { handler: removeMerchantMember, requiredParams: ['merchantId', 'userId'], method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/policy', { handler: setTreasuryPolicy, requiredParams: ['merchantId', 'thresholds'], method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
+  ['/merchants/register', { handler: merchantRegister, schema: merchantsRegisterSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/masters/provision', { handler: provisionMerchantMaster, schema: merchantsMastersProvisionSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/members/invite', { handler: inviteMerchantMember, schema: merchantsMembersInviteSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/members/remove', { handler: removeMerchantMember, schema: merchantsMembersRemoveSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/policy', { handler: setTreasuryPolicy, schema: merchantsPolicySchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/operations/treasury-send', { handler: createTreasurySend, schema: merchantsTreasurySendSchema, method: 'POST', allowedRoles: ['merchant'] }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null, queryStringParameters?: Record<string, string | undefined> | null }, context: any) => {

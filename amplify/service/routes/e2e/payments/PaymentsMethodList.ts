@@ -4,7 +4,8 @@ import { customer } from '../credentials'
 const path = '/v1/payments/list'
 console.log('path: ', path)
 
-const userId = '210b5590-3041-7060-f7c6-2fb484965a71'
+// A payer of the e2e-hmac merchant: since PCI F3 a merchant key may act only for its own payers
+const userId = 'e13b35a0-1021-7007-2676-937353245fe2'
 
 // For GET requests, body is empty
 const body = ''

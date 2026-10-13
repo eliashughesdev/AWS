@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto'
 import { response } from '../../../utils/http'
 import { processError } from '../../../errors/http'
 import { transactWriteItems } from '../../../utils/db'
-import { networkFor, NETWORKS } from '../../../utils/currencies'
+import { NETWORKS } from '../../../utils/currencies'
 import { provisionMerchantMaster } from '../../../utils/merchantMaster'
 import { createSeed } from '../../../utils/hdSigner'
 
@@ -33,12 +33,10 @@ const PROVISIONING_BUDGET_MS = 20_000
 export default class MerchantRegisterHandler {
   async execute(event: Event, context: Context) {
     const staffUserId = event.requestContext?.authorizer?.userId
-    const name = typeof event.body.name === 'string' ? event.body.name.trim() : ''
-    if (!name) return processError(100031, 'name')
-
+    // The body was checked against schemas/merchants/register.json
+    const name = event.body.name.trim()
     const currencies = event.body.currencies ?? []
-    if (!Array.isArray(currencies) || currencies.some(c => !networkFor(c))) return processError(100031, 'currencies')
-    const accountingCurrency = event.body.accountingCurrency?.trim() || 'USD'
+    const accountingCurrency = event.body.accountingCurrency ?? 'USD'
 
     const merchantId = `mrc_${randomBytes(8).toString('hex')}`
     const apiKey = randomBytes(32).toString('hex')

@@ -76,7 +76,7 @@ D1 and D2 block Phase 0.
 |---|---|---|---|---|---|
 | F1 | ⬜ Not started | | | | |
 | F2 | ⬜ Not started | | | | |
-| F3 | 🟡 In progress | | | | Steps 1–5 in code 2026-10-12 (`utils/payer.ts`, authorizer `authType`), not deployed. Frontends no longer send another id. Verified needs a deploy: `e2e/payments/CardOwnershipTest.ts` |
+| F3 | 🔵 Deployed | | | 2026-10-12 | Steps 1–5 deployed to main 2026-10-12 and verified there with `e2e/payments/CardOwnershipTest.ts` (all 7 checks pass). Not yet on nodapay_ui. The payment queue's consumer is disabled on main, so the queued probe was read from the queue, not seen processed; the card it named exists only under its owner |
 | F4 | ⬜ Not started | | | | |
 | F5 | ⬜ Not started | | | | |
 | F6 | ⬜ Not started | | | | |
@@ -195,9 +195,13 @@ customer's cards (which reveals the `paymentId`s) and then charge them.
    *Already true: the row is read by the message's `userId` and the card id together, so another
    user's card is not found. `paymentHandler.test.ts` proves it; no second check was needed.*
 
-- [ ] **Verified:** E2E: user A's JWT calling `/payments/list?userId=<B>` gets a 403 (or only
+- [x] **Verified:** E2E: user A's JWT calling `/payments/list?userId=<B>` gets a 403 (or only
 A's cards). User A calling `/payments/process` with B's `paymentId` gets a 403. A merchant
 key acting on a user from another platform gets a 403.
+  *main, 2026-10-12, a throwaway user (deleted afterwards): A listing B's cards and charging B's
+  card in B's name get 403 `100053`; A's payment naming B's card is queued as A, whose key
+  holds no such card. The `e2e-hmac` key gets 403 `100053` for another merchant's user, one
+  with saved cards and an unknown id, 400 `100029` without `userId`, and 200 for its own payer.*
 
 ---
 

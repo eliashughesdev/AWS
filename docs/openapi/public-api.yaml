@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.2.0'
+  version: '2.7.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -323,6 +323,7 @@ paths:
       tags: [Profile]
       operationId: getProfile
       summary: The signed-in user's profile
+      description: Always the caller's own profile; the route takes no parameters.
       responses:
         '200':
           description: The profile.
@@ -335,7 +336,9 @@ paths:
                   name: { type: [string, 'null'] }
                   email: { type: [string, 'null'], format: email }
         '400':
-          description: '`100001` the user has no profile yet.'
+          description: |
+            - `100001` the user has no profile yet
+            - `100031` a query parameter was sent (the error names it); this route takes none
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -355,7 +358,7 @@ paths:
               type: object
               required: [name]
               properties:
-                name: { type: string, minLength: 1 }
+                name: { type: string, pattern: '\S', maxLength: 200, description: Saved without the spaces around it. }
                 email: { type: string, format: email, description: Left as it is when omitted. }
       responses:
         '200':
@@ -365,7 +368,8 @@ paths:
               schema: { $ref: '#/components/schemas/Success' }
         '400':
           description: |
-            - `100029` `name` is missing or blank
+            - `100029` `name` is missing
+            - `100031` `name` is blank or longer than 200 characters, or `email` is not an email address
             - `100003` the profile could not be saved
           content:
             application/json:
@@ -378,6 +382,7 @@ paths:
       tags: [Accounts]
       operationId: listAccounts
       summary: The signed-in user's accounts and balances
+      description: Always the caller's own accounts; the route takes no parameters.
       responses:
         '200':
           description: Every account, with its balance.
@@ -390,6 +395,11 @@ paths:
                   accounts:
                     type: array
                     items: { $ref: '#/components/schemas/Account' }
+        '400':
+          description: '`100031` a query parameter was sent (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':
@@ -777,6 +787,7 @@ paths:
       tags: [KYC]
       operationId: getKycStatus
       summary: The signed-in user's identity check
+      description: Always the caller's own check; the route takes no parameters.
       responses:
         '200':
           description: The KYC state; `null` when no check was ever started.
@@ -790,6 +801,11 @@ paths:
                     oneOf:
                       - type: 'null'
                       - $ref: '#/components/schemas/Kyc'
+        '400':
+          description: '`100031` a query parameter was sent (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404':
           description: The user has no profile yet.
@@ -806,7 +822,13 @@ paths:
       description: |
         Opens a verification session with Didit and returns the page the user completes
         it on. Starting a session resets the stored status to `Not Started`, so only call
-        it when the status is neither approved nor pending.
+        it when the status is neither approved nor pending. The session is always for the
+        caller; send `{}` or no body.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
       responses:
         '200':
           description: The session is open.
@@ -817,6 +839,11 @@ paths:
                 required: [verification_url]
                 properties:
                   verification_url: { type: string, format: uri }
+        '400':
+          description: '`100031` the body has a field (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':

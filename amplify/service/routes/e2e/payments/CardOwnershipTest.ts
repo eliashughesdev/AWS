@@ -4,9 +4,10 @@ import { customer } from '../credentials'
 // PCI F3, live: the card routes act only for the caller's own user. Needs the backend deployed
 // with utils/payer.ts. Every value comes from the environment, so no token is kept in the file:
 //
-//   USER_A_TOKEN            a Cognito access token of user A (see AccountsTransferRBACTest.ts
-//                           for admin-initiate-auth)
-//   USER_B_ID, USER_B_CARD  another user's Cognito id and one of their saved card ids
+//   USER_A_TOKEN            optional: a Cognito access token of user A (see
+//                           AccountsTransferRBACTest.ts for admin-initiate-auth); without it
+//                           only the merchant key's checks run
+//   USER_B_ID, USER_B_CARD  with USER_A_TOKEN: another user's Cognito id and one of their cards
 //   OTHER_MERCHANT_USER_ID  a payer of a merchant other than e2e-hmac
 //   OWN_PAYER_ID            optional: a payer of e2e-hmac, to see the key's allowed case
 //
@@ -27,13 +28,10 @@ const env = (name: string) => {
   return value
 }
 
-const userToken = env('USER_A_TOKEN')
-const userB = env('USER_B_ID')
-const cardOfB = env('USER_B_CARD')
+const userToken = process.env.USER_A_TOKEN
 const otherMerchantsUser = env('OTHER_MERCHANT_USER_ID')
 const ownPayer = process.env.OWN_PAYER_ID
 
-const asUser = { Authorization: `Bearer ${userToken}` }
 const asMerchant = (path: string, body: string) => {
   const timestamp = Date.now()
   const bodyHash = crypto.createHash('md5').update(body).digest('hex')
@@ -56,7 +54,9 @@ const check = async (name: string, path: string, init: { method: string, headers
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}: ${res.status} ${body.error_code ?? ''}${ok ? '' : ` (expected ${expected.status} ${expected.errorCode ?? ''})`}`)
 }
 
-const run = async () => {
+const userChecks = async (token: string, userB: string, cardOfB: string) => {
+  // The gateway asks every caller for X-Project; with a token its value is not read (the dashboard sends 'web')
+  const asUser = { Authorization: `Bearer ${token}`, 'X-Project': 'web' }
   await check('user A lists their own cards with no userId', '/payments/list',
     { method: 'GET', headers: asUser }, { status: 200 })
   await check('user A cannot list user B\'s cards', '/payments/list',
@@ -68,6 +68,11 @@ const run = async () => {
   await check('user A\'s payment with B\'s card id is queued as A (check the logs)', '/payments/process',
     { method: 'POST', headers: asUser, body: JSON.stringify({ paymentId: cardOfB, amount: 1, currency: 'USD', transactionId: `f3-probe-${Date.now()}` }) },
     { status: 200 })
+}
+
+const run = async () => {
+  if (userToken) await userChecks(userToken, env('USER_B_ID'), env('USER_B_CARD'))
+  else console.log('SKIP  the signed-in user\'s checks: no USER_A_TOKEN')
 
   const query = `?userId=${encodeURIComponent(otherMerchantsUser)}`
   await check('a merchant key cannot list another merchant\'s user\'s cards', '/payments/list',

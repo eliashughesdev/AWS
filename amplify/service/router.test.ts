@@ -56,6 +56,25 @@ describe('router body validation', () => {
       expect(JSON.parse(res.body)).toMatchObject({ error_code: 100029, message: 'required parameters for this request are transaction.id,transaction.amount,transaction.currency' })
       expect(execute).not.toHaveBeenCalled()
     })
+
+    // It had no allowedRoles: any caller the authorizer let through could send images to Didit
+    describe('/accounts/kyc/didit/id-verify', () => {
+      const idVerify = (role: string) =>
+        router({ path: '/accounts/kyc/didit/id-verify', httpMethod: 'POST', body: JSON.stringify({ front_image: 'aGVsbG8=' }), requestContext: { authorizer: { role } } } as any, {})
+
+      it.each(['user', 'staff'])('runs for %s', async role => {
+        const execute = stubHandler('/accounts/kyc/didit/id-verify')
+        expect((await idVerify(role)).statusCode).toBe(200)
+        expect(execute).toHaveBeenCalledTimes(1)
+      })
+
+      // admin is a merchant's key (or the Cognito group admin); merchant a merchant's team member
+      it.each(['admin', 'merchant'])('refuses %s', async role => {
+        const execute = stubHandler('/accounts/kyc/didit/id-verify')
+        expect((await idVerify(role)).statusCode).toBe(403)
+        expect(execute).not.toHaveBeenCalled()
+      })
+    })
   })
 
   describe('a GET route with a schema', () => {

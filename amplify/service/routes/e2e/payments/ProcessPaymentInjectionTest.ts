@@ -13,7 +13,8 @@ console.log('marker:', marker)
 
 const body = JSON.stringify({
   paymentId: marker,
-  userId: marker,
+  // A payer of e2e-hmac: since PCI F3 a made-up user is refused before anything is queued
+  userId: 'e13b35a0-1021-7007-2676-937353245fe2',
   amount: 1,
   currency: 'USD',
   transactionId: marker,

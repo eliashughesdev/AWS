@@ -12,14 +12,11 @@ export default class KycDiditIdVerifyHandler {
       return response({ statusCode: 500, headers: null, bodyObject: { message: 'KYC service not configured' } })
     }
 
-    const { front_image, back_image } = event.body
-
-    if (!front_image) {
-      return response({ statusCode: 400, headers: null, bodyObject: { message: 'front_image is required' } })
-    }
+    // The body was checked against schemas/accounts/kyc/didit/id-verify.json
+    const { front_image: frontImage, back_image: backImage } = event.body
 
     try {
-      const result = await provider.verifyIdDocument(front_image, back_image)
+      const result = await provider.verifyIdDocument(frontImage, backImage)
       return response({ statusCode: 200, headers: null, bodyObject: result })
     } catch (e: any) {
       console.error('Didit id-verification failed:', e.response?.data ?? e.message)
