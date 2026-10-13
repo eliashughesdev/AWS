@@ -30,3 +30,19 @@ export interface SavedCard {
   createdAt: number
   isRecurringReady: boolean
 }
+
+export interface MerchantCurrency {
+  currency: string
+  // `provisioning` until /merchants/masters/provision finishes it, then `ready`.
+  status: string
+  depositAddress: string | null
+}
+
+export interface Merchant {
+  merchantId: string
+  name: string
+  status: string
+  accountingCurrency: string
+  createdAt: string | null
+  currencies: MerchantCurrency[]
+}

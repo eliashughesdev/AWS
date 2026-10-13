@@ -156,15 +156,22 @@ There are three deployable pieces in this one repo:
   on an HTTP error status (views branch on `ok`), only on network failure. Apps never import
   `aws-amplify`: Cognito goes through `@loudibly/core/auth/cognito`, and route access through
   `checkAccess()` in `@loudibly/core/auth/guards`, which returns a reason that each app's router
-  maps to its own routes. Views get their data and flows from `@loudibly/core/composables/*`
-  (user, accounts, prices, transactions, KYC, transfer/deposit/withdraw, cards, wallet reads and sends,
+  maps to its own routes. A route marked `staffOnly` is for Loudibly employees: anyone else
+  signed in gets `needs-staff`. The role comes from `getRole()` in `@loudibly/core/auth/role`,
+  which reads the access token's `cognito:groups` with the authorizer's precedence. It only
+  decides what is shown (the API checks the role itself), and a group given after sign-in is
+  not in the token until it is renewed. Views get their data and flows from `@loudibly/core/composables/*`
+  (user, accounts, merchants, prices, transactions, KYC, transfer/deposit/withdraw, cards, wallet reads and sends,
   sign-up, the claim link; password sign-in is `auth/signIn`, key handling `wallet/keys`)
   instead of calling `api/*` themselves: a `load()` throws when the request itself fails and
   the view decides what to show. It does not throw when the server refuses the read:
   `useAccounts().failed` says so, and a view must check it before showing an empty list as the
   user's; `useTransactions().failed` and `useKyc().failed` say the same for theirs.
   `useAccounts().create()` and `rename()` only send the request: the view decides what counts as
-  success and reads the list again with `refresh()`. Opening a
+  success and reads the list again with `refresh()`. `useMerchants` (staff) works the same way
+  with `register()` and `addCurrency()`. The merchant's API key is in `register()`'s result
+  only, and core keeps it nowhere; a throw from `register()` does not mean no merchant was
+  made, so a view must not simply offer to send it again. Opening a
   Didit session resets the stored KYC status, so a view offers `useKyc().start()` only when the
   status was read and is not approved or pending. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
   value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text

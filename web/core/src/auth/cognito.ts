@@ -17,3 +17,12 @@ export async function getAccessToken(): Promise<string | undefined> {
   const session = await fetchAuthSession()
   return session.tokens?.accessToken?.toString()
 }
+
+// The access token's cognito:groups claim. Undefined when there is no session.
+export async function getAccessTokenGroups(): Promise<string[] | undefined> {
+  const session = await fetchAuthSession()
+  const payload = session.tokens?.accessToken?.payload
+  if (!payload) return undefined
+  const groups = payload['cognito:groups']
+  return Array.isArray(groups) ? groups.filter(g => typeof g === 'string') : []
+}

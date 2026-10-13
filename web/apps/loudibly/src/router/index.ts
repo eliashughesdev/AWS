@@ -119,6 +119,7 @@ const redirectFor: Record<Exclude<Access, 'allowed'>, string> = {
   'signed-out':    'auth',
   'needs-cognito': 'wallet',
   'needs-wallet':  'dashboard',
+  'needs-staff':   'dashboard',
 }
 
 router.beforeEach(async (to) => {
