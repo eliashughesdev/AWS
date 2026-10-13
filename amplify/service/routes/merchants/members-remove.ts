@@ -5,6 +5,7 @@ import { processError } from '../../../errors/http'
 import { deleteItem, putItem } from '../../../utils/db'
 import { disableUser } from '../../../utils/cognito'
 import { getMember } from '../../../utils/merchant'
+import { cancelRequestsOf } from '../../../utils/treasuryRequest'
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string } }
@@ -14,7 +15,9 @@ type Event = {
 /**
  * Removes a person from a merchant's team (staff only). The MEMBERSHIP row goes
  * first — every operation looks the caller's merchant up through it, so access
- * ends immediately, before their current Cognito tokens expire. Safe to retry.
+ * ends immediately, before their current Cognito tokens expire. The pending
+ * requests they made or may vote on are cancelled: what they asked for, or
+ * approved, must not go on to move money. Safe to retry.
  */
 export default class RemoveMerchantMemberHandler {
   async execute(event: Event, context: Context) {
@@ -27,6 +30,10 @@ export default class RemoveMerchantMemberHandler {
 
     const unlinked = await deleteItem('v1MerchantTable', { id: `USER#${userId}`, sk: 'MEMBERSHIP' })
     if (!unlinked.success) return processError(100003)
+
+    // Before the member is marked removed, so a failure here is retried with the rest
+    const cancelledRequests = await cancelRequestsOf(merchantId, userId)
+    if (!cancelledRequests) return processError(100003)
 
     const updated = await putItem('v1MerchantTable', {
       ...member.res,
@@ -43,12 +50,12 @@ export default class RemoveMerchantMemberHandler {
       console.error(`MERCHANT_MEMBER: removed ${userId} from ${merchantId} but could not disable the Cognito user`, err)
     }
 
-    console.log(`MERCHANT_MEMBER: removed ${userId} from ${merchantId} by ${staffUserId}`)
+    console.log(`MERCHANT_MEMBER: removed ${userId} from ${merchantId} by ${staffUserId}, cancelled requests: ${cancelledRequests.join(', ') || 'none'}`)
 
     return response({
       statusCode: 200,
       headers: null,
-      bodyObject: { success: true, merchantId, userId, status: 'removed' },
+      bodyObject: { success: true, merchantId, userId, status: 'removed', cancelledRequests },
     })
   }
 }

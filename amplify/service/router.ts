@@ -29,6 +29,9 @@ import inviteMerchantMember from './routes/merchants/members-invite'
 import removeMerchantMember from './routes/merchants/members-remove'
 import setTreasuryPolicy from './routes/merchants/policy'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
+import voteOnRequest from './routes/merchants/operations/vote'
+import cancelRequest from './routes/merchants/operations/cancel'
+import listRequests from './routes/merchants/operations/list'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
@@ -62,6 +65,9 @@ import merchantsMembersInviteSchema from './schemas/merchants/members/invite.jso
 import merchantsMembersRemoveSchema from './schemas/merchants/members/remove.json'
 import merchantsPolicySchema from './schemas/merchants/policy.json'
 import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury-send.json'
+import merchantsOperationsVoteSchema from './schemas/merchants/operations/vote.json'
+import merchantsOperationsCancelSchema from './schemas/merchants/operations/cancel.json'
+import merchantsOperationsListSchema from './schemas/merchants/operations/list.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -108,6 +114,9 @@ export const routes: RoutesMap = new Map([
   ['/merchants/members/remove', { handler: removeMerchantMember, schema: merchantsMembersRemoveSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy', { handler: setTreasuryPolicy, schema: merchantsPolicySchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, schema: merchantsTreasurySendSchema, method: 'POST', allowedRoles: ['merchant'] }],
+  ['/merchants/operations/vote', { handler: voteOnRequest, schema: merchantsOperationsVoteSchema, method: 'POST', allowedRoles: ['merchant'] }],
+  ['/merchants/operations/cancel', { handler: cancelRequest, schema: merchantsOperationsCancelSchema, method: 'POST', allowedRoles: ['merchant'] }],
+  ['/merchants/operations/list', { handler: listRequests, schema: merchantsOperationsListSchema, method: 'GET', allowedRoles: ['merchant'] }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null, queryStringParameters?: Record<string, string | undefined> | null }, context: any) => {

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { scanItems, updateItem } from './db'
+import { queryRecord, scanItems, updateItem } from './db'
 
 describe('scanItems', () => {
   let send: jest.SpyInstance
@@ -26,6 +26,29 @@ describe('scanItems', () => {
       .mockRejectedValueOnce(new Error('throttled') as never)
 
     expect(await scanItems('t', 'sk = :sk', { ':sk': 'PROFILE' })).toEqual({ success: false, res: null })
+  })
+})
+
+describe('queryRecord', () => {
+  let send: jest.SpyInstance
+  const sent = () => send.mock.calls[0][0].input
+
+  beforeEach(() => {
+    send = jest.spyOn(DynamoDBClient.prototype, 'send').mockResolvedValue({ Items: [{ sk: { S: 'b' } }, { sk: { S: 'a' } }] } as never)
+  })
+  afterEach(() => jest.restoreAllMocks())
+
+  it('reads in sort-key order with no limit unless told otherwise', async () => {
+    await queryRecord('t', 'id = :id', { ':id': '1' })
+    expect(sent()).toMatchObject({ TableName: 't', KeyConditionExpression: 'id = :id', ConsistentRead: false, ScanIndexForward: true })
+    expect(sent().Limit).toBeUndefined()
+  })
+
+  // Forwards, the first megabyte of a long partition is its oldest items
+  it('reads the last items first, and no more than the limit, when asked', async () => {
+    const res = await queryRecord('t', 'id = :id', { ':id': '1' }, false, { descending: true, limit: 2 })
+    expect(sent()).toMatchObject({ ScanIndexForward: false, Limit: 2 })
+    expect(res).toEqual({ success: true, res: [{ sk: 'b' }, { sk: 'a' }] })
   })
 })
 

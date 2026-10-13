@@ -379,6 +379,26 @@ be atomic (e.g. idempotent transaction creation) go through `transactWriteItems`
 `attribute_not_exists(id)`) — use this instead of a plain multi-item write whenever two records
 must succeed or fail together.
 
+**A treasury request is decided by conditional writes.** `/merchants/operations/treasury-send`
+writes the `REQ#` row; three more routes, all role `merchant` and on the internal API only, act on
+it. `vote` (`requestId`, `decision`: `approve` or `reject`) is for someone in the row's `approvers`,
+fixed when it was made: once, and never the initiator. One rejection makes it `REJECTED`; the
+approval that reaches `requiredCount` makes it `APPROVED`, which sends nothing yet. `cancel` is
+for the initiator, while it is pending. `GET list` answers the merchant's newest 100 to any active
+member. All three take the merchant from `resolveMember()` (`utils/merchant.ts`), never the
+request. A change to a request is one `updateItem` whose condition restates what the handler read
+(`status = PENDING`, not past `expiresAt`, this vote not cast, `approvalCount` as read), so two
+votes at once cannot both act on one count; a refused write reads again, `WRITE_ATTEMPTS` times,
+and answers for what it finds. Keep it that way in the step that sends: never write a status
+without the status it was read as in the condition. Nothing sweeps the table, so a request past
+`expiresAt` says `PENDING` until a route meets it: read a status through `currentStatus()`
+(`utils/treasuryRequest.ts`), which writes `EXPIRED` then and answers it either way. Only a
+pending request expires. `/merchants/members/remove` cancels every pending request the person
+made or may vote on (`cancelRequestsOf()`, `cancelReason: MEMBER_REMOVED`) before it marks them
+removed, so sending it again finishes one that failed half way. `REJECTED`, `CANCELLED` and
+`EXPIRED` are not in `COUNTED_STATUSES`; a row past `expiresAt` that still says `PENDING` is not
+counted only because `REQUEST_TTL_MS` is longer than the 24 hours the threshold looks back.
+
 **Async work is queue-driven.** Four SQS queues (`v1WebhookQueue`, `v1GeneralQueue`,
 `v1PaymentProcessingQueue`, `v1WithdrawalProcessingQueue`, `v1AccountBackfillQueue`) feed two
 processor Lambdas (`fn/sqs-processor/webhook`, `fn/sqs-processor/general`); a DynamoDB Streams

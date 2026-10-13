@@ -144,6 +144,43 @@ describe('router body validation', () => {
   })
 })
 
+// A merchant's treasury requests are made and decided by its own team: not by Loudibly's
+// staff, and not by its API key, which a platform holds and no person signs in with
+describe('router treasury request routes', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  const requestId = 'req_1760000000000_0123456789ab'
+  const operations: [string, string, Record<string, unknown> | null][] = [
+    ['/merchants/operations/treasury-send', 'POST', { currency: 'USDT_TRON', amount: 250, destinationAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' }],
+    ['/merchants/operations/vote', 'POST', { requestId, decision: 'approve' }],
+    ['/merchants/operations/cancel', 'POST', { requestId }],
+    ['/merchants/operations/list', 'GET', null],
+  ]
+
+  describe.each(operations)('%s', (path, httpMethod, body) => {
+    const call = (role: string | undefined, stageVariables?: Record<string, string>) =>
+      router({ path, httpMethod, body: body && JSON.stringify(body), stageVariables, requestContext: { authorizer: { role } } } as any, {})
+
+    it('runs for a member of a merchant\'s team', async () => {
+      const execute = stubHandler(path)
+      expect((await call('merchant')).statusCode).toBe(200)
+      expect(execute).toHaveBeenCalledTimes(1)
+    })
+
+    it.each(['staff', 'admin', 'user', undefined])('refuses %s', async role => {
+      const execute = stubHandler(path)
+      expect((await call(role)).statusCode).toBe(403)
+      expect(execute).not.toHaveBeenCalled()
+    })
+
+    it('is not on the public API', async () => {
+      const execute = stubHandler(path)
+      expect((await call('merchant', { API_SURFACE: 'public' })).statusCode).toBe(404)
+      expect(execute).not.toHaveBeenCalled()
+    })
+  })
+})
+
 describe('router on the public API', () => {
   afterEach(() => jest.restoreAllMocks())
 

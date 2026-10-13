@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/operations/vote",
+  "$comment": "requestId is the id /merchants/operations/treasury-send answered. The merchant comes from the caller's membership, never the body, so another merchant's request is 100054 like one that does not exist. Who may vote, and whether the request can still be voted on, is the handler's: 100054 to 100059.",
+  "type": "object",
+  "required": ["requestId", "decision"],
+  "properties": {
+    "requestId": { "type": "string", "pattern": "^req_[0-9]{13}_[0-9a-f]{12}$" },
+    "decision": { "type": "string", "enum": ["approve", "reject"] }
+  }
+}

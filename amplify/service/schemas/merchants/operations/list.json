@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /merchants/operations/list",
+  "$comment": "The query string, not a body. The route takes nothing: it answers the newest requests of the caller's own merchant, so a parameter such as merchantId or status is refused rather than ignored.",
+  "type": "object",
+  "additionalProperties": false
+}

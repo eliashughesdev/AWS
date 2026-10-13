@@ -7,6 +7,7 @@ import { putItem, queryRecord } from '../../../../utils/db'
 import { isNativeCurrency, networkFor } from '../../../../utils/currencies'
 import { getMember, getMembership, getMerchant, listMembers } from '../../../../utils/merchant'
 import { getMasterAccount } from '../../../../utils/masterAccount'
+import { COUNTED_STATUSES, REQUEST_TTL_MS } from '../../../../utils/treasuryRequest'
 import { isValidTronAddress } from '../../../../providers/ledger/tatum/chains/tron'
 import { ProviderRegistry } from '../../../../utils/AccountProvider'
 import { ProviderName } from '../../../../providers/ledger/ProviderName'
@@ -18,9 +19,6 @@ type Event = {
 
 const TABLE = 'v1MerchantTable'
 const DAY_MS = 24 * 60 * 60 * 1000
-const REQUEST_TTL_MS = 2 * DAY_MS
-// Every send that has or may still move money counts toward the rolling threshold
-const COUNTED_STATUSES = ['PENDING', 'APPROVED', 'EXECUTING', 'COMPLETED', 'UNCERTAIN']
 
 /**
  * Asks to send a merchant's collected fees to an external address. Only

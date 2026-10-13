@@ -33,6 +33,13 @@ const httpErrors: any = {
   100051: () => 'the sender and the recipient are the same account',
   100052: (params: any) => `the recipient account does not hold ${params}`,
   100053: () => 'this user is not yours to act for',
+  100054: () => 'this request does not exist',
+  100055: (params: any) => `this request is no longer pending: it is ${params}`,
+  100056: () => 'this request has expired',
+  100057: () => 'you are not an approver of this request',
+  100058: () => 'you cannot vote on a request you made',
+  100059: () => 'you have already voted on this request',
+  100060: () => 'only the member who made this request can cancel it',
 }
 
 // statusCode is 400 unless the code needs another, as 100053's 403 does

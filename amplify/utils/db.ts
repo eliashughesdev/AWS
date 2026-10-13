@@ -32,12 +32,16 @@ export const getRecord = async (tableName: string | undefined, id: string) => {
   }
 }
 
-export const queryRecord = async (tableName: string | undefined, keyConditionExpression: string, expressionAttributeValues: Record<string, any>, consistentRead = false) => {
+// Answers one page (1 MB at most) in sort-key order. `descending` with a `limit` reads the
+// last items of a partition without the first ones filling that page
+export const queryRecord = async (tableName: string | undefined, keyConditionExpression: string, expressionAttributeValues: Record<string, any>, consistentRead = false, order: { descending?: boolean, limit?: number } = {}) => {
   const input = new QueryCommand({
     TableName: tableName,
     KeyConditionExpression: keyConditionExpression,
     ExpressionAttributeValues: marshall(expressionAttributeValues),
     ConsistentRead: consistentRead,
+    ScanIndexForward: !order.descending,
+    Limit: order.limit,
   })
   try {
     const res = await db.send(input)
