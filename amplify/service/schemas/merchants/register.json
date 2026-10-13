@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/register",
+  "$comment": "currencies are ledger currencies exactly as the master rows are keyed (MASTER#<currency>), so a lower-case one would make a master that getMasterAccount never finds. accountingCurrency defaults to USD.",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "pattern": "\\S", "maxLength": 100 },
+    "currencies": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["TRON", "SOL", "USDT_TRON", "TUSDT_TRON"] }
+    },
+    "accountingCurrency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+  }
+}
