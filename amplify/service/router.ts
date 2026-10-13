@@ -35,6 +35,7 @@ import { bodyFields, describeRequest } from '../utils/requestLog'
 import accountsAccountSchema from './schemas/accounts/account.json'
 import accountsDetailsSchema from './schemas/accounts/details.json'
 import accountsRenameSchema from './schemas/accounts/rename.json'
+import accountsProfileSchema from './schemas/accounts/profile.json'
 import accountsProfileSaveSchema from './schemas/accounts/profile/save.json'
 import accountsTransactionsSchema from './schemas/accounts/transactions.json'
 import accountsTransferSchema from './schemas/accounts/transfer.json'
@@ -75,7 +76,7 @@ export const routes: RoutesMap = new Map([
   ['/webhook/kyc/didit', { handler: accountsKycWebhookDidit, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/status', { handler: accountsKycStatus, requiredParams: [], method: 'GET' }],
   ['/accounts/list', { handler: accountsList, requiredParams: [], method: 'GET' }],
-  ['/accounts/profile', { handler: accountsProfile, requiredParams: [], method: 'GET' }],
+  ['/accounts/profile', { handler: accountsProfile, schema: accountsProfileSchema, method: 'GET' }],
   ['/accounts/profile/save', { handler: accountsProfileSave, schema: accountsProfileSaveSchema, method: 'POST' }],
   ['/accounts/transactions', { handler: accountsTransactions, schema: accountsTransactionsSchema, method: 'POST' }],
   ['/accounts/details', { handler: accountsDetails, schema: accountsDetailsSchema, method: 'POST' }],

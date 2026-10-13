@@ -14,7 +14,8 @@ export type SchemaCheck =
 
 // A missing required field answers 100029 with every required field at its level, as
 // requiredParams did (nested ones by path: transaction.id); any other mismatch answers 100031
-// with the path of the offending value. A oneOf/anyOf of required-only branches names its
+// with the path of the offending value (for a field additionalProperties forbids, the field's own
+// path). A oneOf/anyOf of required-only branches names its
 // alternatives: 100029 "amount or cryptoAmount" when none was sent, 100031 when oneOf got several
 export const checkBodyAgainstSchema = (body: unknown, schema: Record<string, any>): SchemaCheck => {
   let validate = compiled.get(schema)
@@ -42,6 +43,10 @@ export const checkBodyAgainstSchema = (body: unknown, schema: Record<string, any
   if (error.keyword === 'required') {
     const prefix = path ? `${path}.` : ''
     return { valid: false, code: 100029, message: (error.schema as string[]).map(field => prefix + field).join(',') }
+  }
+  if (error.keyword === 'additionalProperties') {
+    const field = (error.params as { additionalProperty: string }).additionalProperty
+    return { valid: false, code: 100031, message: path ? `${path}.${field}` : field }
   }
   return { valid: false, code: 100031, message: path || 'body' }
 }

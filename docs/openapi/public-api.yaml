@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.3.0'
+  version: '2.4.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -323,6 +323,7 @@ paths:
       tags: [Profile]
       operationId: getProfile
       summary: The signed-in user's profile
+      description: Always the caller's own profile; the route takes no parameters.
       responses:
         '200':
           description: The profile.
@@ -335,7 +336,9 @@ paths:
                   name: { type: [string, 'null'] }
                   email: { type: [string, 'null'], format: email }
         '400':
-          description: '`100001` the user has no profile yet.'
+          description: |
+            - `100001` the user has no profile yet
+            - `100031` a query parameter was sent (the error names it); this route takes none
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }

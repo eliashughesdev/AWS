@@ -63,6 +63,12 @@ describe('checkBodyAgainstSchema', () => {
       .toEqual({ valid: false, code: 100031, message: 'contact.email' })
   })
 
+  it('names a field that additionalProperties forbids, not the whole body', () => {
+    const closed = { type: 'object', properties: { inner: { type: 'object', additionalProperties: false } }, additionalProperties: false }
+    expect(checkBodyAgainstSchema({ userId: 'x' }, closed)).toEqual({ valid: false, code: 100031, message: 'userId' })
+    expect(checkBodyAgainstSchema({ inner: { userId: 'x' } }, closed)).toEqual({ valid: false, code: 100031, message: 'inner.userId' })
+  })
+
   it('answers 100031 for a missing or non-object body instead of throwing', () => {
     expect(checkBodyAgainstSchema(null, schema)).toEqual({ valid: false, code: 100031, message: 'body' })
     expect(checkBodyAgainstSchema(undefined, schema)).toEqual({ valid: false, code: 100031, message: 'body' })
