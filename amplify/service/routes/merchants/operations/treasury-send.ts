@@ -49,11 +49,11 @@ export default class CreateTreasurySendHandler {
     if (!merchant.success) return processError(100003)
     if (merchant.res?.status !== 'active') return processError(100040)
 
-    const currency = String(event.body.currency).toUpperCase()
-    const amount = Number(event.body.amount)
-    const { destinationAddress } = event.body
+    // The body's shape was checked against schemas/merchants/operations/treasury-send.json;
+    // what the values mean is checked here
+    const currency = event.body.currency.toUpperCase()
+    const { amount, destinationAddress } = event.body
     if (!networkFor(currency) || isNativeCurrency(currency)) return processError(100045)
-    if (!Number.isFinite(amount) || amount <= 0) return processError(100031, 'amount')
     if (!isValidTronAddress(destinationAddress)) return processError(100048)
 
     const policy = await queryRecord(TABLE, 'id = :id AND sk = :sk', { ':id': merchantId, ':sk': 'POLICY#TREASURY_SEND' })

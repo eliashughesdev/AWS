@@ -52,6 +52,7 @@ import merchantsMastersProvisionSchema from './schemas/merchants/masters/provisi
 import merchantsMembersInviteSchema from './schemas/merchants/members/invite.json'
 import merchantsMembersRemoveSchema from './schemas/merchants/members/remove.json'
 import merchantsPolicySchema from './schemas/merchants/policy.json'
+import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury-send.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 
@@ -96,7 +97,7 @@ export const routes: RoutesMap = new Map([
   ['/merchants/members/invite', { handler: inviteMerchantMember, schema: merchantsMembersInviteSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/members/remove', { handler: removeMerchantMember, schema: merchantsMembersRemoveSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy', { handler: setTreasuryPolicy, schema: merchantsPolicySchema, method: 'POST', allowedRoles: ['staff'] }],
-  ['/merchants/operations/treasury-send', { handler: createTreasurySend, requiredParams: ['currency', 'amount', 'destinationAddress'], method: 'POST', allowedRoles: ['merchant'] }],
+  ['/merchants/operations/treasury-send', { handler: createTreasurySend, schema: merchantsTreasurySendSchema, method: 'POST', allowedRoles: ['merchant'] }],
 ])
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null, queryStringParameters?: Record<string, string | undefined> | null }, context: any) => {
