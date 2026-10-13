@@ -1,6 +1,35 @@
 import axios from 'axios'
 import { createHmac, timingSafeEqual } from 'crypto'
 
+// Didit's limit on the gap between X-Timestamp and now
+const WEBHOOK_MAX_AGE_S = 300
+
+// API Gateway passes headers in the case they were sent
+const header = (event: any, name: string): string | undefined => {
+  const key = Object.keys(event.headers ?? {}).find(k => k.toLowerCase() === name)
+  return key ? event.headers[key] : undefined
+}
+
+// Didit's canonical JSON for X-Signature-V2: keys sorted at every level, arrays in order.
+// JSON.stringify then writes it compactly, keeps non-ASCII characters as they are and
+// writes whole numbers without a decimal point, as Didit does
+const sortKeys = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(sortKeys)
+  if (value && typeof value === 'object') {
+    const object = value as Record<string, unknown>
+    return Object.fromEntries(Object.keys(object).sort().map(key => [key, sortKeys(object[key])]))
+  }
+  return value
+}
+
+// timingSafeEqual throws on buffers of different lengths, which a forged header could have
+const sameSignature = (received: string | undefined, expected: string): boolean => {
+  if (!received) return false
+  const a = Buffer.from(received)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 export class DiditKycProvider {
   private constructor(
     private apiKey: string,
@@ -39,22 +68,25 @@ export class DiditKycProvider {
     )
 
     // Didit returns 'url', not 'verification_url' as the docs say
-    const { session_id, url: verificationUrl } = diditResponse.data
-    return { sessionId: session_id, verificationUrl }
+    const { session_id: sessionId, url: verificationUrl } = diditResponse.data
+    return { sessionId, verificationUrl }
   }
 
-  verifyWebhookSignature(event: any): boolean {
-    const signatureSimple = event.headers?.['x-signature-simple'] ?? event.headers?.['X-Signature-Simple']
-    const xTimestamp = event.headers?.['x-timestamp'] ?? event.headers?.['X-Timestamp']
-    const { session_id, status, webhook_type } = event.body
+  /**
+   * Whether the webhook came from Didit (docs.didit.me/integration/webhooks). X-Signature-V2
+   * covers the whole payload, re-encoded the way Didit does it, so it survives the router's
+   * JSON.parse; X-Signature covers the exact bytes, which the router keeps as rawBody.
+   * X-Signature-Simple is not accepted: it leaves out vendor_data, the user the status is
+   * written to, so one genuine delivery could be replayed for any user. Neither signature
+   * covers X-Timestamp, which only bounds how late a delivery may arrive.
+   */
+  verifyWebhookSignature(event: any, now = Date.now()): boolean {
+    const timestamp = Number(header(event, 'x-timestamp'))
+    if (!Number.isFinite(timestamp) || Math.abs(now / 1000 - timestamp) > WEBHOOK_MAX_AGE_S) return false
 
-    const sigString = `${xTimestamp}:${session_id}:${status}:${webhook_type}`
-    const expectedSig = createHmac('sha256', this.webhookSecret).update(sigString).digest('hex')
-
-    return (
-      !!signatureSimple &&
-      timingSafeEqual(Buffer.from(signatureSimple), Buffer.from(expectedSig))
-    )
+    const sign = (payload: string) => createHmac('sha256', this.webhookSecret).update(payload, 'utf8').digest('hex')
+    if (sameSignature(header(event, 'x-signature-v2'), sign(JSON.stringify(sortKeys(event.body))))) return true
+    return typeof event.rawBody === 'string' && sameSignature(header(event, 'x-signature'), sign(event.rawBody))
   }
 
   extractWebhookPayload(event: any): { userId: string; sessionId: string; status: string } {
