@@ -57,10 +57,10 @@ There are three deployable pieces in this one repo:
     still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
     the user's crypto accounts, a search, three filters, and four totals that cover the chosen
     date range. It opens on the type and range given in the address
-    (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column and
-    the % line under each total are still mockup data (`placeholders/transactions.ts`); the
-    real fee waits for a backend change (`fee` on the withdrawal rows of
-    `/accounts/transactions`). Deposit is real for the Crypto method: a dropdown with one line
+    (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column is real: a
+    row shows the `FEE` row of the same account and `txId`, and a dash when there is none (only
+    a TRX or SOL withdrawal is charged one, and its row arrives with the chain's webhook). The %
+    line under each total is still mockup data (`placeholders/transactions.ts`). Deposit is real for the Crypto method: a dropdown with one line
     per account (two accounts can share a coin), the chosen account's network, address and QR
     code, and Recent Deposits, the four newest `DEPOSIT` rows of every account. Nothing tells
     the browser that a deposit arrived, so while the page is in view it reads `/accounts/list`

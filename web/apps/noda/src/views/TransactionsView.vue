@@ -13,7 +13,7 @@ import StatusPill from '../components/StatusPill.vue'
 import { activityKind } from '../activity'
 import { coinFor } from '../coins'
 import { BLANK, accountLabel, coinAmount, dateTime, priced, shorten, usdSum, usdValue } from '../format'
-import { fees, summary } from '../placeholders/transactions'
+import { summary } from '../placeholders/transactions'
 
 const columns = ['ID', 'Type', 'Currency', 'Amount', 'From/To', 'Fee', 'Status', 'Date/Time']
 // Only the first three columns are drawn on mobile; the widths of the others are not from the design.
@@ -70,6 +70,10 @@ const rows = computed(() => {
     const text = String(value ?? '')
     return text ? names.get(text) ?? shorten(text) : '—'
   }
+  // What a withdrawal cost its account: the FEE row of the same chain transaction.
+  const feeOf = new Map(transactions.value
+    .filter(tx => tx.type === 'FEE')
+    .map(tx => [`${tx.accountNo}:${tx.txId}`, Number(tx.amount)]))
 
   return transactions.value.flatMap(tx => {
     const kind = activityKind(tx.type)
@@ -83,6 +87,7 @@ const rows = computed(() => {
     // The user's side is the account, whichever address signed (a token leaves from the master's).
     const own = party(tx.accountNo)
     const other = party(kind.incoming ? tx.from : tx.to)
+    const fee = feeOf.get(`${tx.accountNo}:${tx.txId}`)
     return [{
       key:      `${tx.accountNo}:${tx.type}:${id || tx.createdAt}`,
       id,
@@ -95,7 +100,8 @@ const rows = computed(() => {
       value:    known ? valueOf(amount, chain) : null,
       from:     kind.incoming ? other : own,
       to:       kind.incoming ? own : other,
-      fee:      `${fees[kind.label]} ${coin.symbol}`,
+      // A dash where the account was charged none, or the chain has not reported it yet.
+      fee:      Number.isFinite(fee) ? `${coinAmount(fee!)} ${coin.symbol}` : '—',
       date:     dateTime(tx.createdAt),
       at:       new Date(tx.createdAt).getTime(),
       search:   [id, tx.reference, tx.from, tx.to, own, other, coin.symbol, coin.name, kind.label, kind.status].join(' ').toLowerCase(),
