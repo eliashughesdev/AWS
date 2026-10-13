@@ -110,6 +110,28 @@ describe('router body validation', () => {
       expect(JSON.parse(res.body)).toMatchObject({ error_code: 100031, message: 'invalid value for userId' })
       expect(execute).not.toHaveBeenCalled()
     })
+
+    // It answers every merchant, so only Loudibly's own staff may call it
+    describe('/merchants/list', () => {
+      it('runs for staff', async () => {
+        const execute = stubHandler('/merchants/list')
+        expect((await get('/merchants/list', null, 'staff')).statusCode).toBe(200)
+        expect(execute).toHaveBeenCalledTimes(1)
+      })
+
+      it.each(['admin', 'merchant', 'user', undefined])('refuses %s', async role => {
+        const execute = stubHandler('/merchants/list')
+        expect((await get('/merchants/list', null, role)).statusCode).toBe(403)
+        expect(execute).not.toHaveBeenCalled()
+      })
+
+      it('is not on the public API', async () => {
+        const execute = stubHandler('/merchants/list')
+        const res = await router({ path: '/v1/merchants/list', httpMethod: 'GET', body: null, stageVariables: { API_SURFACE: 'public' }, requestContext: { authorizer: { role: 'staff' } } } as any, {})
+        expect(res.statusCode).toBe(404)
+        expect(execute).not.toHaveBeenCalled()
+      })
+    })
   })
 
   describe('a route with requiredParams', () => {

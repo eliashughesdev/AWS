@@ -1,5 +1,33 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { updateItem } from './db'
+import { scanItems, updateItem } from './db'
+
+describe('scanItems', () => {
+  let send: jest.SpyInstance
+  afterEach(() => jest.restoreAllMocks())
+
+  // A scan stops at 1 MB: stopping at the first response would silently drop the rest
+  it('reads every page and answers the items of all of them', async () => {
+    send = jest.spyOn(DynamoDBClient.prototype, 'send')
+      .mockResolvedValueOnce({ Items: [{ id: { S: 'a' } }], LastEvaluatedKey: { id: { S: 'a' } } } as never)
+      .mockResolvedValueOnce({ Items: [{ id: { S: 'b' } }] } as never)
+
+    const res = await scanItems('t', 'sk = :sk', { ':sk': 'PROFILE' })
+
+    expect(res).toEqual({ success: true, res: [{ id: 'a' }, { id: 'b' }] })
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls[0][0].input).toMatchObject({ TableName: 't', FilterExpression: 'sk = :sk', ExpressionAttributeValues: { ':sk': { S: 'PROFILE' } } })
+    expect(send.mock.calls[0][0].input.ExclusiveStartKey).toBeUndefined()
+    expect(send.mock.calls[1][0].input.ExclusiveStartKey).toEqual({ id: { S: 'a' } })
+  })
+
+  it('answers a failure, not the pages it had, when a later page cannot be read', async () => {
+    send = jest.spyOn(DynamoDBClient.prototype, 'send')
+      .mockResolvedValueOnce({ Items: [{ id: { S: 'a' } }], LastEvaluatedKey: { id: { S: 'a' } } } as never)
+      .mockRejectedValueOnce(new Error('throttled') as never)
+
+    expect(await scanItems('t', 'sk = :sk', { ':sk': 'PROFILE' })).toEqual({ success: false, res: null })
+  })
+})
 
 describe('updateItem', () => {
   let send: jest.SpyInstance

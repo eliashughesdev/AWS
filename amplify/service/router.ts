@@ -23,6 +23,7 @@ import listPayments from './routes/payments/list'
 import processPayment from './routes/payments/process'
 import processGuestPayment from './routes/payments/processGuest'
 import merchantRegister from './routes/merchants/register'
+import listMerchants from './routes/merchants/list'
 import provisionMerchantMaster from './routes/merchants/provision-master'
 import inviteMerchantMember from './routes/merchants/members-invite'
 import removeMerchantMember from './routes/merchants/members-remove'
@@ -54,6 +55,7 @@ import accountsOnboardingResendSchema from './schemas/accounts/onboarding/resend
 import onboardingVerifySchema from './schemas/onboarding/verify.json'
 import onboardingClaimSchema from './schemas/onboarding/claim.json'
 import merchantsRegisterSchema from './schemas/merchants/register.json'
+import merchantsListSchema from './schemas/merchants/list.json'
 import merchantsMastersProvisionSchema from './schemas/merchants/masters/provision.json'
 import merchantsMembersInviteSchema from './schemas/merchants/members/invite.json'
 import merchantsMembersRemoveSchema from './schemas/merchants/members/remove.json'
@@ -99,6 +101,7 @@ export const routes: RoutesMap = new Map([
   ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
   ['/payments/process/guest', { handler: processGuestPayment, schema: paymentsProcessGuestSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
   ['/merchants/register', { handler: merchantRegister, schema: merchantsRegisterSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/list', { handler: listMerchants, schema: merchantsListSchema, method: 'GET', allowedRoles: ['staff'] }],
   ['/merchants/masters/provision', { handler: provisionMerchantMaster, schema: merchantsMastersProvisionSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/members/invite', { handler: inviteMerchantMember, schema: merchantsMembersInviteSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/members/remove', { handler: removeMerchantMember, schema: merchantsMembersRemoveSchema, method: 'POST', allowedRoles: ['staff'] }],

@@ -351,7 +351,9 @@ them with `getMasterAccount(account.merchantId, currency)`, `ready` rows only �
 `USDT_TRON_MASTER_ACCOUNT_NUMBER` is no longer read; team members are `MEMBER#<sub>` (roles,
 status — the only place roles live) plus `USER#<sub>`/`MEMBERSHIP` (their one merchant, looked
 up from the caller, never the body); `POLICY#TREASURY_SEND` holds per-currency thresholds;
-treasury requests are `REQ#req_<epoch ms>_<rand>`, so they sort by time). Never call
+treasury requests are `REQ#req_<epoch ms>_<rand>`, so they sort by time). The table has no
+index: `/merchants/list` (staff) answers every merchant with its currencies by scanning it
+(`scanItems` in `utils/db.ts`), which is fine only while it is small. Never call
 `table.grant*(backend.mainApiFn…)`: `mainApiFn` is in the `data` nested stack while the tables are in
 `loudibly-stack`, so a table-ARN grant creates a circular stack dependency and the deploy fails —
 `mainApiFn` already has `dynamodb:*` on `*`. Writes that must

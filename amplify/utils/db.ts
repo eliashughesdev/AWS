@@ -4,6 +4,7 @@ import {
   GetItemCommand,
   PutItemCommand,
   QueryCommand,
+  ScanCommand,
   ReturnValue,
   UpdateItemCommand,
   TransactWriteItemsCommand,
@@ -45,6 +46,32 @@ export const queryRecord = async (tableName: string | undefined, keyConditionExp
       success: true,
       res: items,
     }
+  } catch (e) {
+    console.log(e)
+    return { success: false, res: null }
+  }
+}
+
+/**
+ * Every item of a table that passes a filter. A scan reads the whole table
+ * whatever the filter keeps, so this is only for a small table and a rare caller.
+ */
+export const scanItems = async (tableName: string | undefined, filterExpression: string, expressionAttributeValues: Record<string, any>) => {
+  const items: Record<string, any>[] = []
+  let startKey: Record<string, AttributeValue> | undefined
+  try {
+    // One response holds at most 1 MB of the table
+    do {
+      const res = await db.send(new ScanCommand({
+        TableName: tableName,
+        FilterExpression: filterExpression,
+        ExpressionAttributeValues: marshall(expressionAttributeValues),
+        ExclusiveStartKey: startKey,
+      }))
+      for (const item of res.Items ?? []) items.push(unmarshall(item))
+      startKey = res.LastEvaluatedKey
+    } while (startKey)
+    return { success: true, res: items }
   } catch (e) {
     console.log(e)
     return { success: false, res: null }
