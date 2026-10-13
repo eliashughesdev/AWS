@@ -12,6 +12,7 @@ import WithdrawView from '../views/WithdrawView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import TransferView from '../views/TransferView.vue'
 import ReceiveView from '../views/ReceiveView.vue'
+import MerchantsView from '../views/MerchantsView.vue'
 import ConfirmView from '../views/ConfirmView.vue'
 import SetPasswordView from '../views/SetPasswordView.vue'
 
@@ -94,6 +95,13 @@ const router = createRouter({
       name: 'receive',
       component: ReceiveView,
       meta: { requiresAuth: true, custodialOnly: true },
+    },
+    // Loudibly employees only. The API checks the role itself.
+    {
+      path: '/merchants',
+      name: 'merchants',
+      component: MerchantsView,
+      meta: { staffOnly: true },
     },
     {
       path: '/confirm',

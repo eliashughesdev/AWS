@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getRole } from '@loudibly/core/auth/role'
 import BrandLogo from '../components/BrandLogo.vue'
 import { brand } from '../brands'
 
@@ -14,6 +15,13 @@ const emit = defineEmits<{ signOut: [] }>()
 
 const route  = useRoute()
 const router = useRouter()
+
+// Only decides whether the link is shown: the route's guard and the API check the role themselves.
+const isStaff = ref(false)
+onMounted(async () => {
+  if (props.nonCustodial) return
+  isStaff.value = await getRole().catch(() => undefined) === 'staff'
+})
 
 // Payment Methods and the deposit shortcut are card/fiat features — they need a
 // Cognito token, so they are hidden from anonymous non-custodial sessions.
@@ -31,6 +39,7 @@ const navItems = computed(() => {
     { name: 'cards',      icon: 'credit_card',      label: 'Payment Methods'  },
     { name: 'transfer',   icon: 'compare_arrows',   label: 'Transfer'         },
     { name: 'ledger',     icon: 'receipt_long',     label: 'Ledger'           },
+    ...(isStaff.value ? [{ name: 'merchants', icon: 'storefront', label: 'Merchants' }] : []),
   ]
 })
 </script>

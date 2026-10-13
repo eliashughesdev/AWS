@@ -25,7 +25,15 @@ There are three deployable pieces in this one repo:
     brand config (custodial: balance, cards, deposit, withdraw, transfer; non-custodial:
     wallet dashboard, send, receive, ledger, all read straight from the chain with an
     in-session key). Builds to `web/apps/loudibly/dist/`, which is copied into `dist/v2` in
-    production (see `amplify.yml`).
+    production (see `amplify.yml`). Its `/merchants` page (`MerchantsView`, `staffOnly`, linked
+    from `MainLayout` only when `getRole()` is `staff`) is for Loudibly employees: every merchant
+    with its currencies, "Add currency" and, on a row left `provisioning`, "Finish" (the same
+    request, which can be sent again). `RegisterMerchantDialog` registers one and keeps the
+    answer, API key included, in its own state: the view mounts it with `v-if`, so the key goes
+    when it closes, and once a key or an unknown result is on screen it closes only through its
+    own button. A 4xx from `/merchants/register` is answered before anything is written, so the
+    form can be sent again; any other failure is shown as unknown, with "Check the list" and no
+    retry. `src/merchants.ts` holds the currency labels and status pills the two share.
   - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
     domain. Until it has one, `amplify.yml` builds it with `--base=/noda/` into `dist/noda`, so
     it is served at `/noda/` beside `/v2/`. Nothing in the app names that prefix: the router
@@ -171,7 +179,9 @@ There are three deployable pieces in this one repo:
   success and reads the list again with `refresh()`. `useMerchants` (staff) works the same way
   with `register()` and `addCurrency()`. The merchant's API key is in `register()`'s result
   only, and core keeps it nowhere; a throw from `register()` does not mean no merchant was
-  made, so a view must not simply offer to send it again. Opening a
+  made, so a view must not simply offer to send it again. The currencies a build offers are
+  `LEDGER_CURRENCIES` in `@loudibly/core/config`, ids only (Loudibly's `ReceiveView` and NODA's
+  `newAccountChains` still write the same list out). Opening a
   Didit session resets the stored KYC status, so a view offers `useKyc().start()` only when the
   status was read and is not approved or pending. `usePrices` gives a USD price per chain: 1 for USDT, `null` where there is none, so a
   value that cannot be priced is shown as unknown. Core holds no user-facing wording — a view passes its own text
