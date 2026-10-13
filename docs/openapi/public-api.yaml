@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.5.0'
+  version: '2.6.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -787,6 +787,7 @@ paths:
       tags: [KYC]
       operationId: getKycStatus
       summary: The signed-in user's identity check
+      description: Always the caller's own check; the route takes no parameters.
       responses:
         '200':
           description: The KYC state; `null` when no check was ever started.
@@ -800,6 +801,11 @@ paths:
                     oneOf:
                       - type: 'null'
                       - $ref: '#/components/schemas/Kyc'
+        '400':
+          description: '`100031` a query parameter was sent (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404':
           description: The user has no profile yet.
