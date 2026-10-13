@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/kyc/didit/session",
+  "$comment": "The route takes nothing: the session is always for the caller. The clients send {}, and API Gateway passes null for a POST with no body, so both are accepted. A field such as userId is refused rather than ignored, so a client that meant another user hears about it.",
+  "type": ["object", "null"],
+  "additionalProperties": false
+}

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.6.0'
+  version: '2.7.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -822,7 +822,13 @@ paths:
       description: |
         Opens a verification session with Didit and returns the page the user completes
         it on. Starting a session resets the stored status to `Not Started`, so only call
-        it when the status is neither approved nor pending.
+        it when the status is neither approved nor pending. The session is always for the
+        caller; send `{}` or no body.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false }
       responses:
         '200':
           description: The session is open.
@@ -833,6 +839,11 @@ paths:
                 required: [verification_url]
                 properties:
                   verification_url: { type: string, format: uri }
+        '400':
+          description: '`100031` the body has a field (the error names it); this route takes none.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':
