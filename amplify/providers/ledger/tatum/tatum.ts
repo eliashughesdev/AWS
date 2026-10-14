@@ -14,9 +14,10 @@ import { CreateAccountParams,
   SendOnChainParams, SendOnChainResponse,
   GetAddressHistoryParams,
   OnChainBalanceParams,
-  OnChainTransaction} from '../provider'
-  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth } from './chains/tron'
-  import { getSolanaBalance, getSolanaHistory } from './chains/solana'
+  OnChainTransaction,
+  TransactionFeeParams} from '../provider'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee } from './chains/tron'
+  import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
 import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
@@ -476,6 +477,16 @@ export class TatumProvider implements AccountProvider {
     }
   }
  
+  // What the chain charged for a transaction, in its network's coin (a USDT_TRON
+  // transfer's fee is TRX), or null while it isn't in a block yet
+  async getTransactionFee({ chain, txId }: TransactionFeeParams): Promise<number | null> {
+    switch (networkFor(chain)) {
+      case 'TRON': return getTronTransactionFee(txId)
+      case 'SOL': return getSolanaTransactionFee(txId)
+      default: throw new Error(`getTransactionFee: unsupported chain ${chain}`)
+    }
+  }
+
   async getAddressHistory({ chain, address }: GetAddressHistoryParams): Promise<OnChainTransaction[]> {
     switch (chain.toUpperCase()) {
       case 'TRON': return getTronHistory(address)

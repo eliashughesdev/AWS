@@ -338,7 +338,14 @@ completes both with the same txId, so `master VA = Σ customer VAs + fee VA` sta
 record no fee (gas is rented TRX). `withdrawFunds` reverts its Tatum debits only
 when the tx provably never reached the chain (failed before broadcast, or the node refused it);
 an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger or app balance —
-may be refunded automatically, since the coins may already have left. `/accounts/transfer` moves
+may be refunded automatically, since the coins may already have left. A native transfer's exact
+fee comes from `chains/tron.ts` (`tronBandwidthBytes`, the bytes java-tron charges once signed,
+and `tronBandwidthFeeSun`: 0 when staked or free bandwidth alone covers every byte, else bytes ×
+the `getTransactionFee` chain parameter; activating an address costs 1.1 TRX on top) and
+`chains/solana.ts`. `buildTronSweep` and `buildSolanaSweep` build, unsigned, the transfer of an
+address's whole balance minus that fee. `estimateTronBandwidth` pads 100 bytes to size rentals and
+is never a fee. What the chain did charge is `getTransactionFee({ chain, txId })`, in the
+network's coin, and `null` until the transaction is in a block. `/accounts/transfer` moves
 only the ledger, so it refuses two accounts of different merchants (compared as
 `merchantId ?? SYSTEM_MERCHANT_ID`, so the pre-rename `loudibly` is not `internal-001`): coins
 move to another merchant's customer as a withdrawal. The refusal is `100001`, the answer for an

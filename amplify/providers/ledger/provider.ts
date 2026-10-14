@@ -114,6 +114,11 @@ export interface OnChainBalanceParams{
   address: string
 }
 
+export interface TransactionFeeParams {
+  chain: string
+  txId: string
+}
+
 export interface GetAddressHistoryParams {
   chain: string
   address: string
@@ -144,5 +149,6 @@ export interface AccountProvider {
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
   getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }>;
+  getTransactionFee(params: TransactionFeeParams): Promise<number | null>;
   getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>
 }
