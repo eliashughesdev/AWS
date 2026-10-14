@@ -34,10 +34,13 @@ There are three deployable pieces in this one repo:
     own button. A 4xx from `/merchants/register` is answered before anything is written, so the
     form can be sent again; any other failure is shown as unknown, with "Check the list" and no
     retry. `src/merchants.ts` holds the currency labels and status pills the two share.
-  - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
-    domain. Until it has one, `amplify.yml` builds it with `--base=/noda/` into `dist/noda`, so
-    it is served at `/noda/` beside `/v2/`. Nothing in the app names that prefix: the router
-    takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
+  - `web/apps/noda/` (workspace `noda`) — NODA's own design. `amplify.yml` builds it with
+    `--base=/noda/` into `dist/noda` on every branch, beside the root app and `/v2/`, so its files
+    are always served from `/noda/`. Its addresses start there too, unless the branch sets
+    `VITE_ROUTER_BASE` (`/` for addresses at the site root, as `my.noda.money` is meant to have,
+    with the console rules sending them to `/noda/index.html`). Nothing in the app names the
+    prefix: the router takes `VITE_ROUTER_BASE`, or else the build's `import.meta.env.BASE_URL`.
+    Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`),
