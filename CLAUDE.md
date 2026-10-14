@@ -63,15 +63,23 @@ There are three deployable pieces in this one repo:
     `priced()`. The Dashboard is real where the backend has
     something to show: the total in USD, one asset row per currency held, Recent Activity and
     the "KYC Verified" row, which starts Didit. `src/activity.ts` says what each backend
-    transaction `type` shows as; a type it does not have, such as `FEE`, is not listed. The
+    transaction `type` shows as; a type it does not have is not listed. A list of rows asks
+    `activityKinds()`, which also decides each `FEE` row: one that shares its account and `txId`
+    with a listed row (a withdrawal) goes in that row's Fee column, and one with no such row (the
+    fee of a TRX or SOL sweep to the merchant's master) is listed as "Fee" (Recent Activity:
+    "Network fee"), Completed and outgoing, when it is above 0. A free-bandwidth sweep's `FEE`
+    row of 0 is not shown. The
     Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
     still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
     the user's crypto accounts, a search, three filters, and four totals that cover the chosen
     date range. It opens on the type and range given in the address
     (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column is real: a
-    row shows the `FEE` row of the same account and `txId`, and a dash when there is none (only
-    a TRX or SOL withdrawal is charged one; its row arrives with the chain's webhook, or from the
-    receipt when the merchant's master sent it). The %
+    row shows the `FEE` row of the same account and `txId`, and a dash when there is none (of the
+    listed rows only a TRX or SOL withdrawal is charged one; its row arrives with the chain's
+    webhook, or from the receipt when the merchant's master sent it). A TRX or SOL account is also
+    charged for each sweep of its deposits to the merchant's master: that fee is a row of its own,
+    with a brown "Fee" badge, a dash in its Fee column and "—" as its To, and it counts in the
+    totals like any row. The %
     line under each total is still mockup data (`placeholders/transactions.ts`). Deposit is real for the Crypto method: a dropdown with one line
     per account (two accounts can share a coin), the chosen account's network, address and QR
     code, and Recent Deposits, the four newest `DEPOSIT` rows of every account. Nothing tells

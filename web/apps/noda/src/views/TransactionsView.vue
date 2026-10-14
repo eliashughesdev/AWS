@@ -10,7 +10,7 @@ import FilterButton from '../components/FilterButton.vue'
 import DataTable from '../components/DataTable.vue'
 import ListState from '../components/ListState.vue'
 import StatusPill from '../components/StatusPill.vue'
-import { activityKind } from '../activity'
+import { activityKinds } from '../activity'
 import { coinFor } from '../coins'
 import { BLANK, accountLabel, coinAmount, dateTime, priced, shorten, usdSum, usdValue } from '../format'
 import { summary } from '../placeholders/transactions'
@@ -20,11 +20,13 @@ const columns = ['ID', 'Type', 'Currency', 'Amount', 'From/To', 'Fee', 'Status',
 // On desktop the columns share the width in the design's proportions, down to a width where they still fit.
 const grid = 'grid-cols-[148px_111px_70px_100px_120px_100px_91px_112px] lg:min-w-[1108px] lg:grid-cols-[144fr_163fr_190fr_182fr_184fr_154fr_172fr_160fr]'
 
-// Deposit and Withdraw are drawn. Not in Figma: Transfer, in the colour of the design's Payment badge.
+// Deposit and Withdraw are drawn. Not in Figma: Transfer, in the colour of the design's Payment
+// badge, and Fee, in the palette's brown, which nothing else uses.
 const badges: Record<string, string> = {
   Deposit:  'bg-green',
   Withdraw: 'bg-blue',
   Transfer: 'bg-orange',
+  Fee:      'bg-brown',
 }
 
 const PAGE_ROWS = 50
@@ -58,7 +60,7 @@ onMounted(read)
 
 const valueOf = (amount: number, chain: string) => usdValue(amount, prices.value[chain])
 
-// Every transaction the page lists, newest first. A FEE and a type activity.ts does not know are left out.
+// Every transaction the page lists, newest first. What activity.ts does not list is left out.
 const rows = computed(() => {
   const chainOf = new Map(cryptoAccounts.value.map(account => [account.accountNo, account.chain]))
   // The user's own accounts under their names, by number (a transfer) and by address.
@@ -75,8 +77,10 @@ const rows = computed(() => {
     .filter(tx => tx.type === 'FEE')
     .map(tx => [`${tx.accountNo}:${tx.txId}`, Number(tx.amount)]))
 
+  const kindOf = activityKinds(transactions.value)
+
   return transactions.value.flatMap(tx => {
-    const kind = activityKind(tx.type)
+    const kind = kindOf(tx)
     if (!kind) return []
     const chain = chainOf.get(tx.accountNo) ?? String(tx.currency ?? '')
     const coin = coinFor(chain)
@@ -87,7 +91,8 @@ const rows = computed(() => {
     // The user's side is the account, whichever address signed (a token leaves from the master's).
     const own = party(tx.accountNo)
     const other = party(kind.incoming ? tx.from : tx.to)
-    const fee = feeOf.get(`${tx.accountNo}:${tx.txId}`)
+    // A fee listed by itself has its amount in the Amount column.
+    const fee = tx.type === 'FEE' ? undefined : feeOf.get(`${tx.accountNo}:${tx.txId}`)
     return [{
       key:      `${tx.accountNo}:${tx.type}:${id || tx.createdAt}`,
       id,
