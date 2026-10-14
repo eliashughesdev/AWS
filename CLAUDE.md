@@ -37,8 +37,8 @@ There are three deployable pieces in this one repo:
   - `web/apps/noda/` (workspace `noda`) — NODA's own design. `amplify.yml` builds it with
     `--base=/noda/` into `dist/noda` on every branch, beside the root app and `/v2/`, so its files
     are always served from `/noda/`. Its addresses start there too, unless the branch sets
-    `VITE_ROUTER_BASE` (`/` for addresses at the site root, as `my.noda.money` is meant to have,
-    with the console rules sending them to `/noda/index.html`). Nothing in the app names the
+    `VITE_ROUTER_BASE` (`/` on `nodapay_ui`, so `my.noda.money` has them at the site root, with
+    the console rules sending them to `/noda/index.html`). Nothing in the app names the
     prefix: the router takes `VITE_ROUTER_BASE`, or else the build's `import.meta.env.BASE_URL`.
     Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
@@ -441,14 +441,22 @@ add new codes there rather than inlining error responses in handlers.
   wiring in Cognito-only or chain-only calls.
 - Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
   the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`). The NODA app
-  is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
-  rule in the Amplify console, above the general rule that sends every address without a dot to
-  the root app (NODA's: `</^/noda(/[^.]*)?$/>` to `/noda/index.html`, type 200). Without it,
-  that app's addresses show the root app. The old UI's rule, `</^/v2/[^.]+$/>`, wants a
-  character after the slash, so the bare `/v2/` shows the root app.
-- The site's bare address is a console rule too, the first in the list: `/` answers 302 to
-  `/noda/` on staging, and still to `/v2/auth` on `my.noda.money` until that console is changed.
-  The rules are kept in each Amplify console only; no file in the repo holds them.
+  is copied to `dist/noda` the same way. Every branch builds all three, and each Amplify console's
+  rewrite rules decide which one an address shows. The rules are kept in each console only; no
+  file in the repo holds them. Order matters: the first matching rule wins.
+- Staging (`main`): `/` answers 302 to `/noda/`; `</^/v2/[^.]+$/>` goes to `/v2/index.html` and
+  `</^/noda(/[^.]*)?$/>` to `/noda/index.html` (type 200), both above the general rule that sends
+  every other address without a dot to the root app. The old UI's rule wants a character after the
+  slash, so the bare `/v2/` shows the root app. `FRONTEND_APP_PATH` is `/noda`.
+- Production (`nodapay_ui`, `my.noda.money`, since 2026-10-13): NODA at the site root, no `/v2`.
+  In order: `</^/noda(/[^.]*)?$/>` 301 to `/` (old links); `</^/(customer|payment)(/[^.]*)?$/>`
+  to `/index.html` (the root app's card and KYC pages, 200); `</^[^.]*$/>` to `/noda/index.html`
+  (200, `/` included); `/<*>` to `/noda/index.html` (404-200). The branch sets
+  `VITE_ROUTER_BASE=/`, and SSM has `FRONTEND_URL=https://my.noda.money` and `FRONTEND_APP_PATH=/`.
+  The two go together: a build with the variable under the old rules, or the reverse, breaks the
+  site. CloudFront keeps each answer for a year (`s-maxage`), and only a deployment clears it, so
+  after changing the rules start a build of the branch, or addresses already opened keep their old
+  answer.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 
