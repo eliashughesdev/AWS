@@ -5,6 +5,7 @@ import { processError } from '../../../errors/http'
 import { queryItemFromIndex, putItem, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
+import { SYSTEM_MERCHANT_ID } from '../../../utils/systemMerchant'
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string } }
@@ -53,6 +54,17 @@ export default class TransferFundsHandler {
 
     if (!recipientResult.success || !recipientResult.res || recipientResult.res.length === 0) {
       console.error(`ERROR: Recipient account not found: ${recipientAccountNumber}`)
+      return processError(100001)
+    }
+
+    // A transfer moves only the ledger, so both accounts must share the merchant whose master
+    // holds the coins and signs their withdrawals. The id is compared as stored, like
+    // getMasterAccount does: `loudibly` (pre-rename) has its own master, apart from `internal-001`.
+    // Answered as not found, before any other check, so the caller cannot tell that the account
+    // exists under another merchant (D11)
+    const merchantOf = (account: Record<string, any>) => account.merchantId ?? SYSTEM_MERCHANT_ID
+    if (merchantOf(senderResult.res[0]) !== merchantOf(recipientResult.res[0])) {
+      console.error(`ERROR: Transfer from merchant ${merchantOf(senderResult.res[0])} to merchant ${merchantOf(recipientResult.res[0])} refused`)
       return processError(100001)
     }
 

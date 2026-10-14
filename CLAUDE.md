@@ -338,7 +338,12 @@ completes both with the same txId, so `master VA = Σ customer VAs + fee VA` sta
 record no fee (gas is rented TRX). `withdrawFunds` reverts its Tatum debits only
 when the tx provably never reached the chain (failed before broadcast, or the node refused it);
 an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger or app balance —
-may be refunded automatically, since the coins may already have left.
+may be refunded automatically, since the coins may already have left. `/accounts/transfer` moves
+only the ledger, so it refuses two accounts of different merchants (compared as
+`merchantId ?? SYSTEM_MERCHANT_ID`, so the pre-rename `loudibly` is not `internal-001`): coins
+move to another merchant's customer as a withdrawal. The refusal is `100001`, the answer for an
+account that does not exist, and comes before the currency check, so a caller cannot tell that
+another merchant's account exists (D11).
 
 **Account provisioning undoes itself.** `provisionCustodialAccount` (`utils/custodialAccount.ts`)
 creates the Tatum VA, then takes the next address under the merchant's seed, and on any failure

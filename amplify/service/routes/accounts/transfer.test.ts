@@ -31,6 +31,8 @@ beforeEach(() => {
 afterEach(() => {
   jest.restoreAllMocks()
   accounts[recipient].chain = 'USDT_TRON'
+  delete accounts[sender].merchantId
+  delete accounts[recipient].merchantId
 })
 
 const transfer = (body: Record<string, string>) => new TransferFundsHandler().execute({
@@ -85,6 +87,49 @@ describe('/accounts/transfer handler', () => {
     } finally {
       accounts[sender].chain = chain
     }
+  })
+
+  // Regression: a transfer moved only the ledger, so the coins stayed in the sender's merchant's
+  // master while the recipient's merchant's master paid the withdrawal
+  it('answers a recipient of another merchant as not found, with 100001', async () => {
+    accounts[sender].merchantId = 'acme'
+    accounts[recipient].merchantId = 'internal-001'
+    const res = await transfer({})
+    const missing = await transfer({ recipientAccountNumber: 'PCF0001ffffffffffffffffffffffffffffffff' })
+    expect(JSON.parse(res.body)).toEqual(JSON.parse(missing.body))
+    expect(errorCode(res)).toBe(100001)
+    expectNothingMoved()
+  })
+
+  // D11: 100052 would tell the caller the account exists
+  it('answers 100001, not 100052, for another merchant\'s account in another coin', async () => {
+    accounts[sender].merchantId = 'acme'
+    accounts[recipient].chain = 'SOL'
+    expect(errorCode(await transfer({}))).toBe(100001)
+    expectNothingMoved()
+  })
+
+  // `loudibly` was the system merchant before 2026-10-06 and keeps its own master
+  it('keeps the pre-rename loudibly apart from internal-001', async () => {
+    accounts[sender].merchantId = 'loudibly'
+    accounts[recipient].merchantId = 'internal-001'
+    expect(errorCode(await transfer({}))).toBe(100001)
+    expectNothingMoved()
+  })
+
+  it('counts an account with no merchant as internal-001\'s', async () => {
+    accounts[recipient].merchantId = 'internal-001'
+    expect((await transfer({})).statusCode).toBe(200)
+
+    accounts[recipient].merchantId = 'acme'
+    expect(errorCode(await transfer({}))).toBe(100001)
+  })
+
+  it('moves funds between two accounts of the same merchant', async () => {
+    accounts[sender].merchantId = 'acme'
+    accounts[recipient].merchantId = 'acme'
+    expect((await transfer({})).statusCode).toBe(200)
+    expect(transferFunds).toHaveBeenCalledTimes(1)
   })
 
   it('still refuses a sender that is not the user\'s with 100001', async () => {
