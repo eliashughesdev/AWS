@@ -355,7 +355,8 @@ fee comes from `chains/tron.ts` (`tronBandwidthBytes`, the bytes java-tron charg
 and `tronBandwidthFeeSun`: 0 when staked or free bandwidth alone covers every byte, else bytes ×
 the `getTransactionFee` chain parameter; activating an address costs 1.1 TRX on top) and
 `chains/solana.ts`. `buildTronSweep` and `buildSolanaSweep` build, unsigned, the transfer of an
-address's whole balance minus that fee. `estimateTronBandwidth` pads 100 bytes to size rentals and
+address's whole balance minus that fee, and the provider's `sweepAll` signs and broadcasts that
+very transaction (`null` when the balance can't pay the fee). `estimateTronBandwidth` pads 100 bytes to size rentals and
 is never a fee. What the chain did charge is `getTransactionFee({ chain, txId })`, in the
 network's coin, and `null` until the transaction is in a block. `/accounts/transfer` moves
 only the ledger, so it refuses two accounts of different merchants (compared as
@@ -449,9 +450,15 @@ build that reference from a queue message. A token account needs its merchant's 
 deposits are swept there, its withdrawals are signed by it): routes call `canHoldCurrency()`
 (`utils/masterAccount.ts`) before creating anything and answer `100050` when there is none, and
 `provisionCustodialAccount` refuses too. A native coin needs none yet, but a `ready` TRON or SOL
-master (`/merchants/masters/provision` takes both) signs that coin's withdrawals from then on, so
-provisioning one moves them to an address that holds nothing until the coins are swept there
-(they fail cleanly and are refunded; `docs/native-sweep-plan.md`). Keep the split between the two Lambdas: the API must
+master (`/merchants/masters/provision` takes both) switches that coin over for its merchant: it
+signs the withdrawals, and each deposit queues a sweep. A native sweep sends the address's whole
+balance minus the exact fee (`sweepAll`), leaving 0, and the customer pays the fee: the fee
+webhook writes their `FEE` row and `debitFee` takes it off their VA (Tatum credits the master VA
+by itself). It runs only once a person has activated the TRON master, or put the rent-exempt
+minimum on the SOL one (`canReceiveSweep`); until then it logs `CONFIG_ERROR` and claims nothing.
+Coins already on a customer's address move only with its next deposit, so until then a
+withdrawal is signed by a master that may hold too little (it fails cleanly and is refunded;
+`docs/native-sweep-plan.md`). Keep the split between the two Lambdas: the API must
 never be able to obtain a signature, and nothing outside the handler may read the seed path. A
 seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 

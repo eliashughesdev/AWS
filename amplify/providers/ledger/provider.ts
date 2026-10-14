@@ -107,6 +107,15 @@ export interface SendOnChainResponse {
   txId: string
 }
 
+export type SweepAllParams = Omit<SendOnChainParams, 'amount'>
+
+// In the network's coin
+export interface SweepAllResponse {
+  txId: string
+  amount: number
+  fee: number
+}
+
 export interface CreateSubscriptionParams {
   accountId: string
   address: string
@@ -157,6 +166,8 @@ export interface AccountProvider {
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
   debitFee(params: DebitFeeParams): Promise<string>;
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
+  sweepAll(params: SweepAllParams): Promise<SweepAllResponse | null>;
+  canReceiveSweep(params: OnChainBalanceParams): Promise<boolean>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
   getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }>;
   getTransactionFee(params: TransactionFeeParams): Promise<number | null>;

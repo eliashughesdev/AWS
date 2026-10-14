@@ -7,7 +7,7 @@
 
 import crypto from 'crypto'
 import axios from 'axios'
-import { Connection, VersionedTransaction } from '@solana/web3.js'
+import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js'
 import { TronWeb, utils as tronUtils } from 'tronweb'
 import { check, finish, rejects, table } from './standIns'
 import { TatumProvider } from '../../amplify/providers/ledger/tatum/tatum'
@@ -27,9 +27,9 @@ const sha256 = (hex: string) => crypto.createHash('sha256').update(Buffer.from(h
 // The TRON address whose key produced an r + s + v signature over a txID, by tronweb's own recovery
 const tronSigner = (txId: string, signature: string) => TronWeb.address.fromHex(tronUtils.crypto.ecRecover(txId, signature))
 
-const unsignedTron = (owner: string) => {
+const unsignedTron = (owner: string, to?: string, amount?: number) => {
   const raw = crypto.randomBytes(120).toString('hex')
-  return { txID: sha256(raw), raw_data_hex: raw, raw_data: { owner }, visible: true }
+  return { txID: sha256(raw), raw_data_hex: raw, raw_data: { owner, to, amount }, visible: true }
 }
 
 const ledger = {
@@ -38,12 +38,18 @@ const ledger = {
   completedWith: {} as Record<string, string>,
   cancelled: [] as string[],
 }
-const tronBroadcasts: { from: string, signedBy: string }[] = []
-const solBroadcasts: { from: string, valid: boolean }[] = []
+const tronBroadcasts: { txId: string, from: string, to?: string, amount?: number, signedBy: string }[] = []
+const solBroadcasts: { txId: string, from: string, to: string, valid: boolean }[] = []
 
 // What each chain's receipt says it charged: TRON in sun, Solana in lamports
 const TRON_FEE_SUN = 268_000
 const SOL_FEE_LAMPORTS = 5000
+
+// What a sweep reads: balances (TRON in sun, Solana in lamports) and the active TRON addresses.
+// Every TRON address has spent its free bandwidth, so a sweep burns 1000 sun a byte
+const onChain: Record<string, number> = {}
+const activeTron = new Set<string>()
+const SOL_RENT_EXEMPT_LAMPORTS = 650_240
 
 Object.assign(axios, {
   post: async (url: string, payload: any) => {
@@ -52,14 +58,21 @@ Object.assign(axios, {
       ledger.debits.push({ accountId: payload.senderAccountId, id, amount: payload.amount, fee: payload.fee })
       return { data: { id } }
     }
-    if (url.endsWith('/wallet/createtransaction')) return { data: unsignedTron(payload.owner_address) }
+    if (url.endsWith('/wallet/createtransaction')) return { data: unsignedTron(payload.owner_address, payload.to_address, payload.amount) }
     if (url.endsWith('/tron/broadcast')) {
       const tx = JSON.parse(payload.txData)
-      tronBroadcasts.push({ from: tx.raw_data.owner, signedBy: tronSigner(tx.txID, tx.signature[0]) })
+      tronBroadcasts.push({ txId: tx.txID, from: tx.raw_data.owner, to: tx.raw_data.to, amount: tx.raw_data.amount, signedBy: tronSigner(tx.txID, tx.signature[0]) })
       return { data: { txId: tx.txID } }
     }
     if (url.endsWith('/wallet/gettransactioninfobyid')) return { data: { id: payload.value, fee: TRON_FEE_SUN } }
+    if (url.endsWith('/wallet/getaccountresource')) return { data: { freeNetLimit: 600, freeNetUsed: 600 } }
+    if (url.endsWith('/wallet/getaccount')) return { data: activeTron.has(payload.address) ? { address: payload.address } : {} }
     throw new Error(`stand-in: unexpected POST ${url}`)
+  },
+  get: async (url: string) => {
+    if (url.includes('/tron/account/')) return { data: { balance: onChain[url.split('/tron/account/')[1]] ?? 0 } }
+    if (url.endsWith('/wallet/getchainparameters')) return { data: { chainParameter: [{ key: 'getTransactionFee', value: 1000 }] } }
+    throw new Error(`stand-in: unexpected GET ${url}`)
   },
   put: async (url: string) => {
     const [id, txId] = url.split('/offchain/withdrawal/')[1].split('/')
@@ -74,12 +87,17 @@ Object.assign(Connection.prototype, {
   getLatestBlockhash: async () => ({ blockhash: '11111111111111111111111111111111', lastValidBlockHeight: 1 }),
   sendRawTransaction: async (raw: Buffer) => {
     const tx = VersionedTransaction.deserialize(raw)
-    const payer = tx.message.staticAccountKeys[0]
+    // A transfer's keys: the payer, the recipient, then the system program
+    const [payer, recipient] = tx.message.staticAccountKeys
     const publicKey = crypto.createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), payer.toBytes()]), format: 'der', type: 'spki' })
-    solBroadcasts.push({ from: payer.toBase58(), valid: crypto.verify(null, tx.message.serialize(), publicKey, tx.signatures[0]) })
-    return `sol-tx-${solBroadcasts.length}`
+    const txId = `sol-tx-${solBroadcasts.length + 1}`
+    solBroadcasts.push({ txId, from: payer.toBase58(), to: recipient.toBase58(), valid: crypto.verify(null, tx.message.serialize(), publicKey, tx.signatures[0]) })
+    return txId
   },
   getTransaction: async () => ({ meta: { fee: SOL_FEE_LAMPORTS } }),
+  getBalance: async (address: PublicKey) => onChain[address.toBase58()] ?? 0,
+  getFeeForMessage: async () => ({ context: { slot: 1 }, value: SOL_FEE_LAMPORTS }),
+  getMinimumBalanceForRentExemption: async () => SOL_RENT_EXEMPT_LAMPORTS,
 })
 
 // ---- accounts ---------------------------------------------------------------
@@ -178,6 +196,48 @@ check('a SOL withdrawal of a merchant with a native master is paid by the master
   solWithdrawal.processed && solBroadcasts.at(-1)?.from === solMaster.depositAddress && solBroadcasts.at(-1)?.valid === true)
 check('…both VAs are debited, and the receipt\'s fee comes off both', solWithdrawal.bothDebited && solWithdrawal.feeOffBothVAs)
 check('…and is the customer\'s FEE row', solWithdrawal.feeRow && solWithdrawal.balance === 10 - 0.000005, `availableBalance ${solWithdrawal.balance}`)
+
+// 3c. A native deposit is swept whole to its merchant's native master (native-sweep-plan
+// step 3), signed by the account that received it, and the customer's VA pays the fee
+// What balanceUpdateHandler queues, plus the key fields an attacker would want honoured
+const sweepOf = (account: typeof hdTron, depositTxId: string) => handleSweep({
+  vAccountId: account.vAccountId,
+  senderAddress: account.depositAddress,
+  amount: 5,
+  txId: depositTxId,
+  kmsKeyId: 'someone-elses-key',
+  merchantId: 'someone-else',
+  currency: 'TUSDT_TRON',
+})
+const lastFeeDebit = () => {
+  const debit = ledger.debits.at(-1)
+  return { ...debit, completedWith: debit && ledger.completedWith[debit.id] }
+}
+
+onChain[hdTron.depositAddress] = 10_000_000
+const sentBefore = tronBroadcasts.length
+check('a TRX deposit is not swept while the TRON master is not active', !(await sweepOf(hdTron, 'deposit-tron-0')) && tronBroadcasts.length === sentBefore)
+
+activeTron.add(tronMaster.depositAddress)
+const tronSweepDone = await sweepOf(hdTron, 'deposit-tron-1')
+const tronSweep = tronBroadcasts.at(-1)
+const tronSweepFee = lastFeeDebit()
+check('a native sweep is signed by the account that received the deposit, to its own merchant\'s native master',
+  tronSweepDone && tronSweep?.from === hdTron.depositAddress && tronSweep?.signedBy === hdTron.depositAddress && tronSweep?.to === tronMaster.depositAddress)
+// The stand-in's transactions are 253 bytes once signed
+check('…it sends the whole balance minus the fee it burns', tronSweep?.amount === 10_000_000 - 253_000, `amount ${tronSweep?.amount}`)
+check('…and that fee comes off the customer\'s VA, completed with the sweep\'s txId',
+  tronSweepFee.accountId === hdTron.vAccountId && tronSweepFee.amount === '0.253' && tronSweepFee.completedWith === tronSweep?.txId)
+
+onChain[hdSol.depositAddress] = 1_000_000
+onChain[solMaster.depositAddress] = SOL_RENT_EXEMPT_LAMPORTS
+const solSweepDone = await sweepOf(hdSol, 'deposit-sol-1')
+const solSweep = solBroadcasts.at(-1)
+const solSweepFee = lastFeeDebit()
+check('a SOL sweep is paid by the account that received the deposit, to its own merchant\'s SOL master, with a signature that verifies',
+  solSweepDone && solSweep?.from === hdSol.depositAddress && solSweep?.to === solMaster.depositAddress && solSweep?.valid === true)
+check('…and its fee comes off the customer\'s VA, completed with the sweep\'s txId',
+  solSweepFee.accountId === hdSol.vAccountId && solSweepFee.amount === '0.000005' && solSweepFee.completedWith === solSweep?.txId)
 
 // 4. Token withdrawals and sweeps go through the master: what the handlers ask the provider for
 const asked: any[] = []

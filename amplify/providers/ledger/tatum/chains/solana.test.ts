@@ -1,5 +1,5 @@
 import { Connection, Keypair, SystemInstruction } from '@solana/web3.js'
-import { buildSolanaSweep, getSolanaRentExemptMinimum, getSolanaTransactionFee } from './solana'
+import { buildSolanaSweep, getSolanaRentExemptMinimum, getSolanaTransactionFee, isSolanaRentExempt } from './solana'
 
 const from = Keypair.generate().publicKey
 const to = Keypair.generate().publicKey
@@ -45,6 +45,21 @@ describe('getSolanaRentExemptMinimum', () => {
     const minimum = rpc('getMinimumBalanceForRentExemption').mockResolvedValue(650_240)
     expect(await getSolanaRentExemptMinimum()).toBe(650_240)
     expect(minimum).toHaveBeenCalledWith(0)
+  })
+})
+
+// native-sweep-plan step 3: a sweep smaller than the minimum is refused by a master holding less
+describe('isSolanaRentExempt', () => {
+  beforeEach(() => { rpc('getMinimumBalanceForRentExemption').mockResolvedValue(650_240) })
+
+  it.each([
+    [650_240, true],
+    [650_239, false],
+    [0, false],
+  ])('holding %i lamports: %s', async (lamports, exempt) => {
+    const balance = rpc('getBalance').mockResolvedValue(lamports)
+    expect(await isSolanaRentExempt(to.toBase58())).toBe(exempt)
+    expect(balance).toHaveBeenCalledWith(to, 'confirmed')
   })
 })
 

@@ -12,13 +12,14 @@ import { CreateAccountParams,
   CreateSubscriptionResponse, 
   WithdrawFundsParams, WithdrawFundsResponse, BroadcastUncertainError,
   SendOnChainParams, SendOnChainResponse,
+  SweepAllParams, SweepAllResponse,
   GetAddressHistoryParams,
   OnChainBalanceParams,
   OnChainTransaction,
   TransactionFeeParams,
   DebitFeeParams} from '../provider'
-  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee } from './chains/tron'
-  import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee } from './chains/solana'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee, buildTronSweep, isTronAccountActive } from './chains/tron'
+  import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee, buildSolanaSweep, isSolanaRentExempt } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
 import { networkFor, isNativeCurrency, trc20ContractFor, decimalsFor } from '../../../utils/currencies'
@@ -259,6 +260,43 @@ export class TatumProvider implements AccountProvider {
 
     console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
     return { txId }
+  }
+
+  /**
+   * Sends a native coin address's whole balance, minus the exact fee the chain
+   * charges for this very transaction, leaving 0. Like sendOnChain, no ledger
+   * interaction. null when the balance can't pay the fee.
+   */
+  async sweepAll({ chain, senderAddress, recipientAddress, key }: SweepAllParams): Promise<SweepAllResponse | null> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': {
+        const sweep = await buildTronSweep(senderAddress, recipientAddress)
+        if (!sweep) return null
+        const signatureHex = await signTron(key, sweep.tx)
+        const txId = await this._broadcastTransaction('TRON', { ...sweep.tx, signature: [signatureHex] })
+        return { txId, amount: sweep.amountSun / 1_000_000, fee: sweep.feeSun / 1_000_000 }
+      }
+      case 'SOL': {
+        const sweep = await buildSolanaSweep(senderAddress, recipientAddress)
+        if (!sweep) return null
+        const signatureHex = await signSol(key, sweep.tx.message.serialize())
+        sweep.tx.addSignature(new PublicKey(senderAddress), Buffer.from(signatureHex, 'hex'))
+        const txId = await this._broadcastTransaction('SOL', Buffer.from(sweep.tx.serialize()).toString('base64'))
+        return { txId, amount: sweep.amountLamports / 1_000_000_000, fee: sweep.feeLamports / 1_000_000_000 }
+      }
+      default: throw new Error(`sweepAll: unsupported chain ${chain}`)
+    }
+  }
+
+  // Whether a sweep can land on an address paying only its bandwidth fee: a TRON
+  // address must be active (activating one costs 1.1 TRX more), and a Solana one
+  // must hold the rent-exempt minimum (a smaller transfer to it is refused)
+  async canReceiveSweep({ chain, address }: OnChainBalanceParams): Promise<boolean> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': return isTronAccountActive(address)
+      case 'SOL': return isSolanaRentExempt(address)
+      default: throw new Error(`canReceiveSweep: unsupported chain ${chain}`)
+    }
   }
 
   // An amount as Tatum takes it: at most the chain's decimals, no trailing zeros

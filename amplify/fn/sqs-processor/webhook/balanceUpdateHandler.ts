@@ -4,6 +4,7 @@ import { currencyForAsset, isNativeCurrency } from '../../../utils/currencies'
 import { sendToQueue } from '../../../utils/sqs'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
 import { findAccountByAddress } from '../../../utils/custodialAccount'
+import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
 
 interface IncomingBlockchainTransactionRequest {
@@ -211,8 +212,9 @@ export const handleBalanceUpdate = async (message: any): Promise<boolean> => {
   })
 
   // Token deposits (e.g. USDT_TRON) get swept on-chain to the master account
-  // right after crediting — native-chain deposits are left where they are.
-  if (credited && !isNativeCurrency(currency)) {
+  // right after crediting. A native coin's are too once the merchant has a
+  // ready master for it; until then they stay on the customer's address.
+  if (credited && (!isNativeCurrency(currency) || await getMasterAccount(primary.merchantId, currency))) {
     await enqueueSweep(primary, { senderAddress: body.address, amount, currency, txId })
   }
 

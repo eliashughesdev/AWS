@@ -86,6 +86,14 @@ export async function getSolanaRentExemptMinimum(): Promise<number> {
   return rpcConnection().getMinimumBalanceForRentExemption(0)
 }
 
+// Whether an account already holds that minimum, so a transfer of any size can land on it
+export async function isSolanaRentExempt(address: string): Promise<boolean> {
+  const [balance, minimum] = await Promise.all([
+    rpcConnection().getBalance(new PublicKey(address), 'confirmed'), getSolanaRentExemptMinimum(),
+  ])
+  return balance >= minimum
+}
+
 // A v0 message, the shape Tatum's node accepts (see tatum.ts)
 function transferMessage(from: PublicKey, to: PublicKey, lamports: number, blockhash: string) {
   return new TransactionMessage({
