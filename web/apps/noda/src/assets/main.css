@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "./auth.css";
 @import "./light.css";
 
 /* light:… applies under <html data-theme="light">, for what light.css cannot say with a colour. */
