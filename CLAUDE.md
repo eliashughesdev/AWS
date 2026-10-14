@@ -70,7 +70,8 @@ There are three deployable pieces in this one repo:
     date range. It opens on the type and range given in the address
     (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column is real: a
     row shows the `FEE` row of the same account and `txId`, and a dash when there is none (only
-    a TRX or SOL withdrawal is charged one, and its row arrives with the chain's webhook). The %
+    a TRX or SOL withdrawal is charged one; its row arrives with the chain's webhook, or from the
+    receipt when the merchant's master sent it). The %
     line under each total is still mockup data (`placeholders/transactions.ts`). Deposit is real for the Crypto method: a dropdown with one line
     per account (two accounts can share a coin), the chosen account's network, address and QR
     code, and Recent Deposits, the four newest `DEPOSIT` rows of every account. Nothing tells
@@ -332,10 +333,21 @@ SES) are each defined as a TS interface plus one or more concrete implementation
 runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 `PaymentProcessorConstructor` in `providers/payment/PaymentProcessor.ts` for the shape). When
 adding a new payment or ledger provider, implement the existing interface rather than
-special-casing the new provider in route handlers. When a master signs (token withdrawals),
-`withdrawFunds` debits both the customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and
-completes both with the same txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits
-record no fee (gas is rented TRX). `withdrawFunds` reverts its Tatum debits only
+special-casing the new provider in route handlers. When a master signs (token withdrawals, and
+native ones once the merchant has a `ready` master for the coin), `withdrawFunds` debits both the
+customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and completes both with the same
+txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits record no fee (gas is rented
+TRX). A master-signed native withdrawal's fee is read from its receipt instead, since a master has
+no subscription and no fee webhook comes: after telling the user it was sent, the withdrawal handler
+polls `getTransactionFee` every 3 s for up to 90 s, writes the customer's `FEE` row as the fee
+webhook does, and takes the fee off both VAs with `debitFee` (an offchain withdrawal completed with
+the same txId; none when the fee is 0). What it cannot settle is logged as `CRITICAL
+FEE_UNSETTLED` and never rolled back. A native withdrawal sent from the customer's own address
+still sends Tatum the fixed `WITHDRAWAL_FEES` and gets its `FEE` row from the webhook.
+`/accounts/withdraw` rounds the amount to the coin's decimals (`decimalsFor()` in
+`utils/currencies.ts`, which `withdrawFunds` uses too) and requires a native coin's available
+balance to cover the amount plus its `FEE_RESERVES` (TRON 1, SOL 0.000005, core's
+`withdrawalFeeReserve` numbers), while debiting only the amount. `withdrawFunds` reverts its Tatum debits only
 when the tx provably never reached the chain (failed before broadcast, or the node refused it);
 an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger or app balance —
 may be refunded automatically, since the coins may already have left. A native transfer's exact
@@ -391,7 +403,10 @@ index: `/merchants/list` (staff) answers every merchant with its currencies by s
 be atomic (e.g. idempotent transaction creation) go through `transactWriteItems` in
 `utils/db.ts`, which supports a per-item `conditionExpression` (e.g.
 `attribute_not_exists(id)`) — use this instead of a plain multi-item write whenever two records
-must succeed or fail together.
+must succeed or fail together. A balance in `v1AccountBalanceTable` only ever moves by a relative
+update (`SET #balance = #balance + :delta`), never a value read and written back, which loses a
+concurrent change (B4). A queue handler moves one with `applyBalanceChange` (`utils/balance.ts`),
+which first claims `TX#<txId>` on the account, so a transaction applies once.
 
 **Async work is queue-driven.** Four SQS queues (`v1WebhookQueue`, `v1GeneralQueue`,
 `v1PaymentProcessingQueue`, `v1WithdrawalProcessingQueue`, `v1AccountBackfillQueue`) feed two
@@ -433,7 +448,10 @@ record, and `signTron` / `signSol` ask the signer, which reads the seed and inde
 build that reference from a queue message. A token account needs its merchant's master (its
 deposits are swept there, its withdrawals are signed by it): routes call `canHoldCurrency()`
 (`utils/masterAccount.ts`) before creating anything and answer `100050` when there is none, and
-`provisionCustodialAccount` refuses too. Keep the split between the two Lambdas: the API must
+`provisionCustodialAccount` refuses too. A native coin needs none yet, but a `ready` TRON or SOL
+master (`/merchants/masters/provision` takes both) signs that coin's withdrawals from then on, so
+provisioning one moves them to an address that holds nothing until the coins are swept there
+(they fail cleanly and are refunded; `docs/native-sweep-plan.md`). Keep the split between the two Lambdas: the API must
 never be able to obtain a signature, and nothing outside the handler may read the seed path. A
 seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 

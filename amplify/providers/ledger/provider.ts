@@ -86,6 +86,15 @@ export class BroadcastUncertainError extends Error {
   }
 }
 
+// A fee the chain charged for a transaction already broadcast, to take from a VA
+export interface DebitFeeParams {
+  accountId: string
+  address: string
+  amount: number
+  currency: string
+  txId: string
+}
+
 export interface SendOnChainParams {
   chain: string
   senderAddress: string
@@ -146,6 +155,7 @@ export interface AccountProvider {
   removeDepositAddress(params: AssignDepositAddressParams): Promise<void>;
   deactivateVaAccount(accountId: string): Promise<void>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
+  debitFee(params: DebitFeeParams): Promise<string>;
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
   getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }>;

@@ -15,12 +15,13 @@ import { CreateAccountParams,
   GetAddressHistoryParams,
   OnChainBalanceParams,
   OnChainTransaction,
-  TransactionFeeParams} from '../provider'
+  TransactionFeeParams,
+  DebitFeeParams} from '../provider'
   import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
-import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
+import { networkFor, isNativeCurrency, trc20ContractFor, decimalsFor } from '../../../utils/currencies'
 import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
 
 export class TatumProvider implements AccountProvider {
@@ -134,13 +135,9 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  // Maximum decimal places accepted by each chain.
-  private readonly DECIMAL_PLACES: Record<string, number> = {
-    TRON: 6,
-    SOL: 9,
-  }
-
   // Network fees required by Tatum's offchain withdrawal endpoint (in native currency).
+  // Only an own-address native withdrawal sends one: a master-signed one's fee is
+  // settled from the receipt (debitFee)
   private readonly WITHDRAWAL_FEES: Record<string, string> = {
     TRON: '1',
     SOL: '0.000005',
@@ -173,14 +170,14 @@ export class TatumProvider implements AccountProvider {
    */
   async withdrawFunds({ accountId, address, amount, currency, key, senderAddress, masterAccountId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
-    const decimals = this.DECIMAL_PLACES[chain] ?? 6
-    const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
+    const roundedAmount = this._ledgerAmount(chain, parseFloat(amount))
 
     console.log(`DEBUG (TatumProvider): withdrawFunds started. chain=${chain}, amount=${roundedAmount}, from=${senderAddress}, to=${address}`)
 
     // Step 1: Create withdrawal record — debits the VA. A token transfer's gas is
-    // paid in rented TRX, so no token leaves as a fee and none is recorded.
-    const fee = isNativeCurrency(chain) ? this.WITHDRAWAL_FEES[networkFor(chain) ?? chain] : '0'
+    // paid in rented TRX, so no token leaves as a fee and none is recorded. A
+    // master-signed native withdrawal's fee is only known from its receipt.
+    const fee = isNativeCurrency(chain) && !masterAccountId ? this.WITHDRAWAL_FEES[networkFor(chain) ?? chain] : '0'
     const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain, fee })
     console.log(`DEBUG (TatumProvider): Step 1 done — withdrawal record created. withdrawalId=${withdrawalId}`)
 
@@ -231,6 +228,21 @@ export class TatumProvider implements AccountProvider {
   }
 
   /**
+   * Takes a fee the chain already charged for a broadcast transaction from a
+   * VA: an offchain withdrawal of the fee, completed with that transaction's id.
+   */
+  async debitFee({ accountId, address, amount, currency, txId }: DebitFeeParams): Promise<string> {
+    const chain = currency.toUpperCase()
+    const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: this._ledgerAmount(chain, amount), currency: chain, fee: '0' })
+    try {
+      await this._completeWithdrawal(withdrawalId, txId)
+    } catch (err) {
+      throw new Error(`Fee withdrawal ${withdrawalId} on ${accountId} was created but not completed with ${txId}`, { cause: err })
+    }
+    return withdrawalId
+  }
+
+  /**
    * Moves already-custodied on-chain funds from one address to another,
    * signed by the given key — no Tatum ledger interaction. Unlike
    * withdrawFunds(), there is no virtual account to debit here: used for
@@ -247,6 +259,11 @@ export class TatumProvider implements AccountProvider {
 
     console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
     return { txId }
+  }
+
+  // An amount as Tatum takes it: at most the chain's decimals, no trailing zeros
+  private _ledgerAmount(chain: string, amount: number): string {
+    return amount.toFixed(decimalsFor(chain)).replace(/\.?0+$/, '') || '0'
   }
 
   /**

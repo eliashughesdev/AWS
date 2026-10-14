@@ -3,10 +3,15 @@ import { queryItemFromIndex, updateItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
-import { isNativeCurrency } from '../../../utils/currencies'
+import { decimalsFor, isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
 import { isValidAddressFor } from '../../../utils/addresses'
+
+// Held back for the network fee of a native coin: the real one is only known
+// after the broadcast, and the customer pays it. The same numbers as core's
+// withdrawalFeeReserve, which NODA's Max leaves
+const FEE_RESERVES: Record<string, number> = { TRON: 1, SOL: 0.000005 }
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -85,19 +90,30 @@ export default class WithdrawHandler {
       return processError(100048)
     }
 
+    // Rounded to what the chain carries, so DynamoDB, Tatum and the chain move the same amount (B21).
     // If a direct crypto amount is provided, skip the fiat conversion
+    const decimals = decimalsFor(accountChain)
     let cryptoAmount: number
     let exchangeRate: number
     if (directCryptoAmount != null) {
-      cryptoAmount = parseFloat(parseFloat(directCryptoAmount).toFixed(8))
+      cryptoAmount = parseFloat(parseFloat(directCryptoAmount).toFixed(decimals))
       exchangeRate = 1
       console.log(`DEBUG: Direct crypto withdrawal — debiting ${cryptoAmount} ${accountChain}`)
     } else {
       console.log(`DEBUG: Fetching exchange rate ${accountChain}/${currency}`)
       exchangeRate = await fetchCryptoPrice(accountChain, currency)
-      cryptoAmount = parseFloat((amount / exchangeRate).toFixed(8))
+      cryptoAmount = parseFloat((amount / exchangeRate).toFixed(decimals))
       console.log(`DEBUG: Exchange rate: 1 ${accountChain} = ${exchangeRate} ${currency} → debiting ${cryptoAmount} ${accountChain}`)
     }
+
+    if (!(cryptoAmount > 0)) {
+      console.error(`ERROR: ${directCryptoAmount ?? amount} rounds to 0 ${accountChain}`)
+      return processError(100031, directCryptoAmount != null ? 'cryptoAmount' : 'amount')
+    }
+
+    // The balance must also cover the fee, which is debited once the chain reports it
+    const reserve = FEE_RESERVES[accountChain.toUpperCase()] ?? 0
+    const required = parseFloat((cryptoAmount + reserve).toFixed(decimals))
 
     const effectiveTransactionId = transactionId || `wdr_${Date.now()}`
 
@@ -106,7 +122,7 @@ export default class WithdrawHandler {
       tableName: 'v1AccountBalanceTable',
       key: { id: vAccountId },
       updateExpression: 'SET #balance = #balance - :amount, #availableBalance = #availableBalance - :amount, #lastUpdated = :now',
-      conditionExpression: '#availableBalance >= :amount',
+      conditionExpression: '#availableBalance >= :required',
       attributeNames: {
         '#balance': 'balance',
         '#availableBalance': 'availableBalance',
@@ -114,13 +130,14 @@ export default class WithdrawHandler {
       },
       attributeValues: {
         ':amount': cryptoAmount,
+        ':required': required,
         ':now': new Date().toISOString(),
       },
     })
 
     if (!deductResult.success) {
       if (deductResult.error?.name === 'ConditionalCheckFailedException') {
-        console.error(`ERROR: Insufficient balance. vAccountId: ${vAccountId}, requested: ${cryptoAmount} ${accountChain}`)
+        console.error(`ERROR: Insufficient balance. vAccountId: ${vAccountId}, requested: ${cryptoAmount} ${accountChain} + ${reserve} for the fee`)
         return processError(100007)
       }
       console.error('ERROR: Failed to deduct balance:', deductResult.error)

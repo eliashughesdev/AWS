@@ -62,7 +62,11 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
       if (update.startsWith('SET ')) {
         for (const part of update.slice(4).split(', ')) {
           const [name, value] = part.split(' = ')
-          next[names[name]] = values[value]
+          // `#a = #a + :v` / `#a = #a - :v`, as a balance is moved
+          const relative = value.match(/^(#\w+) ([+-]) (:\w+)$/)
+          next[names[name]] = relative
+            ? (next[names[relative[1]]] ?? 0) + (relative[2] === '+' ? 1 : -1) * values[relative[3]]
+            : values[value]
         }
       } else if (update.startsWith('ADD ')) {
         const [name, value] = update.slice(4).split(' ')

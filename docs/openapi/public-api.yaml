@@ -709,7 +709,14 @@ paths:
       description: |
         Takes the amount from the account's available balance at once and queues the
         send. Give either `cryptoAmount` (in the account's coin) or `amount` (in fiat
-        `currency`, converted at the current rate).
+        `currency`, converted at the current rate). Either is rounded to the decimals the
+        coin carries on its chain: 6 for TRON and USDT, 9 for SOL.
+
+        A TRON or SOL withdrawal pays its network fee from the account too. The available
+        balance must cover the amount plus what is held back for the fee (1 TRON,
+        0.000005 SOL), but only the amount is taken at once. The fee the chain charged is
+        taken once it is known, and shows in `/accounts/transactions` as a `FEE` row with
+        the withdrawal's `txId`.
 
         The send finishes later and shows in `/accounts/transactions` as `WITHDRAWAL`,
         `WITHDRAWAL_FAILED` or `WITHDRAWAL_UNCERTAIN` (the result is not known yet). A withdrawal whose result is not known must not be sent
@@ -741,7 +748,7 @@ paths:
                 cryptoAmount:
                   type: number
                   exclusiveMinimum: 0
-                  description: In the account's coin, up to 8 decimals. Send this or `amount`, not both.
+                  description: In the account's coin, rounded to its decimals. Send this or `amount`, not both.
                 destinationAddress:
                   type: string
                   minLength: 1
@@ -767,11 +774,13 @@ paths:
             - `100029` a required field is missing (`amount or cryptoAmount` when neither was
               sent)
             - `100031` a field is malformed: the account number, an amount that is not a number
-              above 0, both amounts sent, or with `amount` a `currency` that is not a 3-letter code
+              above 0 or rounds to 0 in the account's coin, both amounts sent, or with `amount` a
+              `currency` that is not a 3-letter code
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` the account cannot send coins
-            - `100007` the available balance is too low
+            - `100007` the available balance is too low (for TRON and SOL, for the amount plus the
+              fee reserve)
             - `100009` withdrawals of this coin are not available
             - `100048` `destinationAddress` is not an address on the account's network
             - `100002` the withdrawal could not be started and nothing was sent; the message says

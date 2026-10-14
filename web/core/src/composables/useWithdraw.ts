@@ -4,7 +4,7 @@ import { withdraw } from '../api/accounts'
 import { useQueuedOperation, type FailureMessages } from './queuedOperation'
 
 // What the backend sets aside for the network fee when an account sends its network's own coin
-// (WITHDRAWAL_FEES in amplify/providers/ledger/tatum/tatum.ts), so a withdrawal has to leave it.
+// (FEE_RESERVES in amplify/service/routes/accounts/withdraw.ts), so a withdrawal has to leave it.
 // A token leaves nothing: its gas is paid from the merchant's master.
 const FEE_RESERVES: Record<string, number> = { TRON: 1, SOL: 0.000005 }
 export const withdrawalFeeReserve = (chain: string) => FEE_RESERVES[chain] ?? 0

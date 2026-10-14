@@ -32,15 +32,24 @@ const unsignedTron = (owner: string) => {
   return { txID: sha256(raw), raw_data_hex: raw, raw_data: { owner }, visible: true }
 }
 
-const ledger = { debits: [] as { accountId: string, id: string }[], completed: [] as string[], cancelled: [] as string[] }
+const ledger = {
+  debits: [] as { accountId: string, id: string, amount: string, fee?: string }[],
+  completed: [] as string[],
+  completedWith: {} as Record<string, string>,
+  cancelled: [] as string[],
+}
 const tronBroadcasts: { from: string, signedBy: string }[] = []
 const solBroadcasts: { from: string, valid: boolean }[] = []
+
+// What each chain's receipt says it charged: TRON in sun, Solana in lamports
+const TRON_FEE_SUN = 268_000
+const SOL_FEE_LAMPORTS = 5000
 
 Object.assign(axios, {
   post: async (url: string, payload: any) => {
     if (url.endsWith('/offchain/withdrawal')) {
       const id = `wd-${ledger.debits.length + 1}`
-      ledger.debits.push({ accountId: payload.senderAccountId, id })
+      ledger.debits.push({ accountId: payload.senderAccountId, id, amount: payload.amount, fee: payload.fee })
       return { data: { id } }
     }
     if (url.endsWith('/wallet/createtransaction')) return { data: unsignedTron(payload.owner_address) }
@@ -49,9 +58,15 @@ Object.assign(axios, {
       tronBroadcasts.push({ from: tx.raw_data.owner, signedBy: tronSigner(tx.txID, tx.signature[0]) })
       return { data: { txId: tx.txID } }
     }
+    if (url.endsWith('/wallet/gettransactioninfobyid')) return { data: { id: payload.value, fee: TRON_FEE_SUN } }
     throw new Error(`stand-in: unexpected POST ${url}`)
   },
-  put: async (url: string) => { ledger.completed.push(url.split('/offchain/withdrawal/')[1].split('/')[0]); return { data: {} } },
+  put: async (url: string) => {
+    const [id, txId] = url.split('/offchain/withdrawal/')[1].split('/')
+    ledger.completed.push(id)
+    ledger.completedWith[id] = txId
+    return { data: {} }
+  },
   delete: async (url: string) => { ledger.cancelled.push(url); return { data: {} } },
 })
 
@@ -64,17 +79,21 @@ Object.assign(Connection.prototype, {
     solBroadcasts.push({ from: payer.toBase58(), valid: crypto.verify(null, tx.message.serialize(), publicKey, tx.signatures[0]) })
     return `sol-tx-${solBroadcasts.length}`
   },
+  getTransaction: async () => ({ meta: { fee: SOL_FEE_LAMPORTS } }),
 })
 
 // ---- accounts ---------------------------------------------------------------
 
 const merchants = table('v1MerchantTable')
 const accounts = table('v2CustomerTable')
+const balances = table('v1AccountBalanceTable')
+const transactions = table('v1TransactionLogsTable')
 merchants.set('acme|PROFILE', { id: 'acme', sk: 'PROFILE', status: 'active' })
 
 const open = async (chain: string) => {
   const account = await provisionCustodialAccount({ userId: 'user-1', chain, provider: ProviderName.Tatum, accountingCurrency: 'USD', merchantId: 'acme' })
   accounts.set(`user-1|${account.accountRecord.sk}`, account.accountRecord)
+  balances.set(`${account.vAccountId}|`, { ...account.balanceRecord, balance: 10, availableBalance: 10 })
   return account
 }
 // What /accounts/withdraw queues, plus the key fields an attacker would want honoured
@@ -121,6 +140,44 @@ check('…paid by its own address with a signature that verifies', solBroadcasts
 
 const debits = ledger.debits.length
 check('a withdrawal for an account that does not exist is not processed', !(await handleWithdrawal(withdrawal('va-nope', destination))) && ledger.debits.length === debits)
+
+// 3b. Once the merchant has a native master, native withdrawals go through it too
+// (native-sweep-plan step 2), and the fee the master paid is charged to the customer
+await provisionMerchantMaster('acme', 'TRON', 'USD')
+await provisionMerchantMaster('acme', 'SOL', 'USD')
+const tronMaster = (await getMasterAccount('acme', 'TRON'))!
+const solMaster = (await getMasterAccount('acme', 'SOL'))!
+
+const nativeWithdrawal = async (account: typeof hdTron, master: typeof tronMaster, to: string, fee: string) => {
+  const from = ledger.debits.length
+  const processed = await handleWithdrawal(withdrawal(account.vAccountId, to))
+  const [customerDebit, masterDebit, customerFee, masterFee, ...more] = ledger.debits.slice(from)
+  const txId = ledger.completedWith[customerDebit?.id]
+  const feeRow = transactions.get(`${account.vAccountId}|TX#${txId}`)
+  return {
+    processed,
+    bothDebited: customerDebit?.accountId === account.vAccountId && masterDebit?.accountId === master.vAccountId &&
+      customerDebit.fee === '0' && masterDebit.fee === '0' && ledger.completedWith[masterDebit.id] === txId,
+    feeOffBothVAs: customerFee?.accountId === account.vAccountId && masterFee?.accountId === master.vAccountId &&
+      customerFee.amount === fee && masterFee.amount === fee && more.length === 0 &&
+      ledger.completedWith[customerFee.id] === txId && ledger.completedWith[masterFee.id] === txId,
+    feeRow: feeRow?.type === 'FEE' && feeRow.amount === Number(fee) && feeRow.from === master.depositAddress,
+    balance: balances.get(`${account.vAccountId}|`)?.availableBalance,
+  }
+}
+
+const tronWithdrawal = await nativeWithdrawal(hdTron, tronMaster, destination, '0.268')
+check('a TRX withdrawal of a merchant with a native master is signed by the master',
+  tronWithdrawal.processed && tronBroadcasts.at(-1)?.from === tronMaster.depositAddress && tronBroadcasts.at(-1)?.signedBy === tronMaster.depositAddress)
+check('…both the customer\'s and the master\'s VA are debited, with no fixed fee, and completed with its txId', tronWithdrawal.bothDebited)
+check('…the receipt\'s fee comes off both VAs, completed with the same txId', tronWithdrawal.feeOffBothVAs)
+check('…and is the customer\'s FEE row, paid by the master, off their balance', tronWithdrawal.feeRow && tronWithdrawal.balance === 10 - 0.268, `availableBalance ${tronWithdrawal.balance}`)
+
+const solWithdrawal = await nativeWithdrawal(hdSol, solMaster, hdSol.depositAddress, '0.000005')
+check('a SOL withdrawal of a merchant with a native master is paid by the master, with a signature that verifies',
+  solWithdrawal.processed && solBroadcasts.at(-1)?.from === solMaster.depositAddress && solBroadcasts.at(-1)?.valid === true)
+check('…both VAs are debited, and the receipt\'s fee comes off both', solWithdrawal.bothDebited && solWithdrawal.feeOffBothVAs)
+check('…and is the customer\'s FEE row', solWithdrawal.feeRow && solWithdrawal.balance === 10 - 0.000005, `availableBalance ${solWithdrawal.balance}`)
 
 // 4. Token withdrawals and sweeps go through the master: what the handlers ask the provider for
 const asked: any[] = []

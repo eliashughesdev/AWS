@@ -18,6 +18,10 @@ const withdraw = (body: Record<string, unknown> = {}) => new WithdrawHandler().e
 
 const answer = (res: { body: string } | undefined) => JSON.parse(res!.body)
 const debits = () => (updateItem as jest.Mock).mock.calls.map(([call]) => call)
+const holding = (chain: string) => (queryItemFromIndex as jest.Mock).mockResolvedValue({
+  success: true,
+  res: [{ id: 'user-1', vAccountId: 'va-1', chain, merchantId: 'internal-001' }],
+})
 
 beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {})
@@ -81,6 +85,38 @@ describe('/accounts/withdraw handler', () => {
     expect(rollback.attributeValues[':amount']).toBe(25)
     expect(rollback.updateExpression).toContain('#balance = #balance + :amount')
     expect(rollback.updateExpression).toContain('#availableBalance = #availableBalance + :amount')
+  })
+
+  // native-sweep-plan step 2: a master-signed native withdrawal sends Tatum no fee, so Tatum no
+  // longer holds one back. The route keeps the fee's reserve and debits the amount only
+  it.each([
+    ['TRON', tron, 25, 26],
+    ['SOL', sol, 0.1, 0.100005],
+    ['USDT_TRON', tron, 25, 25],
+  ])('requires a %s balance to cover the amount and the fee reserve', async (chain, destinationAddress, cryptoAmount, required) => {
+    holding(chain)
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
+    expect((await withdraw({ currency: chain, cryptoAmount, destinationAddress }))!.statusCode).toBe(200)
+    expect(debits()[0].conditionExpression).toBe('#availableBalance >= :required')
+    expect(debits()[0].attributeValues).toEqual(expect.objectContaining({ ':amount': cryptoAmount, ':required': required }))
+  })
+
+  // B21: the route rounded to 8 decimals and Tatum to the chain's, so the two ledgers moved different amounts
+  it.each([
+    ['TRON', tron, 1.23456789, 1.234568],
+    ['SOL', sol, 0.1234567891, 0.123456789],
+    ['USDT_TRON', tron, 1.23456789, 1.234568],
+  ])('rounds a %s amount to the chain\'s decimals', async (chain, destinationAddress, cryptoAmount, debited) => {
+    holding(chain)
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
+    await withdraw({ currency: chain, cryptoAmount, destinationAddress })
+    expect(debits()[0].attributeValues[':amount']).toBe(debited)
+    expect((sendToQueue as jest.Mock).mock.calls[0][1].cryptoAmount).toBe(debited)
+  })
+
+  it('answers 100031 for an amount the chain cannot carry, before debiting anything', async () => {
+    expect(answer(await withdraw({ cryptoAmount: 0.0000004 }))).toEqual({ error_code: 100031, message: 'invalid value for cryptoAmount' })
+    expect(updateItem).not.toHaveBeenCalled()
   })
 
   it('says so when the balance could not be credited back', async () => {

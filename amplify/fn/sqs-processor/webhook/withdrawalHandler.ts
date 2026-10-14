@@ -1,14 +1,63 @@
 import { updateItem, putItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
-import { BroadcastUncertainError } from '../../../providers/ledger/provider'
+import { BroadcastUncertainError, type AccountProvider } from '../../../providers/ledger/provider'
 import { notifyPaymentResult } from '../../../utils/websocket'
 import { isNativeCurrency } from '../../../utils/currencies'
-import { getMasterAccount } from '../../../utils/masterAccount'
+import { getMasterAccount, type MasterAccount } from '../../../utils/masterAccount'
 import { findAccountForUser } from '../../../utils/custodialAccount'
 import { accountKeyRef } from '../../../utils/signing'
+import { applyBalanceChange } from '../../../utils/balance'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
+
+// How long a master-signed native withdrawal waits for its receipt. TRON has one
+// within a block or two (3 s each), Solana once the transaction is confirmed
+const FEE_POLL_INTERVAL_MS = 3_000
+const FEE_POLL_TIMEOUT_MS = 90_000
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// The fee the chain charged for a transaction, or null when no receipt came in time
+async function readFee(provider: AccountProvider, chain: string, txId: string): Promise<number | null> {
+  const deadline = Date.now() + FEE_POLL_TIMEOUT_MS
+  for (;;) {
+    try {
+      const fee = await provider.getTransactionFee({ chain, txId })
+      if (fee != null) return fee
+    } catch (err) {
+      console.warn(`FEE_READ_RETRY: could not read the receipt of ${txId}`, err)
+    }
+    if (Date.now() + FEE_POLL_INTERVAL_MS > deadline) return null
+    await sleep(FEE_POLL_INTERVAL_MS)
+  }
+}
+
+// The master paid a native withdrawal's fee, and no webhook reports it (masters
+// have no subscription). The customer is charged what the receipt says: a FEE
+// row like the one the fee webhook writes, and the same amount off their VA and
+// the master's VA. Nothing retries (B5), so what fails is logged to be settled by hand.
+async function settleMasterFee(provider: AccountProvider, account: Record<string, any>, master: MasterAccount, txId: string, destinationAddress: string) {
+  const { vAccountId, chain } = account
+  const unsettled = (what: string, fee: number | null, err: unknown = '') =>
+    console.error(`CRITICAL FEE_UNSETTLED: ${what}. txId=${txId}, vAccountId=${vAccountId}, master=${master.vAccountId} (${master.depositAddress}), fee=${fee ?? 'unknown'} ${chain}`, err)
+
+  const fee = await readFee(provider, chain, txId)
+  if (fee == null) return unsettled(`no receipt within ${FEE_POLL_TIMEOUT_MS / 1000} s`, fee)
+
+  const recorded = await applyBalanceChange({ account, direction: 'DEBIT', amount: fee, currency: chain, txId, from: master.depositAddress, type: 'FEE' })
+  if (!recorded) unsettled('the FEE row or the balance was not written', fee)
+
+  if (fee === 0) return
+  for (const accountId of [vAccountId, master.vAccountId]) {
+    try {
+      const withdrawalId = await provider.debitFee({ accountId, address: destinationAddress, amount: fee, currency: chain, txId })
+      console.log(`FEE_SETTLED: ${fee} ${chain} off VA ${accountId}, withdrawalId=${withdrawalId}, txId=${txId}`)
+    } catch (err) {
+      unsettled(`VA ${accountId} was not debited`, fee, err)
+    }
+  }
+}
 
 export const handleWithdrawal = async (message: any): Promise<boolean> => {
   const { transactionId, userId, vAccountId, cryptoAmount, destinationAddress } = message
@@ -35,21 +84,15 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
     const { chain, merchantId } = account
     console.log(`Sending ${cryptoAmount} ${chain} to ${destinationAddress}`)
 
-    // Token withdrawals (e.g. USDT_TRON) are signed and broadcast from the
-    // master account, not the customer's own deposit address — the sweep
-    // already moved those tokens there. The customer's own VA (accountId)
-    // is still what gets debited in Tatum's ledger; only the on-chain
-    // signer/source changes.
-    let signerAddress = account.depositAddress
-    let signerKey = accountKey
-    let masterAccountId: string | undefined
-    if (!isNativeCurrency(chain)) {
-      const master = await getMasterAccount(merchantId, chain)
-      if (!master) throw new Error(`No ${chain} master for merchant ${merchantId ?? '(none)'} — cannot process token withdrawal`)
-      signerAddress = master.depositAddress
-      signerKey = master.key
-      masterAccountId = master.vAccountId
-    }
+    // When the merchant has a master for the currency, the withdrawal is signed
+    // and sent from it, not the customer's own deposit address: the sweep already
+    // moved the coins there. Both the customer's VA and the master's are debited.
+    // A token always has one; a native coin with none is still sent from the
+    // customer's own address.
+    const master = await getMasterAccount(merchantId, chain)
+    if (!master && !isNativeCurrency(chain)) throw new Error(`No ${chain} master for merchant ${merchantId ?? '(none)'} — cannot process token withdrawal`)
+    const signerAddress = master?.depositAddress ?? account.depositAddress
+    const signerKey = master?.key ?? accountKey
 
     const provider = ProviderRegistry.getProvider(ProviderName.Tatum)
     const { withdrawalId, masterWithdrawalId, txId } = await provider.withdrawFunds({
@@ -59,7 +102,7 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       currency: chain,
       key: signerKey,
       senderAddress: signerAddress,
-      masterAccountId,
+      masterAccountId: master?.vAccountId,
     })
 
     console.log(`WITHDRAWAL_SUCCESS: withdrawalId=${withdrawalId}, masterWithdrawalId=${masterWithdrawalId ?? 'n/a'}, txId=${txId}, reference=${transactionId}`)
@@ -86,6 +129,13 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       paymentTransactionId: withdrawalId,
       txId,
     })
+
+    // A token's gas is rented TRX, so only a native coin has a fee to settle. The
+    // coins have left, so a failure here must never reach the rollback below
+    if (master && isNativeCurrency(chain)) {
+      await settleMasterFee(provider, account, master, txId, destinationAddress)
+        .catch(err => console.error(`CRITICAL FEE_UNSETTLED: settling the fee of ${txId} for ${vAccountId} failed`, err))
+    }
 
     return true
   } catch (err) {
