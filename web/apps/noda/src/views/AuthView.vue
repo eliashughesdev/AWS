@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// Loudibly's sign-in screen (apps/loudibly/src/views/AuthView.vue) without its non-custodial
-// mode, until the client supplies a design. Its colour and type names are in assets/auth.css.
+// Not in Figma: Loudibly's sign-in screen (apps/loudibly/src/views/AuthView.vue) without its
+// non-custodial mode, drawn with the app's own panel, switch, fields and buttons until the client
+// supplies a design. It follows the theme like every other view.
 import { ref, computed, onMounted } from 'vue'
 import { signInWithPassword, isSignedIn } from '@loudibly/core/auth/signIn'
 import { useSignUp, passwordStrength } from '@loudibly/core/composables/useSignUp'
 import { useRoute, useRouter } from 'vue-router'
 import logoMark from '../assets/logo-mark.png'
 import logoWordmark from '../assets/logo-wordmark.png'
+import AppIcon from '../components/AppIcon.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -128,167 +130,126 @@ onMounted(async () => {
   verifiedBanner.value = route.query.verified === '1'
   if (await isSignedIn()) router.push({ name: 'dashboard' })
 })
+
+const tab = 'grid h-full place-items-center rounded-[10px] pb-[3px] lg:pb-[2px]'
+const label = 'text-[12px] leading-none font-semibold text-muted lg:text-[14px]'
+// The box shows the focus. The browser's ring around the bare <input> covers the caret.
+const input = 'mt-[11.5px] flex h-[35px] items-center rounded-[5px] border-[0.5px] border-card-line bg-field px-[9px] text-[12px] font-medium focus-within:border-accent light:shadow-(--shadow-card) lg:mt-[14px] lg:h-[50px] lg:px-[17px] lg:text-[14px]'
+const field = 'min-w-0 flex-1 bg-transparent text-ink text-ellipsis outline-none placeholder:text-muted'
+const reveal = '-mr-[4px] -my-[8px] flex p-[8px] text-muted lg:-mr-[6px]'
+const message = 'text-[12px] leading-[16px] font-medium lg:text-[14px] lg:leading-[18px]'
+const link = 'font-semibold text-accent underline underline-offset-[2.5px] lg:underline-offset-[3px]'
+const mainButton = 'bg-cta flex h-[45px] w-full items-center justify-center gap-[8px] rounded-[5px] border-[0.5px] border-card-line text-[12px] font-semibold text-white light:border-0 disabled:opacity-60 lg:h-[50px] lg:text-[16px] lg:font-medium'
+const stack = 'flex flex-col gap-[20px] lg:gap-[25px]'
+
 </script>
 
 <template>
-  <div class="auth-screen min-h-screen bg-page-gradient flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
-    <main class="w-full max-w-[390px] mx-auto flex flex-col gap-space-8 relative z-10">
+  <div class="flex flex-1 flex-col">
+    <main class="mx-auto flex w-full max-w-[470px] flex-1 flex-col justify-center px-[10px] py-[40px] lg:py-[60px]">
+      <!-- The header's logo, at its desktop size. -->
+      <div class="flex items-center justify-center gap-[7.5px]">
+        <img :src="logoMark" alt="" class="h-[25px]" />
+        <img :src="logoWordmark" alt="NODA" class="h-[21px] w-[90px] light:invert" />
+      </div>
 
-      <!-- ── Header ─────────────────────────────────────────────────────── -->
-      <header class="text-center flex flex-col items-center gap-space-4">
-        <!-- The two cuts the app's header uses, in the proportions of Loudibly's logo image. -->
-        <div class="flex items-center gap-[14px]">
-          <img :src="logoMark" alt="" class="h-9" />
-          <img :src="logoWordmark" alt="NODA" class="h-[25.6px] w-[108.4px]" />
-        </div>
-        <div>
-          <h1
-            v-if="activeTab === 'signUp' && step === 'form'"
-            class="font-headline-h1-mobile text-headline-h1-mobile text-text-primary font-extrabold uppercase tracking-wide mb-space-2"
-          >
-            Create account
-          </h1>
-          <p class="font-body-base text-body-base text-text-secondary">
-            <template v-if="step === 'confirm'">Check your inbox</template>
-            <template v-else-if="activeTab === 'signUp'">Join NODA</template>
-            <template v-else>Your account, your assets.</template>
-          </p>
-        </div>
+      <!-- The layout's page heading and subtitle. -->
+      <header class="mt-[30px] text-center lg:mt-[40px]">
+        <h1 class="text-[20px] leading-[30px] font-semibold lg:text-[30px] lg:leading-[36px]">
+          <template v-if="step === 'confirm'">Verify your email</template>
+          <template v-else-if="activeTab === 'signUp'">Create Account</template>
+          <template v-else>Sign In</template>
+        </h1>
+        <p class="mt-[3px] text-[12px] leading-[14px] font-semibold text-muted lg:mt-[7.5px] lg:leading-none">
+          <template v-if="step === 'confirm'">Check your inbox</template>
+          <template v-else-if="activeTab === 'signUp'">Join NODA</template>
+          <template v-else>Your account, your assets.</template>
+        </p>
       </header>
 
-      <!-- ── Auth card ────────────────────────────────────────────────────── -->
-      <section
-        class="bg-surface-1 border border-border-subtle rounded p-space-8
-               flex flex-col gap-space-6 shadow-2xl shadow-black/50"
-      >
+      <section class="panel mt-[20px] rounded-[10px] px-[14px] pb-[29px] pt-[20px] lg:mt-[30px] lg:px-[29px] lg:pb-[29px] lg:pt-[29px]">
 
-        <!-- ── Confirm step (email verification code) ─────────────────────── -->
-        <template v-if="step === 'confirm'">
-          <div class="flex flex-col gap-space-2 text-center">
-            <h2 class="font-headline-h3 text-headline-h3 text-text-primary font-semibold">
-              Verify your email
-            </h2>
-            <p class="font-body-base text-body-base text-text-secondary">
-              Enter the 6-digit code sent to
-              <span class="text-text-primary font-medium">{{ pendingEmail }}</span>
-            </p>
+        <!-- ── Confirm step (email verification code) ── -->
+        <form v-if="step === 'confirm'" :class="stack" @submit.prevent="handleConfirm">
+          <p class="text-[12px] leading-[18px] font-medium text-muted lg:text-[14px] lg:leading-[22px]">
+            Enter the 6-digit code sent to
+            <span class="font-semibold text-ink">{{ pendingEmail }}</span>
+          </p>
+          <p v-if="error" role="alert" class="text-red" :class="message">{{ error }}</p>
+
+          <div>
+            <label for="confirm-code" :class="label">Verification code</label>
+            <div :class="input">
+              <input
+                id="confirm-code"
+                v-model="confirmCode"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                maxlength="6"
+                required
+                class="tracking-[0.3em]"
+                :class="field"
+              />
+            </div>
           </div>
 
-          <form @submit.prevent="handleConfirm" class="flex flex-col gap-space-4">
-            <p v-if="error" role="alert" class="font-body-base text-body-base text-status-danger text-center">
-              {{ error }}
-            </p>
+          <button type="submit" :disabled="loading" :class="mainButton">
+            {{ loading ? 'Verifying…' : 'Verify email' }}
+          </button>
 
-            <div class="flex flex-col gap-space-2">
-              <label for="confirm-code" class="font-body-base text-body-base text-text-secondary">
-                Verification code
-              </label>
-              <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
-                <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
-                  pin
-                </span>
-                <input
-                  id="confirm-code"
-                  v-model="confirmCode"
-                  type="text"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  placeholder="000000"
-                  maxlength="6"
-                  required
-                  class="w-full bg-transparent border-none shadow-none ring-0 text-text-primary
-                         font-label-mono-base text-label-mono-base leading-6 py-space-3 pl-10 pr-space-3
-                         placeholder:text-text-secondary/50 focus:ring-0 focus:shadow-none focus:outline-hidden"
-                />
-              </div>
-            </div>
+          <p class="text-center text-muted" :class="message">
+            Didn't receive it?
+            <button type="button" :class="link" @click="handleResend">Resend code</button>
+          </p>
+        </form>
 
-            <button
-              type="submit"
-              :disabled="loading"
-              class="mt-space-4 w-full bg-brand text-on-brand font-body-large text-body-large
-                     font-bold py-space-3 rounded-[12px] border-0 hover:bg-brand-hover transition-colors
-                     active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {{ loading ? 'Verifying…' : 'Verify email' }}
-            </button>
-
-            <p class="text-center font-body-base text-body-base text-text-secondary">
-              Didn't receive it?
-              <button
-                type="button"
-                @click="handleResend"
-                class="text-text-primary font-bold hover:text-brand transition-colors
-                       underline decoration-border-subtle hover:decoration-brand underline-offset-4"
-              >
-                Resend code
-              </button>
-            </p>
-          </form>
-        </template>
-
-        <!-- ── Main form (sign in / sign up tabs) ──────────────────────────── -->
+        <!-- ── Sign in / Create account ── -->
         <template v-else>
-
-          <!-- Tabs -->
+          <!-- The Withdraw / History switch. -->
           <nav
             role="tablist"
             aria-label="Authentication options"
-            class="flex border-b border-border-subtle pb-space-2 gap-space-4"
+            class="bg-toggle grid h-[40px] grid-cols-2 rounded-[10px] text-[12px] font-semibold text-faint lg:h-[45px] lg:text-[14px]"
           >
             <button
               id="tab-signin"
+              type="button"
               role="tab"
               :aria-selected="activeTab === 'signIn'"
               aria-controls="panel-signin"
+              :class="[tab, { 'bg-toggle-active text-accent light:text-white': activeTab === 'signIn' }]"
               @click="switchTab('signIn')"
-              class="font-body-base text-body-base pb-space-2 -mb-[9px] px-space-2 transition-colors"
-              :class="activeTab === 'signIn'
-                ? 'font-bold text-text-primary border-b-2 border-brand'
-                : 'text-text-secondary hover:text-text-primary'"
-            >
-              Sign In
-            </button>
+            >Sign In</button>
             <button
               id="tab-signup"
+              type="button"
               role="tab"
               :aria-selected="activeTab === 'signUp'"
               aria-controls="panel-signup"
+              :class="[tab, { 'bg-toggle-active text-accent light:text-white': activeTab === 'signUp' }]"
               @click="switchTab('signUp')"
-              class="font-body-base text-body-base pb-space-2 -mb-[9px] px-space-2 transition-colors"
-              :class="activeTab === 'signUp'
-                ? 'font-bold text-text-primary border-b-2 border-brand'
-                : 'text-text-secondary hover:text-text-primary'"
-            >
-              Create Account
-            </button>
+            >Create Account</button>
           </nav>
 
-          <!-- ── Sign In panel ─────────────────────────────────────────────── -->
+          <!-- ── Sign In panel ── -->
           <div
             v-show="activeTab === 'signIn'"
             id="panel-signin"
             role="tabpanel"
             aria-labelledby="tab-signin"
+            class="mt-[25px] lg:mt-[30px]"
           >
-            <form @submit.prevent="handleSignIn" class="flex flex-col gap-space-4">
-              <p v-if="verifiedBanner" role="status"
-                 class="font-body-base text-body-base text-brand text-center">
+            <form :class="stack" @submit.prevent="handleSignIn">
+              <p v-if="verifiedBanner" role="status" class="text-accent" :class="message">
                 Your email has been verified — sign in to continue.
               </p>
-              <p v-if="error && activeTab === 'signIn'" role="alert"
-                 class="font-body-base text-body-base text-status-danger">
-                {{ error }}
-              </p>
+              <p v-if="error && activeTab === 'signIn'" role="alert" class="text-red" :class="message">{{ error }}</p>
 
-              <div class="flex flex-col gap-space-2">
-                <label for="si-email" class="font-body-base text-body-base text-text-secondary">
-                  Email Address
-                </label>
-                <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
-                  <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
-                    mail
-                  </span>
+              <div>
+                <label for="si-email" :class="label">Email Address</label>
+                <div :class="input">
                   <input
                     id="si-email"
                     v-model="siEmail"
@@ -296,29 +257,17 @@ onMounted(async () => {
                     autocomplete="email"
                     placeholder="operator@domain.com"
                     required
-                    class="w-full bg-transparent border-none shadow-none ring-0 text-text-primary
-                           font-label-mono-base text-label-mono-base leading-6 py-space-3 pl-10 pr-space-3
-                           placeholder:text-text-secondary/50 focus:ring-0 focus:shadow-none focus:outline-hidden"
+                    :class="field"
                   />
                 </div>
               </div>
 
-              <div class="flex flex-col gap-space-2">
-                <div class="flex justify-between items-baseline">
-                  <label for="si-password" class="font-body-base text-body-base text-text-secondary">
-                    Password
-                  </label>
-                  <a
-                    href="#"
-                    class="font-caption text-caption text-text-secondary hover:text-brand transition-colors"
-                  >
-                    Forgot password?
-                  </a>
+              <div>
+                <div class="flex items-center justify-between">
+                  <label for="si-password" :class="label">Password</label>
+                  <a href="#" class="text-[12px] leading-none lg:text-[14px]" :class="link">Forgot password?</a>
                 </div>
-                <div class="relative flex items-center bg-surface-2 border border-border-subtle rounded focus-ring transition-all duration-200">
-                  <span class="material-symbols-outlined text-text-secondary absolute left-space-3 text-[18px] pointer-events-none select-none">
-                    lock
-                  </span>
+                <div :class="input">
                   <input
                     id="si-password"
                     v-model="siPassword"
@@ -326,108 +275,53 @@ onMounted(async () => {
                     autocomplete="current-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-transparent border-none shadow-none ring-0 text-text-primary
-                           font-label-mono-base text-label-mono-base leading-6 py-space-3 pl-10 pr-space-3
-                           placeholder:text-text-secondary/50 focus:ring-0 focus:shadow-none focus:outline-hidden"
+                    :class="field"
                   />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                :disabled="loading"
-                class="mt-space-4 w-full bg-brand text-on-brand font-body-large text-body-large
-                       font-bold py-space-3 rounded-[12px] border-0 hover:bg-brand-hover transition-colors
-                       active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <button type="submit" :disabled="loading" class="mt-[5px]" :class="mainButton">
                 {{ loading ? 'Signing in…' : 'Sign In' }}
               </button>
             </form>
           </div>
 
-          <!-- ── Create Account panel ──────────────────────────────────────── -->
+          <!-- ── Create Account panel ── -->
           <div
             v-show="activeTab === 'signUp'"
             id="panel-signup"
             role="tabpanel"
             aria-labelledby="tab-signup"
+            class="mt-[25px] lg:mt-[30px]"
           >
-            <form @submit.prevent="handleSignUp" class="flex flex-col gap-space-4">
-              <p v-if="error && activeTab === 'signUp'" role="alert"
-                 class="font-body-base text-body-base text-status-danger">
-                {{ error }}
-              </p>
+            <form :class="stack" @submit.prevent="handleSignUp">
+              <p v-if="error && activeTab === 'signUp'" role="alert" class="text-red" :class="message">{{ error }}</p>
 
-              <!-- Name row -->
-              <div class="grid grid-cols-2 gap-space-4">
-                <div class="flex flex-col gap-space-2">
-                  <label for="su-first-name"
-                         class="font-body-base text-[13px] font-medium text-text-secondary">
-                    First name
-                  </label>
-                  <input
-                    id="su-first-name"
-                    v-model="suFirstName"
-                    type="text"
-                    autocomplete="given-name"
-                    placeholder="Jane"
-                    required
-                    class="w-full bg-surface-2 border border-border-subtle rounded
-                           text-text-primary font-label-mono-base text-label-mono-base leading-6
-                           px-space-4 py-space-3 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-brand
-                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
-                  />
+              <div class="grid grid-cols-2 gap-[10px] lg:gap-[15px]">
+                <div>
+                  <label for="su-first-name" :class="label">First name</label>
+                  <div :class="input">
+                    <input id="su-first-name" v-model="suFirstName" type="text" autocomplete="given-name" placeholder="Jane" required :class="field" />
+                  </div>
                 </div>
-                <div class="flex flex-col gap-space-2">
-                  <label for="su-last-name"
-                         class="font-body-base text-[13px] font-medium text-text-secondary">
-                    Last name
-                  </label>
-                  <input
-                    id="su-last-name"
-                    v-model="suLastName"
-                    type="text"
-                    autocomplete="family-name"
-                    placeholder="Doe"
-                    required
-                    class="w-full bg-surface-2 border border-border-subtle rounded
-                           text-text-primary font-label-mono-base text-label-mono-base leading-6
-                           px-space-4 py-space-3 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-brand
-                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
-                  />
+                <div>
+                  <label for="su-last-name" :class="label">Last name</label>
+                  <div :class="input">
+                    <input id="su-last-name" v-model="suLastName" type="text" autocomplete="family-name" placeholder="Doe" required :class="field" />
+                  </div>
                 </div>
               </div>
 
-              <!-- Email -->
-              <div class="flex flex-col gap-space-2">
-                <label for="su-email"
-                       class="font-body-base text-[13px] font-medium text-text-secondary">
-                  Email address
-                </label>
-                <input
-                  id="su-email"
-                  v-model="suEmail"
-                  type="email"
-                  autocomplete="email"
-                  placeholder="jane.doe@company.com"
-                  required
-                  class="w-full bg-surface-2 border border-border-subtle rounded
-                         text-text-primary font-label-mono-base text-label-mono-base leading-6
-                         px-space-4 py-space-3 placeholder:text-text-muted/80
-                         focus:outline-none focus:border-brand
-                         focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
-                />
+              <div>
+                <label for="su-email" :class="label">Email address</label>
+                <div :class="input">
+                  <input id="su-email" v-model="suEmail" type="email" autocomplete="email" placeholder="jane.doe@company.com" required :class="field" />
+                </div>
               </div>
 
-              <!-- Password + strength indicator -->
-              <div class="flex flex-col gap-space-2">
-                <label for="su-password"
-                       class="font-body-base text-[13px] font-medium text-text-secondary">
-                  Password
-                </label>
-                <div class="relative">
+              <div>
+                <label for="su-password" :class="label">Password</label>
+                <div :class="input">
                   <input
                     id="su-password"
                     v-model="suPassword"
@@ -435,44 +329,35 @@ onMounted(async () => {
                     autocomplete="new-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-surface-2 border border-border-subtle rounded
-                           text-text-primary font-label-mono-base text-label-mono-base leading-6
-                           px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-brand
-                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
+                    :class="field"
                   />
                   <button
                     type="button"
-                    @click="showSuPass = !showSuPass"
                     :aria-label="showSuPass ? 'Hide password' : 'Show password'"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary
-                           hover:text-text-primary transition-colors"
+                    :aria-pressed="showSuPass"
+                    :class="[reveal, { 'text-accent!': showSuPass }]"
+                    @click="showSuPass = !showSuPass"
                   >
-                    <span class="material-symbols-outlined" style="font-size: 20px;">
-                      {{ showSuPass ? 'visibility' : 'visibility_off' }}
-                    </span>
+                    <AppIcon name="eye-sm" />
                   </button>
                 </div>
+                <!-- The Withdraw Limits bar, in four steps. -->
                 <template v-if="suPassword">
-                  <div class="flex gap-1 h-1 mt-space-1">
+                  <div class="mt-[10px] flex h-[6px] gap-[4px] lg:mt-[12px]">
                     <div
                       v-for="i in 4"
                       :key="i"
-                      class="flex-1 rounded-full transition-colors duration-200"
-                      :class="i <= passwordBars ? 'bg-brand' : 'bg-surface-2'"
+                      class="flex-1 rounded-full"
+                      :class="i <= passwordBars ? 'bg-teal-rise' : 'bg-card light:bg-track'"
                     />
                   </div>
-                  <p class="font-caption text-caption text-text-muted text-right">{{ passwordStrengthLabel }}</p>
+                  <p class="mt-[8px] text-right text-[10px] leading-none font-semibold text-muted lg:text-[12px]">{{ passwordStrengthLabel }}</p>
                 </template>
               </div>
 
-              <!-- Confirm password -->
-              <div class="flex flex-col gap-space-2">
-                <label for="su-confirm"
-                       class="font-body-base text-[13px] font-medium text-text-secondary">
-                  Confirm password
-                </label>
-                <div class="relative">
+              <div>
+                <label for="su-confirm" :class="label">Confirm password</label>
+                <div :class="input">
                   <input
                     id="su-confirm"
                     v-model="suConfirmPass"
@@ -480,80 +365,47 @@ onMounted(async () => {
                     autocomplete="new-password"
                     placeholder="••••••••"
                     required
-                    class="w-full bg-surface-2 border border-border-subtle rounded
-                           text-text-primary font-label-mono-base text-label-mono-base leading-6
-                           px-space-4 py-space-3 pr-10 placeholder:text-text-muted/80
-                           focus:outline-none focus:border-brand
-                           focus:shadow-[0_0_0_2px_color-mix(in_srgb,var(--color-brand)_15%,transparent)] transition-all duration-200"
+                    :class="field"
                   />
                   <button
                     type="button"
-                    @click="showSuConfirm = !showSuConfirm"
                     :aria-label="showSuConfirm ? 'Hide password' : 'Show password'"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary
-                           hover:text-text-primary transition-colors"
+                    :aria-pressed="showSuConfirm"
+                    :class="[reveal, { 'text-accent!': showSuConfirm }]"
+                    @click="showSuConfirm = !showSuConfirm"
                   >
-                    <span class="material-symbols-outlined" style="font-size: 20px;">
-                      {{ showSuConfirm ? 'visibility' : 'visibility_off' }}
-                    </span>
+                    <AppIcon name="eye-sm" />
                   </button>
                 </div>
               </div>
 
-              <!-- Submit -->
-              <div class="mt-space-2">
-                <button
-                  type="submit"
-                  :disabled="loading"
-                  class="w-full bg-brand text-on-brand font-body-large text-body-large
-                         font-bold py-space-3 rounded-[12px] border-0 hover:bg-brand-hover transition-colors
-                         active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed
-                         flex items-center justify-center gap-space-2 group"
-                >
-                  <template v-if="loading">Creating account…</template>
-                  <template v-else>
-                    Create Account
-                    <span
-                      class="material-symbols-outlined group-hover:translate-x-1 transition-transform"
-                      style="font-size: 18px;"
-                    >arrow_forward</span>
-                  </template>
-                </button>
-              </div>
+              <button type="submit" :disabled="loading" class="mt-[5px]" :class="mainButton">
+                <template v-if="loading">Creating account…</template>
+                <template v-else>
+                  Create Account
+                  <AppIcon name="arrow-right" />
+                </template>
+              </button>
             </form>
           </div>
-
         </template>
       </section>
 
-      <!-- ── Footer ───────────────────────────────────────────────────────── -->
-      <div class="text-center pt-space-4 pb-space-8">
-        <p class="font-body-base text-body-base text-text-secondary">
-          <template v-if="activeTab === 'signIn'">
-            Don't have an account?
-            <button
-              type="button"
-              @click="switchTab('signUp')"
-              class="text-text-primary font-bold hover:text-brand transition-colors
-                     underline decoration-border-subtle hover:decoration-brand underline-offset-4"
-            >
-              Sign up
-            </button>
-          </template>
-          <template v-else>
-            Already have an account?
-            <button
-              type="button"
-              @click="switchTab('signIn')"
-              class="text-text-primary font-bold hover:text-brand transition-colors
-                     underline decoration-border-subtle hover:decoration-brand underline-offset-4"
-            >
-              Sign in
-            </button>
-          </template>
-        </p>
-      </div>
-
+      <p class="mt-[20px] text-center text-muted lg:mt-[25px]" :class="message">
+        <template v-if="activeTab === 'signIn'">
+          Don't have an account?
+          <button type="button" :class="link" @click="switchTab('signUp')">Sign up</button>
+        </template>
+        <template v-else>
+          Already have an account?
+          <button type="button" :class="link" @click="switchTab('signIn')">Sign in</button>
+        </template>
+      </p>
     </main>
+
+    <!-- The layout's footer. -->
+    <footer class="px-[10px] py-[21px] text-[10px] leading-none font-semibold text-faint lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
+      NodabaseStaging©2025
+    </footer>
   </div>
 </template>

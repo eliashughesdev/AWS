@@ -95,12 +95,13 @@ There are three deployable pieces in this one repo:
     and Failed; its colours are `pills` in `src/tones.ts`, which the Dashboard's `ActivityItem`
     uses too. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
-    real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
-    the client supplies its own. So are the two screens the backend's emails link to, copies as
-    well: `/confirm` (`ConfirmView`, the "Confirm my email" link) and `/set-password`
-    (`SetPasswordView`, the claim link). The three are public routes outside `TopNavLayout`, and
-    only they use the Loudibly colour, spacing and type names in `src/assets/auth.css` and the
-    two extra font requests in `index.html`; those go when the copies go. A Material Symbols
+    real: `AuthView` is Loudibly's screen without the non-custodial mode, drawn with the app's own
+    panel, switch, fields and buttons (no Figma design yet) and following the theme. So are the
+    two screens the backend's emails link to, still copies of Loudibly's: `/confirm`
+    (`ConfirmView`, the "Confirm my email" link) and `/set-password` (`SetPasswordView`, the
+    claim link). The three are public routes outside `TopNavLayout`, and only the two copies use
+    the Loudibly colour, spacing and type names in `src/assets/auth.css` and the two extra font
+    requests in `index.html`; those go when the copies go. A Material Symbols
     icon shows only if it is named in that request's `icon_names` (kept in alphabetical order),
     and takes its size from an inline `font-size`: Google's rule (24px) beats a `text-*` class.
     A text on these screens names its colour, because the page's own would be black in light.
@@ -136,7 +137,7 @@ There are three deployable pieces in this one repo:
     border stays `border-yellow`). A class with literal gradient stops in `main.css` gets its light look in `light.css`
     (`:root[data-theme="light"] .card-glow`). `.button-outline` is solid in light, except inside a
     dialog, where it stays an outline beside the main button. `.bg-cta` runs at 82deg unless an
-    element sets `--cta-angle`. The sign-in, confirm and set-password screens are dark in both themes. A
+    element sets `--cta-angle`. The confirm and set-password screens are dark in both themes. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A

@@ -1,5 +1,6 @@
-/* The sign-in screen (views/AuthView.vue) is Loudibly's, with its NODA-brand values, until
-   the client supplies a design. These names are for that screen only. */
+/* The confirm and set-password screens (views/ConfirmView.vue, views/SetPasswordView.vue) are
+   Loudibly's, with its NODA-brand values, until the client supplies a design. These names are for
+   those screens only; the sign-in screen is drawn with the app's own. */
 @theme {
   --color-brand:       #0DC1C6;
   --color-brand-hover: #44EAEE;
