@@ -77,7 +77,7 @@ D1 and D2 block Phase 0.
 | F1 | ⬜ Not started | | | | |
 | F2 | ⬜ Not started | | | | |
 | F3 | 🔵 Deployed | | | 2026-10-12 | Steps 1–5 deployed to main 2026-10-12 and verified there with `e2e/payments/CardOwnershipTest.ts` (all 7 checks pass). Not yet on nodapay_ui. The payment queue's consumer is disabled on main, so the queued probe was read from the queue, not seen processed; the card it named exists only under its owner |
-| F4 | ⬜ Not started | | | | |
+| F4 | 🟡 In progress | | | | Steps 1, 2, 4 in code 2026-10-13, not deployed. Staging's stream logs hold the 5 live keys of `v1UserKeysTable` (~1,600 copies each: the handler hung and Lambda retried); rotate them and purge (step 3). Production logged customer rows, no keys |
 | F5 | ⬜ Not started | | | | |
 | F6 | ⬜ Not started | | | | |
 | F7 | ⬜ Not started | | | | |
@@ -157,14 +157,21 @@ use `NEW_AND_OLD_IMAGES`. Merchant registration therefore writes the new API key
 CloudWatch, and every card save writes the encrypted `cardData` (CVC included).
 
 **Fix.**
-- [ ] **1.** Replace the log line with metadata only:
+- [x] **1.** Replace the log line with metadata only:
    `eventName`, table name (from `eventSourceARN`), and `Keys`. Never log `NewImage` or
    `OldImage`.
-- [ ] **2.** The handler doesn't use images for anything yet (its one branch is a TODO). Switch the
+- [x] **2.** The handler doesn't use images for anything yet (its one branch is a TODO). Switch the
    key and customer table streams to `KEYS_ONLY` in `backend.ts` (`:340`, `:354`, `:387`,
    `:397`) until a consumer actually needs the images. This removes the risk at the source.
 - [ ] **3.** Purge the stream function's existing log group.
-- [ ] **4.** Update `CLAUDE.md`. Its rule "never write a secret into a streamed table" stops being
+- [ ] **3a.** Rotate the keys found in those logs. On `main` (2026-10-13) they are all five rows
+   of `v1UserKeysTable`, each still live: `e2e-hmac`, `e2e-rsa`, `mrc_ae73b03f67…`,
+   `mrc_1b0a0082fb…`, `mrc_a00c7adedc…`. The handler also never returned for a key record (its
+   branch awaited a promise that never resolved), so Lambda retried each one for 24 hours and
+   logged it about 1,600 times. Production's group holds customer rows (names, emails,
+   addresses) but no key. The old stacks in `main`'s account (`staging-`, `Token-TOKEN-5881-`,
+   `feature-vaccounts-`) run their own copies of the old handler and have log groups of their own.
+- [x] **4.** Update `CLAUDE.md`. Its rule "never write a secret into a streamed table" stops being
    the only safeguard.
 
 - [ ] **Verified:** Registering a merchant and saving a card produce stream logs with keys

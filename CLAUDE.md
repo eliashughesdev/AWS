@@ -34,10 +34,13 @@ There are three deployable pieces in this one repo:
     own button. A 4xx from `/merchants/register` is answered before anything is written, so the
     form can be sent again; any other failure is shown as unknown, with "Check the list" and no
     retry. `src/merchants.ts` holds the currency labels and status pills the two share.
-  - `web/apps/noda/` (workspace `noda`) — NODA's own design, to be served at `/` on its own
-    domain. Until it has one, `amplify.yml` builds it with `--base=/noda/` into `dist/noda`, so
-    it is served at `/noda/` beside `/v2/`. Nothing in the app names that prefix: the router
-    takes its base from the build (`import.meta.env.BASE_URL`). Built so far: the header, navigation
+  - `web/apps/noda/` (workspace `noda`) — NODA's own design. `amplify.yml` builds it with
+    `--base=/noda/` into `dist/noda` on every branch, beside the root app and `/v2/`, so its files
+    are always served from `/noda/`. Its addresses start there too, unless the branch sets
+    `VITE_ROUTER_BASE` (`/` on `nodapay_ui`, so `my.noda.money` has them at the site root, with
+    the console rules sending them to `/noda/index.html`). Nothing in the app names the
+    prefix: the router takes `VITE_ROUTER_BASE`, or else the build's `import.meta.env.BASE_URL`.
+    Built so far: the header, navigation
     and footer (`TopNavLayout`, which also draws each page's heading and subtitle from the
     route's `meta.title` / `meta.subtitle`; a view puts a control beside the heading by wrapping
     it in `PageAction`),
@@ -95,15 +98,14 @@ There are three deployable pieces in this one repo:
     and Failed; its colours are `pills` in `src/tones.ts`, which the Dashboard's `ActivityItem`
     uses too. A dialog goes in `AppDialog` (a modal `<dialog>`), and what a list shows while it
     loads, when it is empty and when its read failed goes in `ListState`. Sign-in and sign-up at `/auth` are
-    real: `AuthView` is a copy of Loudibly's screen without the non-custodial mode, kept until
-    the client supplies its own. So are the two screens the backend's emails link to, copies as
-    well: `/confirm` (`ConfirmView`, the "Confirm my email" link) and `/set-password`
-    (`SetPasswordView`, the claim link). The three are public routes outside `TopNavLayout`, and
-    only they use the Loudibly colour, spacing and type names in `src/assets/auth.css` and the
-    two extra font requests in `index.html`; those go when the copies go. A Material Symbols
-    icon shows only if it is named in that request's `icon_names` (kept in alphabetical order),
-    and takes its size from an inline `font-size`: Google's rule (24px) beats a `text-*` class.
-    A text on these screens names its colour, because the page's own would be black in light.
+    real: `AuthView` is Loudibly's screen without the non-custodial mode. So are the two screens
+    the backend's emails link to: `/confirm` (`ConfirmView`, the "Confirm my email" link) and
+    `/set-password` (`SetPasswordView`, the claim link). The three are public routes outside
+    `TopNavLayout` with no Figma design yet, drawn with the app's own parts and following the
+    theme: `AuthFrame` gives each the header's logo, the layout's page heading, a `panel` and the
+    footer; their fields, links and buttons are the classes in `src/authForm.ts`; a new password
+    is `PasswordField` (the eye, and the strength bar); and a screen with nothing to fill in (a
+    link being checked, or one that failed) is a `ListState`.
     `AuthView` reads `email` (typed into the form) and `verified=1` (a line saying the address
     was confirmed) from the address: that is how a link screen hands on a visitor with no
     session. Both link screens forward with `router.replace`, so Back does not run a link again.
@@ -136,7 +138,7 @@ There are three deployable pieces in this one repo:
     border stays `border-yellow`). A class with literal gradient stops in `main.css` gets its light look in `light.css`
     (`:root[data-theme="light"] .card-glow`). `.button-outline` is solid in light, except inside a
     dialog, where it stays an outline beside the main button. `.bg-cta` runs at 82deg unless an
-    element sets `--cta-angle`. The sign-in, confirm and set-password screens are dark in both themes. A
+    element sets `--cta-angle`. A
     table goes in `DataTable`, which scrolls sideways inside `ScrollX` when it does not fit and
     takes controls for its title line in a `tools` slot and a list state or a button under its
     rows in an `after` slot; `QrCode` draws a QR code as SVG. A
@@ -402,11 +404,13 @@ counted only because `REQUEST_TTL_MS` is longer than the 24 hours the threshold 
 **Async work is queue-driven.** Four SQS queues (`v1WebhookQueue`, `v1GeneralQueue`,
 `v1PaymentProcessingQueue`, `v1WithdrawalProcessingQueue`, `v1AccountBackfillQueue`) feed two
 processor Lambdas (`fn/sqs-processor/webhook`, `fn/sqs-processor/general`); a DynamoDB Streams
-Lambda (`fn/stream/handler.ts`) fans out changes from `v1UserKeysTable`, `v2CustomerTable`, and
-`v1WebhookIPWhitelistTable` to an SNS topic. Anything persisted to those streamed tables is
-logged in full by the stream handler — never write a secret (e.g. a plaintext claim token) into
-one of them; store a hash instead (see how `utils/claimToken.ts` is used in
-`routes/accounts/onboarding.ts`).
+Lambda (`fn/stream/handler.ts`) reads changes from `v1UserKeysTable`, `v2CustomerTable`, and
+`v1WebhookIPWhitelistTable`; it only logs each one's event, table and keys, and publishes nothing
+yet. The streams are `KEYS_ONLY` (PCI F4): a stream that carries images hands merchant keys and
+card rows to whatever reads it, so a consumer that needs a row reads it from the table itself.
+The handler must return for every batch, or Lambda retries the same records for 24 hours. Still
+never write a secret (e.g. a plaintext claim token) into a table; store a hash instead (see how
+`utils/claimToken.ts` is used in `routes/accounts/onboarding.ts`).
 
 **Queue messages are not trusted.** The webhook processor (`fn/sqs-processor/webhook/handler.ts`)
 routes each record by the queue it was delivered from (`eventSourceARN`), not by the `queue` field
@@ -457,14 +461,22 @@ add new codes there rather than inlining error responses in handlers.
   wiring in Cognito-only or chain-only calls.
 - Root app deploys to `/`, the Loudibly Vue app deploys to `/v2/` (`createWebHistory('/v2/')`);
   the Amplify build copies `web/apps/loudibly/dist` into `dist/v2` (`amplify.yml`). The NODA app
-  is copied to `dist/noda` the same way, for testing. Each sub-folder app needs its own rewrite
-  rule in the Amplify console, above the general rule that sends every address without a dot to
-  the root app (NODA's: `</^/noda(/[^.]*)?$/>` to `/noda/index.html`, type 200). Without it,
-  that app's addresses show the root app. The old UI's rule, `</^/v2/[^.]+$/>`, wants a
-  character after the slash, so the bare `/v2/` shows the root app.
-- The site's bare address is a console rule too, the first in the list: `/` answers 302 to
-  `/noda/` on staging, and still to `/v2/auth` on `my.noda.money` until that console is changed.
-  The rules are kept in each Amplify console only; no file in the repo holds them.
+  is copied to `dist/noda` the same way. Every branch builds all three, and each Amplify console's
+  rewrite rules decide which one an address shows. The rules are kept in each console only; no
+  file in the repo holds them. Order matters: the first matching rule wins.
+- Staging (`main`): `/` answers 302 to `/noda/`; `</^/v2/[^.]+$/>` goes to `/v2/index.html` and
+  `</^/noda(/[^.]*)?$/>` to `/noda/index.html` (type 200), both above the general rule that sends
+  every other address without a dot to the root app. The old UI's rule wants a character after the
+  slash, so the bare `/v2/` shows the root app. `FRONTEND_APP_PATH` is `/noda`.
+- Production (`nodapay_ui`, `my.noda.money`, since 2026-10-13): NODA at the site root, no `/v2`.
+  In order: `</^/noda(/[^.]*)?$/>` 301 to `/` (old links); `</^/(customer|payment)(/[^.]*)?$/>`
+  to `/index.html` (the root app's card and KYC pages, 200); `</^[^.]*$/>` to `/noda/index.html`
+  (200, `/` included); `/<*>` to `/noda/index.html` (404-200). The branch sets
+  `VITE_ROUTER_BASE=/`, and SSM has `FRONTEND_URL=https://my.noda.money` and `FRONTEND_APP_PATH=/`.
+  The two go together: a build with the variable under the old rules, or the reverse, breaks the
+  site. CloudFront keeps each answer for a year (`s-maxage`), and only a deployment clears it, so
+  after changing the rules start a build of the branch, or addresses already opened keep their old
+  answer.
 - Calls to the backend go through `@loudibly/core/api/*` — add new endpoints there rather
   than calling `fetch` from a view.
 

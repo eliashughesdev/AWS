@@ -24,8 +24,10 @@ declare module 'vue-router' {
 }
 
 const router = createRouter({
-  // The base comes from the build: '/' by default, '/noda/' where amplify.yml builds it into a subfolder.
-  history: createWebHistory(import.meta.env.BASE_URL),
+  // The addresses start where the files are ('/' by default, '/noda/' where amplify.yml builds it into a
+  // subfolder), unless VITE_ROUTER_BASE says otherwise: my.noda.money serves the files from /noda/ and
+  // the addresses from '/'.
+  history: createWebHistory(import.meta.env.VITE_ROUTER_BASE || import.meta.env.BASE_URL),
   routes: [
     { path: '/auth', name: 'auth', component: AuthView },
     // Where the links in the backend's emails land.
