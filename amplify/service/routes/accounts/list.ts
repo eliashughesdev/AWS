@@ -2,6 +2,7 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryRecord, getRecord } from '../../../utils/db'
 import { callerUser } from '../../../utils/caller'
+import { kycSwitchesFor, readKycPolicy } from '../../../utils/kycPolicy'
 
 export default class AccountsListHandler {
   async execute(event: any, context: Context) {
@@ -31,6 +32,13 @@ export default class AccountsListHandler {
       accountRecords.map((item: any) => getRecord('v1AccountBalanceTable', item.vAccountId))
     )
 
+    // Each account's merchant's KYC policy (docs/public-api-plan.md D11), read once per merchant:
+    // a user's accounts nearly always share one. One that cannot be read shows KYC as required,
+    // which is what an unset switch means; the money route decides either way
+    const merchantIds = [...new Set(accountRecords.map((item: any) => item.merchantId as string | undefined))]
+    const policies = new Map(await Promise.all(merchantIds.map(async id =>
+      [id, await readKycPolicy(id).catch(() => null)] as const)))
+
     const accounts = accountRecords.map((item: any, i: number) => {
       const bal = balanceResults[i].res
       return {
@@ -43,6 +51,8 @@ export default class AccountsListHandler {
         createdAt: item.created_at,
         balance: bal?.balance ?? 0,
         availableBalance: bal?.availableBalance ?? 0,
+        // Which money operations need the user's KYC approved in this account's currency
+        kycRequired: kycSwitchesFor(policies.get(item.merchantId) ?? null, item.chain ?? item.currency ?? ''),
       }
     })
 

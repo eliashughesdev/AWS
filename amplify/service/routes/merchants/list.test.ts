@@ -9,16 +9,19 @@ const profile = (id: string, createdAt: string, extra: Record<string, any> = {})
 const master = (id: string, currency: string, extra: Record<string, any> = {}) =>
   ({ id, sk: `MASTER#${currency}`, currency, status: 'ready', depositAddress: `T-${id}-${currency}`, vAccountId: 'va-1', keyModel: 'hd', derivationIndex: 0, assigned: true, ...extra })
 
+const required = { withdraw: true, transfer: true, cardDeposit: true }
+const allRequired = { TRON: required, SOL: required, USDT_TRON: required, TUSDT_TRON: required }
+
 const list = async () => {
   const res = await new ListMerchantsHandler().execute({}, {} as any)
   return { statusCode: res.statusCode, body: JSON.parse(res.body) }
 }
 
 describe('GET /merchants/list', () => {
-  it('reads only the profile and master rows', async () => {
+  it('reads only the profile, master and KYC policy rows', async () => {
     jest.mocked(scanItems).mockResolvedValue({ success: true, res: [] })
     await list()
-    expect(scanItems).toHaveBeenCalledWith('v1MerchantTable', 'sk = :profile OR begins_with(sk, :master)', { ':profile': 'PROFILE', ':master': 'MASTER#' })
+    expect(scanItems).toHaveBeenCalledWith('v1MerchantTable', 'sk = :profile OR begins_with(sk, :master) OR sk = :kyc', { ':profile': 'PROFILE', ':master': 'MASTER#', ':kyc': 'POLICY#KYC' })
   })
 
   it('answers each merchant with its own currencies, newest merchant first', async () => {
@@ -47,6 +50,7 @@ describe('GET /merchants/list', () => {
           { currency: 'TUSDT_TRON', status: 'ready', depositAddress: 'T-mrc_new-TUSDT_TRON' },
           { currency: 'USDT_TRON', status: 'ready', depositAddress: 'T-mrc_new-USDT_TRON' },
         ],
+        kycRequired: allRequired,
       },
       {
         merchantId: 'mrc_old',
@@ -55,6 +59,7 @@ describe('GET /merchants/list', () => {
         accountingCurrency: 'EUR',
         createdAt: '2026-10-01T00:00:00.000Z',
         currencies: [{ currency: 'USDT_TRON', status: 'ready', depositAddress: 'T-mrc_old-USDT_TRON' }],
+        kycRequired: allRequired,
       },
     ])
   })
@@ -93,5 +98,22 @@ describe('GET /merchants/list', () => {
     const { statusCode, body } = await list()
     expect(statusCode).toBe(500)
     expect(body).toEqual({ error_code: 100002, message: 'internal error while processing the request' })
+  })
+
+  // docs/public-api-plan.md D11: only a switch set to false turns KYC off
+  it('answers each merchant\'s KYC policy, unset switches as required', async () => {
+    jest.mocked(scanItems).mockResolvedValue({
+      success: true,
+      res: [
+        profile('mrc_a', '2026-10-01T00:00:00.000Z'),
+        profile('mrc_b', '2026-10-02T00:00:00.000Z'),
+        { id: 'mrc_a', sk: 'POLICY#KYC', 'SOL#withdraw': false, 'SOL#transfer': true, updatedBy: 'staff-1' },
+      ],
+    })
+    const { body } = await list()
+    const policyOf = (id: string) => body.merchants.find((m: any) => m.merchantId === id).kycRequired
+    expect(policyOf('mrc_a')).toEqual({ ...allRequired, SOL: { withdraw: false, transfer: true, cardDeposit: true } })
+    expect(policyOf('mrc_b')).toEqual(allRequired)
+    expect(body.merchants).toHaveLength(2)
   })
 })

@@ -57,6 +57,24 @@ describe('router body validation', () => {
       expect(execute).not.toHaveBeenCalled()
     })
 
+    // docs/public-api-plan.md D11: only staff switch a merchant's KYC policy
+    describe('/merchants/policy/kyc', () => {
+      const setPolicy = (role: string) =>
+        router({ path: '/merchants/policy/kyc', httpMethod: 'POST', body: JSON.stringify({ merchantId: 'internal-001', currency: 'SOL', withdraw: false }), requestContext: { authorizer: { role } } } as any, {})
+
+      it('runs for staff', async () => {
+        const execute = stubHandler('/merchants/policy/kyc')
+        expect((await setPolicy('staff')).statusCode).toBe(200)
+        expect(execute).toHaveBeenCalledTimes(1)
+      })
+
+      it.each(['user', 'admin', 'merchant'])('refuses %s', async role => {
+        const execute = stubHandler('/merchants/policy/kyc')
+        expect((await setPolicy(role)).statusCode).toBe(403)
+        expect(execute).not.toHaveBeenCalled()
+      })
+    })
+
     // It had no allowedRoles: any caller the authorizer let through could send images to Didit
     describe('/accounts/kyc/didit/id-verify', () => {
       const idVerify = (role: string) =>

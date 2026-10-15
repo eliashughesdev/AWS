@@ -49,7 +49,8 @@ info:
 
     A request the API refuses answers `400` with an `Error` body; `error_code` is stable,
     `message` is for people and may change. `100053` (a user the caller may not act for)
-    answers `403` with an `Error` body instead. A missing or refused credential answers `403`
+    and `100059` (an operation that needs a verified identity) answer `403` with an `Error`
+    body instead. A missing or refused credential answers `403`
     from the gateway, before the request reaches the API, with a `GatewayError` body. Too
     many requests answer `429`.
 
@@ -626,7 +627,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':
           description: The ledger refused the transfer (for instance, too little balance).
@@ -698,7 +699,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /accounts/withdraw:
@@ -779,7 +780,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
   /accounts/kyc/status:
@@ -989,6 +990,19 @@ components:
             oneOf:
               - $ref: '#/components/schemas/GatewayError'
               - $ref: '#/components/schemas/Message'
+    ForbiddenKyc:
+      description: |
+        The credential is missing or was refused, or the caller may not use this route; or
+        `100059`: the account's merchant requires a verified identity for this operation in this
+        currency and the user's is not verified yet. The account's `kycRequired` says so
+        beforehand.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/GatewayError'
+              - $ref: '#/components/schemas/Message'
+              - $ref: '#/components/schemas/Error'
     ForbiddenPayer:
       description: |
         The credential is missing or was refused, or the caller may not use this route; or
@@ -1102,7 +1116,7 @@ components:
 
     Account:
       type: object
-      required: [accountNo, name, chain, depositAddress, currency, status, createdAt, balance, availableBalance]
+      required: [accountNo, name, chain, depositAddress, currency, status, createdAt, balance, availableBalance, kycRequired]
       properties:
         accountNo: { type: string }
         name:
@@ -1122,6 +1136,17 @@ components:
         availableBalance:
           type: number
           description: What can be withdrawn now.
+        kycRequired:
+          type: object
+          description: |
+            Which operations in this account's currency need the user's identity verified, as
+            set by the account's merchant. While one is `true` and the user is not verified, that
+            operation answers `403` `100059`.
+          required: [withdraw, transfer, cardDeposit]
+          properties:
+            withdraw: { type: boolean }
+            transfer: { type: boolean }
+            cardDeposit: { type: boolean }
     Transaction:
       type: object
       required: [txId, type, amount, currency, createdAt]

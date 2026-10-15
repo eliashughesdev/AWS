@@ -60,7 +60,7 @@ next one that depends on it is started.
   has none. The UI is unchanged. Tests incl. queue failure (record marked failed with the
   rollback). → D6.4
 
-- [ ] **1.6 KYC policy, backend.** `POLICY#KYC` row per merchant in `v1MerchantTable`;
+- [ ] **1.6 KYC policy, backend.** (in progress) `POLICY#KYC` row per merchant in `v1MerchantTable`;
   `utils/kycPolicy.ts` (`kycRequired(merchantId, currency, operation)`, unset = required);
   `/accounts/withdraw`, `/accounts/transfer` and `/accounts/deposit` refuse with 403 `100059`
   when the account's merchant requires KYC for that currency and operation and the caller's KYC
@@ -622,16 +622,20 @@ currency and operation:
 
 Crypto arriving at a deposit address is not gated: coins on the chain cannot be refused.
 
-**Where.** `v1MerchantTable`, `id` = merchant id, `sk` = `POLICY#KYC`:
-`{ currencies: { USDT_TRON: { withdraw: true, transfer: false, cardDeposit: true }, … },
-updatedAt, updatedBy }`. A merchant, currency or operation with no entry requires KYC.
-`internal-001` holds NODA's direct users'. Written field by field (`updateItem` on
-`currencies.<c>.<op>`), so two staff changes do not overwrite each other.
+**Where.** `v1MerchantTable`, `id` = merchant id, `sk` = `POLICY#KYC`, one top-level attribute
+per switch: `{ 'USDT_TRON#withdraw': false, 'SOL#transfer': true, …, updatedAt, updatedBy }`.
+Only an explicit `false` turns KYC off; a merchant, currency or operation with no attribute
+requires it. `internal-001` holds NODA's direct users'. Each switch is its own `SET`, so two staff
+changes do not overwrite each other (a nested map cannot be written key by key in DynamoDB
+before its parents exist). Accounts made before 2026-10-06 belong to `loudibly`, which needs
+its own policy.
 
-**The check** (`utils/kycPolicy.ts`), in each route after the account is loaded and owned, before
-any debit, charge or queueing: read the policy (cached per warm Lambda for 60 s) and, only when
-it requires KYC, the caller's `USERPROFILE.kyc.status`; anything but `approved` → 403 `100059`
-"withdrawals in USDT_TRON need a verified identity". The same for a key and a signed-in user,
+**The check** (`utils/kycPolicy.ts`, `checkKyc()`), in each route after the account is loaded
+and owned, before any debit, charge or queueing: read the policy (one `GetItem`, not cached, so
+a switch applies on the next call) and, only when it requires KYC, the caller's
+`USERPROFILE.kyc.status`; anything but Didit's `Approved` → 403 `100059` "withdrawals in
+USDT_TRON need a verified identity". A failed read answers 500 and never lets the operation
+through. The same for a key and a signed-in user,
 since both reach the same route.
 
 **Staff.**

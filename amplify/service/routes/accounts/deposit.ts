@@ -5,6 +5,7 @@ import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { callerUser } from '../../../utils/caller'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the deposit could not be queued; nothing was charged'
@@ -63,6 +64,11 @@ export default class DepositHandler {
       console.error(`ERROR: Card deposits are not supported for currency ${accountChain}`)
       return processError(100009)
     }
+
+    // The merchant's KYC policy for the currency bought (docs/public-api-plan.md D11), before the
+    // card is charged. A fiat account is checked under its own currency
+    const kycRefusal = await checkKyc({ userId, merchantId: accountRecord.merchantId, currency: accountChain ?? accountRecord.currency, operation: 'cardDeposit' })
+    if (kycRefusal) return kycRefusal
 
     // For crypto accounts, convert fiat amount → crypto units using Binance rate
     let cryptoAmount: number | undefined

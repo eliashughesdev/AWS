@@ -311,7 +311,10 @@ has it too. The card routes (`/payments/*`) take the user from `resolvePayer()`
 merchant's payers, anyone else gets `100053` (403). The account routes (`/accounts/*` that act on a
 user) take the user from `callerUser()` (`utils/caller.ts`): a signed-in person only, never an HMAC
 key, whose `userId` is the merchant id; anything else gets `100053` (403). Onboarding and its resend
-take the merchant from `callerMerchant()`, the HMAC key's merchant only. One key per merchant: `X-Project` is the merchant id —
+take the merchant from `callerMerchant()`, the HMAC key's merchant only. Withdraw, transfer and card deposit
+call `checkKyc()` (`utils/kycPolicy.ts`) once the account is the caller's and before anything
+moves: the account's merchant's `POLICY#KYC` row says, per currency and operation, whether KYC
+must be `Approved`; only a switch set to `false` turns it off (staff: `/merchants/policy/kyc`). One key per merchant: `X-Project` is the merchant id —
 onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
 `100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
 merchant: the system's own direct customers belong to `internal-001`, named `Internal001`

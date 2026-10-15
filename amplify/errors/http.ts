@@ -33,6 +33,9 @@ const httpErrors: any = {
   100051: () => 'the sender and the recipient are the same account',
   100052: (params: any) => `the recipient account does not hold ${params}`,
   100053: () => 'this user is not yours to act for',
+  // 100054–100058 are planned for API keys (docs/public-api-plan.md D2.6)
+  // params names the operations and currency, e.g. 'withdrawals in USDT_TRON' (utils/kycPolicy.ts)
+  100059: (params: any) => params ? `${params} need a verified identity` : 'this operation needs a verified identity',
 }
 
 // statusCode is 400 unless the code needs another, as 100053's 403 does

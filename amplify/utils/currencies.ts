@@ -15,6 +15,9 @@ const LEDGER_CURRENCIES: Record<string, Network> = {
   TUSDT_TRON: 'TRON',
 }
 
+// Every ledger currency this backend knows, e.g. for a setting kept per currency
+export const LEDGER_CURRENCY_IDS = Object.keys(LEDGER_CURRENCIES)
+
 export const networkFor = (currency?: string): Network | undefined =>
   currency ? LEDGER_CURRENCIES[currency.toUpperCase()] : undefined
 

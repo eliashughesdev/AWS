@@ -8,6 +8,7 @@ import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
 import { isValidAddressFor } from '../../../utils/addresses'
 import { callerUser } from '../../../utils/caller'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -79,6 +80,10 @@ export default class WithdrawHandler {
       console.error(`ERROR: Destination is not a ${accountChain} address`)
       return processError(100048)
     }
+
+    // The merchant's KYC policy for this currency (docs/public-api-plan.md D11), before any debit
+    const kycRefusal = await checkKyc({ userId, merchantId: accountRecord.merchantId, currency: accountChain, operation: 'withdraw' })
+    if (kycRefusal) return kycRefusal
 
     // If a direct crypto amount is provided, skip the fiat conversion
     let cryptoAmount: number

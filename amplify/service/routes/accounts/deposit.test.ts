@@ -2,10 +2,14 @@ import DepositHandler from './deposit'
 import { queryItemFromIndex } from '../../../utils/db'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn() }))
 jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 jest.mock('../../../utils/exchangeRate', () => ({ fetchCryptoPrice: jest.fn() }))
+// The policy itself is tested in utils/kycPolicy.test.ts; here it allows unless a test says not
+jest.mock('../../../utils/kycPolicy', () => ({ checkKyc: jest.fn() }))
+beforeEach(() => jest.mocked(checkKyc).mockResolvedValue(undefined))
 
 const deposit = () => new DepositHandler().execute({
   requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
@@ -60,5 +64,22 @@ describe('/accounts/deposit handler', () => {
     ;(sendToQueue as jest.Mock).mockRejectedValue(new Error('network'))
     const res = await deposit()
     expect(JSON.parse(res!.body).error_code).toBe(100002)
+  })
+})
+
+// docs/public-api-plan.md D11
+describe('/accounts/deposit KYC policy', () => {
+  it('asks the policy for card deposits in the account\'s currency', async () => {
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
+    await deposit()
+    expect(checkKyc).toHaveBeenCalledWith({ userId: 'user-1', merchantId: undefined, currency: 'TRON', operation: 'cardDeposit' })
+  })
+
+  it('answers the refusal and queues no charge', async () => {
+    jest.mocked(checkKyc).mockResolvedValue({ statusCode: 403, headers: {}, body: JSON.stringify({ error_code: 100059, message: 'x' }) } as any)
+    const res = await deposit()
+    expect(res!.statusCode).toBe(403)
+    expect(JSON.parse(res!.body).error_code).toBe(100059)
+    expect(sendToQueue).not.toHaveBeenCalled()
   })
 })

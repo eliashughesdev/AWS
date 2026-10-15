@@ -1,6 +1,7 @@
 import TransferFundsHandler from './transfer'
 import { putItem, queryItemFromIndex, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 jest.mock('../../../utils/db', () => ({
   queryItemFromIndex: jest.fn(),
@@ -8,6 +9,9 @@ jest.mock('../../../utils/db', () => ({
   updateItem: jest.fn(async () => ({ success: true })),
 }))
 jest.mock('../../../utils/AccountProvider', () => ({ ProviderRegistry: { getProvider: jest.fn() } }))
+// The policy itself is tested in utils/kycPolicy.test.ts; here it allows unless a test says not
+jest.mock('../../../utils/kycPolicy', () => ({ checkKyc: jest.fn() }))
+beforeEach(() => jest.mocked(checkKyc).mockResolvedValue(undefined))
 
 const sender = 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4'
 const recipient = 'PCF0001a1b2c3d4e5f60718293a4b5c6d7e8f90'
@@ -93,6 +97,24 @@ describe('/accounts/transfer handler', () => {
       body: { provider: 'PCF0001', senderAccountNumber: sender, recipientAccountNumber: recipient, amount: '1' },
     }, {} as any)
     expect(errorCode(res)).toBe(100001)
+    expectNothingMoved()
+  })
+})
+
+// docs/public-api-plan.md D11
+describe('/accounts/transfer KYC policy', () => {
+  it('asks the sender\'s merchant\'s policy for transfers in the currency', async () => {
+    accounts[sender].merchantId = 'mrc_1'
+    await transfer({})
+    delete accounts[sender].merchantId
+    expect(checkKyc).toHaveBeenCalledWith({ userId: 'user-1', merchantId: 'mrc_1', currency: 'USDT_TRON', operation: 'transfer' })
+  })
+
+  it('answers the refusal and moves nothing', async () => {
+    jest.mocked(checkKyc).mockResolvedValue({ statusCode: 403, headers: {}, body: JSON.stringify({ error_code: 100059, message: 'x' }) } as any)
+    const res = await transfer({})
+    expect(res.statusCode).toBe(403)
+    expect(errorCode(res)).toBe(100059)
     expectNothingMoved()
   })
 })

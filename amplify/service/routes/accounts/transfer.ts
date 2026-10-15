@@ -6,6 +6,7 @@ import { queryItemFromIndex, putItem, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { callerUser } from '../../../utils/caller'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 type Event = {
   requestContext?: { authorizer?: { userId?: string, role?: string, authType?: string, merchantId?: string } }
@@ -68,6 +69,10 @@ export default class TransferFundsHandler {
       console.error(`ERROR: Transfer from a ${currency} account to a ${currencyOf(recipientResult.res[0])} account refused`)
       return processError(100052, currency || 'this currency')
     }
+
+    // The sender's merchant's KYC policy for this currency (docs/public-api-plan.md D11)
+    const kycRefusal = await checkKyc({ userId, merchantId: senderResult.res[0].merchantId, currency, operation: 'transfer' })
+    if (kycRefusal) return kycRefusal
 
     const senderVAccountId = senderResult.res[0].vAccountId
     const recipientVAccountId = recipientResult.res[0].vAccountId
