@@ -327,7 +327,9 @@ for merchant platforms and signed-in users: it has one resource per route in
 `amplify/service/publicRoutes.ts` and nothing else, with the same authorizer function and stage
 name `v1` (HMAC callers sign the path, `/v1` included). Its stage variable
 `API_SURFACE=public` makes the router answer 404 to any route not on that list. To expose a
-route publicly, add it to `publicRoutes` and document it in `docs/openapi/public-api.yaml`;
+route publicly, add it to `publicRoutes` with the permission an API key needs to call it
+(`amplify/service/permissions.ts`; `any` for every key, `null` for none) and document it in
+`docs/openapi/public-api.yaml`;
 staff (`/merchants/*`) and `/webhook/*` routes never go there. That document is rendered per
 branch, with the branch's URL, coins and brand, into `docs/openapi/branches/<branch>/` by the
 `api-docs` project skill (`.claude/skills/api-docs/`; wording and look in its `branding.yaml`).
