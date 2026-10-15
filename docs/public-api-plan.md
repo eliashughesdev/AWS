@@ -111,10 +111,11 @@ next one that depends on it is started.
   key and its id, never the secret; a failed send is logged and does not fail the request.
   → D2.6, D9 — done 2026-10-15, ca6944d. A user with no profile yet gets `100063` (open an
   account first), since the authorizer refuses a key whose owner has none.
-- [ ] **2.7 e2e** `amplify/service/routes/e2e/apiKeys/ApiKeysTest.ts` on `main`: create (JWT) →
+- [x] **2.7 e2e** `amplify/service/routes/e2e/apiKeys/ApiKeysTest.ts` on `main`: create (JWT) →
   call `/accounts/list` with the key → missing permission 403 → burst 429 → revoke → refused;
   staff create a merchant key → `/accounts/onboarding` with it → the same key on
-  `/accounts/list` refused.
+  `/accounts/list` refused. — done 2026-10-15, 35a21df; 20 checks pass on staging. It found the
+  public stage serving a pre-2.3 snapshot (every key 401), fixed in 63a1bca.
 
 ## Phase 3 — API keys, frontends → **M1**
 
