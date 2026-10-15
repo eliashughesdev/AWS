@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/api-keys/create",
+  "$comment": "A new key for the signed-in user (D2.6). permissions are checked against the catalogue by the route (100058), ipAllowlist entries by the route (100062: single IPv4 or IPv6 addresses, at most 20 once duplicates are dropped; empty or absent means any IP). expiresAt must be in the future. The rate limit is not the user's to choose.",
+  "type": "object",
+  "required": [
+    "name",
+    "permissions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "\\S"
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ipAllowlist": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      }
+    }
+  }
+}

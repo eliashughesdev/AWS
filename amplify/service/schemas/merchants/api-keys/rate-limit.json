@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/api-keys/rate-limit",
+  "$comment": "Staff set a key's calls per second, or every usable key of one owner (userId: a user's id, or a merchant's id for its keys). Applies on the key's next call.",
+  "type": "object",
+  "required": [
+    "perSecond"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "keyId": {
+      "type": "string",
+      "pattern": "^lk_live_[0-9a-f]{16}$"
+    },
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "perSecond": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "keyId"
+      ]
+    },
+    {
+      "required": [
+        "userId"
+      ]
+    }
+  ]
+}

@@ -48,6 +48,8 @@ const httpErrors: any = {
     : 'this Idempotency-Key was already used for a different request',
   // An API key's IP allowlist: single IPv4 or IPv6 addresses, at most 20 (D2.3)
   100062: (params: any) => params === 'too-many' ? 'an API key takes at most 20 IP addresses' : `not a valid IP address: ${params}`,
+  // A user's key works only once they have a profile, which their first account creates
+  100063: () => 'open an account before creating an API key',
 }
 
 // statusCode is 400 unless the code needs another, as 100053's 403 does

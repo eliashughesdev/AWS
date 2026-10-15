@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/api-keys/update",
+  "$comment": "Changes one of the caller's own active keys: its name, permissions or IP allowlist (an empty list allows any IP again). Only what is sent changes, so at least one is required. Not the rate limit (staff) and not the expiry.",
+  "type": "object",
+  "required": [
+    "keyId"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "keyId": {
+      "type": "string",
+      "pattern": "^lk_live_[0-9a-f]{16}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "\\S"
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "ipAllowlist": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      }
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "required": [
+        "permissions"
+      ]
+    },
+    {
+      "required": [
+        "ipAllowlist"
+      ]
+    }
+  ]
+}

@@ -55,3 +55,47 @@ export const claimInviteEmail = ({ brand, firstName, link, expiresAt, intro }: {
     ].join(''),
   }
 }
+
+/**
+ * Tells an API key's owner that one of their keys was created or revoked
+ * (docs/public-api-plan.md D2.6). Names the key and its id, never its secret. The key's name was
+ * typed by its owner, and staff typed the reason: both are escaped.
+ */
+export const apiKeyChangedEmail = ({ brand, change, keyName, keyId, byStaff, reason, at }: {
+  brand: string
+  change: 'created' | 'revoked'
+  keyName: string
+  keyId: string
+  byStaff: boolean
+  reason?: string
+  at: string
+}): Email => {
+  const who = byStaff ? `${brand} staff` : 'you'
+  const lines = [
+    `An API key on your ${brand} account was ${change}.`,
+    '',
+    `Key: ${keyName}`,
+    `Key id: ${keyId}`,
+    `When: ${at}`,
+    `By: ${who}`,
+    ...(reason ? [`Reason: ${reason}`] : []),
+    '',
+    change === 'created'
+      ? 'If this was not you, revoke the key now and tell us.'
+      : 'Calls made with this key are refused from now on.',
+  ]
+  const e = escapeHtml
+  return {
+    subject: `${brand}: API key "${keyName}" ${change}`,
+    text: lines.join('\n'),
+    html: `<p>An API key on your ${e(brand)} account was ${change}.</p>` +
+      '<table>' +
+      `<tr><td>Key</td><td>${e(keyName)}</td></tr>` +
+      `<tr><td>Key id</td><td><code>${e(keyId)}</code></td></tr>` +
+      `<tr><td>When</td><td>${e(at)}</td></tr>` +
+      `<tr><td>By</td><td>${e(who)}</td></tr>` +
+      (reason ? `<tr><td>Reason</td><td>${e(reason)}</td></tr>` : '') +
+      '</table>' +
+      `<p>${e(lines[lines.length - 1])}</p>`,
+  }
+}

@@ -73,7 +73,8 @@ const normalizeIp = (ip) => {
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(trimmed)
   if (mapped) return mapped[1]
   if (net.isIPv4(trimmed)) return trimmed
-  if (net.isIPv6(trimmed)) return new URL(`http://[${trimmed}]`).hostname.slice(1, -1)
+  // A zone (fe80::1%eth0) names a local interface, never a caller's address
+  if (net.isIPv6(trimmed) && !trimmed.includes('%')) return new URL(`http://[${trimmed}]`).hostname.slice(1, -1)
   return null
 }
 

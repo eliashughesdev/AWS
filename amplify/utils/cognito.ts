@@ -96,3 +96,9 @@ export const getUserStatus = async (username: string) => {
   const res = await client.send(new AdminGetUserCommand({ UserPoolId: poolId(), Username: username }))
   return res.UserStatus
 }
+
+/** A user's email from Cognito (in this pool the username is the sub), or null when none is set. */
+export const getUserEmail = async (sub: string): Promise<string | null> => {
+  const res = await client.send(new AdminGetUserCommand({ UserPoolId: poolId(), Username: sub }))
+  return res.UserAttributes?.find(attribute => attribute.Name === 'email')?.Value ?? null
+}

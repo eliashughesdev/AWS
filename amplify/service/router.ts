@@ -30,6 +30,15 @@ import removeMerchantMember from './routes/merchants/members-remove'
 import setTreasuryPolicy from './routes/merchants/policy'
 import setKycPolicy from './routes/merchants/policy-kyc'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
+import apiKeyPermissions from './routes/accounts/api-keys/permissions'
+import listApiKeys from './routes/accounts/api-keys/list'
+import createApiKey from './routes/accounts/api-keys/create'
+import updateApiKey from './routes/accounts/api-keys/update'
+import revokeApiKey from './routes/accounts/api-keys/revoke'
+import createMerchantApiKey from './routes/merchants/api-keys/create'
+import listAllApiKeys from './routes/merchants/api-keys/list'
+import setApiKeyRateLimit from './routes/merchants/api-keys/rate-limit'
+import staffRevokeApiKey from './routes/merchants/api-keys/revoke'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
 import { apiKeyRefusal, isApiKey, withRateHeaders } from './apiKeyChecks'
 import { checkForRequiredParameters } from '../utils/params'
@@ -64,6 +73,15 @@ import merchantsMembersInviteSchema from './schemas/merchants/members/invite.jso
 import merchantsMembersRemoveSchema from './schemas/merchants/members/remove.json'
 import merchantsPolicySchema from './schemas/merchants/policy.json'
 import merchantsPolicyKycSchema from './schemas/merchants/policy/kyc.json'
+import apiKeysPermissionsSchema from './schemas/accounts/api-keys/permissions.json'
+import apiKeysListSchema from './schemas/accounts/api-keys/list.json'
+import apiKeysCreateSchema from './schemas/accounts/api-keys/create.json'
+import apiKeysUpdateSchema from './schemas/accounts/api-keys/update.json'
+import apiKeysRevokeSchema from './schemas/accounts/api-keys/revoke.json'
+import merchantApiKeysCreateSchema from './schemas/merchants/api-keys/create.json'
+import merchantApiKeysListSchema from './schemas/merchants/api-keys/list.json'
+import merchantApiKeysRateLimitSchema from './schemas/merchants/api-keys/rate-limit.json'
+import merchantApiKeysRevokeSchema from './schemas/merchants/api-keys/revoke.json'
 import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury-send.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
@@ -121,6 +139,17 @@ const routeList: [string, Route][] = [
   ['/merchants/members/remove', { handler: removeMerchantMember, schema: merchantsMembersRemoveSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy', { handler: setTreasuryPolicy, schema: merchantsPolicySchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy/kyc', { handler: setKycPolicy, schema: merchantsPolicyKycSchema, method: 'POST', allowedRoles: ['staff'] }],
+  // API keys (docs/public-api-plan.md D2.6): a user's own, and staff for every key. Signed-in
+  // sessions only (100057); never on the public API
+  ['/accounts/api-keys/permissions', { handler: apiKeyPermissions, schema: apiKeysPermissionsSchema, method: 'GET' }],
+  ['/accounts/api-keys/list', { handler: listApiKeys, schema: apiKeysListSchema, method: 'GET' }],
+  ['/accounts/api-keys/create', { handler: createApiKey, schema: apiKeysCreateSchema, method: 'POST' }],
+  ['/accounts/api-keys/update', { handler: updateApiKey, schema: apiKeysUpdateSchema, method: 'POST' }],
+  ['/accounts/api-keys/revoke', { handler: revokeApiKey, schema: apiKeysRevokeSchema, method: 'POST' }],
+  ['/merchants/api-keys/create', { handler: createMerchantApiKey, schema: merchantApiKeysCreateSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/api-keys/list', { handler: listAllApiKeys, schema: merchantApiKeysListSchema, method: 'GET', allowedRoles: ['staff'] }],
+  ['/merchants/api-keys/rate-limit', { handler: setApiKeyRateLimit, schema: merchantApiKeysRateLimitSchema, method: 'POST', allowedRoles: ['staff'] }],
+  ['/merchants/api-keys/revoke', { handler: staffRevokeApiKey, schema: merchantApiKeysRevokeSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, schema: merchantsTreasurySendSchema, method: 'POST', allowedRoles: ['merchant'] }],
 ]
 
