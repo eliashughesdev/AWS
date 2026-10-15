@@ -17,6 +17,10 @@ beforeAll(() => {
   Object.assign(process.env, { TRONSAVE_BASE_URL: 'https://tronsave.test', TRONSAVE_API_KEY: 'key-1' })
 })
 
+beforeEach(() => {
+  fetchMock.mockReset()
+})
+
 describe('TronSaveProvider.rent', () => {
   const provider = new TronSaveProvider()
   const request = { resource: 'ENERGY' as const, receiver: 'TSender', amount: 64_928 }
@@ -24,10 +28,12 @@ describe('TronSaveProvider.rent', () => {
 
   it('quotes, then places the order only when it can be filled whole', async () => {
     fetchMock.mockResolvedValueOnce(quote(64_928)).mockResolvedValueOnce(answer(200, { data: { orderId: 'ts-1' } }))
-    expect(await provider.rent(request)).toEqual({ status: 'placed', orderId: 'ts-1' })
+    // The cost is the quote's: the order's answer has only its id
+    expect(await provider.rent(request)).toEqual({ status: 'placed', orderId: 'ts-1', costSun: 4_220_320 })
+    const options = { onlyCreateWhenFulfilled: true, preventDuplicateIncompleteOrders: true }
     expect(sent()).toEqual([
       { path: '/v2/estimate-buy-resource', headers: { 'Content-Type': 'application/json', apikey: 'key-1' }, body: order },
-      { path: '/v2/buy-resource', headers: { 'Content-Type': 'application/json', apikey: 'key-1' }, body: { ...order, options: { onlyCreateWhenFulfilled: true } } },
+      { path: '/v2/buy-resource', headers: { 'Content-Type': 'application/json', apikey: 'key-1' }, body: { ...order, options } },
     ])
   })
 
@@ -37,9 +43,18 @@ describe('TronSaveProvider.rent', () => {
     expect(sent().map((s) => s.path)).toEqual(['/v2/estimate-buy-resource'])
   })
 
-  it('throws when the quote is answered with an error', async () => {
+  // A quote buys nothing, so the next provider may be tried
+  it('refuses when the quote is answered with an error', async () => {
     fetchMock.mockResolvedValueOnce(answer(401, { message: 'invalid api key' }))
-    await expect(provider.rent(request)).rejects.toThrow('TronSave POST /v2/estimate-buy-resource -> 401: {"message":"invalid api key"}')
+    expect(await provider.rent(request)).toEqual({ status: 'refused', reason: 'no quote: TronSave POST /v2/estimate-buy-resource -> 401: {"message":"invalid api key"}' })
+  })
+
+  it('refuses, calling nothing, when it is not configured', async () => {
+    const key = process.env.TRONSAVE_API_KEY
+    delete process.env.TRONSAVE_API_KEY
+    expect(await provider.rent(request)).toEqual({ status: 'refused', reason: 'no quote: Missing required env var: TRONSAVE_API_KEY' })
+    process.env.TRONSAVE_API_KEY = key
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   // An order may exist after a failed buy, so it is never a refusal
@@ -48,8 +63,9 @@ describe('TronSaveProvider.rent', () => {
     await expect(provider.rent(request)).rejects.toThrow('TronSave POST /v2/buy-resource -> 500')
   })
 
-  it('has no minimum and rents both resources', () => {
+  it('has no minimum, rents both resources and is given 120 s to deliver', () => {
     expect(provider.minimum()).toBe(0)
     expect(provider.resources).toEqual(['ENERGY', 'BANDWIDTH'])
+    expect(provider.deliveryTimeoutMs).toBe(120_000)
   })
 })
