@@ -29,13 +29,14 @@ next one that depends on it is started.
 
 ## Phase 1 — Foundations
 
-- [ ] **1.1 Who is calling: `utils/caller.ts`.** (in progress) `callerUser(event)` for routes that act on a
+- [x] **1.1 Who is calling: `utils/caller.ts`.** `callerUser(event)` for routes that act on a
   user; refuses `authType: 'key'` (the HMAC merchant id is not a user — the bug in D0.1).
   Switch `list`, `account`, `rename`, `details`, `transactions`, `transfer`, `deposit`,
   `withdraw`, `profile*`, `kyc*` to it; drop `account.ts`'s `?? crypto.randomUUID()`.
   Add `callerMerchant(event)` (merchant id from HMAC or a merchant key) and switch
   `onboarding.ts` and `onboarding-resend.ts` to it. Tests: each user handler refuses an HMAC
-  caller; onboarding behaves as before with HMAC. → D3, D9
+  caller; onboarding behaves as before with HMAC. → D3, D9 — done 2026-10-14, d57d316 (e2e scripts
+  moved to a signed-in test user: 446d1c1); not deployed yet
 - [ ] **1.2 Permission catalogue.** `amplify/service/permissions.ts` (no imports),
   `permission` on `Route` and `PublicRoute` (a permission name, or `any` for a route every key
   may call: `GET /v1/me` only), a test that every public route names a known permission or
