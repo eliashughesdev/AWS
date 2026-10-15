@@ -97,11 +97,13 @@ next one that depends on it is started.
   SSM default `API_KEY_DEFAULT_RPS`, public stage throttle 50/100 → 500/1000 (agreed
   2026-10-14). → D2.5 — done 2026-10-15, ad1681a. A counter that cannot be written lets
   the call through; `API_KEY_DEFAULT_RPS=10` set on staging only.
-- [ ] **2.5 Router checks.** Key only on the public API (404), 429 with `Retry-After` and
+- [x] **2.5 Router checks.** Key only on the public API (404), 429 with `Retry-After` and
   `X-RateLimit-*`, missing permission → 403 `100055`; `resolvePayer()` accepts a merchant
   `apikey` like HMAC (own payers only); `callerUser()` refuses a merchant key. KYC is not the
   router's: the routes check the KYC policy for keys and users alike (1.6). Error codes
-  `100054`–`100062` (`100059` already from 1.6). Tests per check. → D2.4, D2.6, D5
+  `100054`–`100062` (`100059` already from 1.6). Tests per check. → D2.4, D2.6, D5 — done
+  2026-10-15, 69af03a. Answers to a key carry `X-RateLimit-*`; a key shares its owner's
+  Idempotency-Key namespace.
 - [ ] **2.6 Key-management routes.** `/accounts/api-keys/{permissions,create,list,update,revoke}`
   and staff `/merchants/api-keys/{create,list,rate-limit,revoke}` (staff create a merchant's
   keys), JWT only, schemas, tests. The owner is emailed when one of their keys is created or
