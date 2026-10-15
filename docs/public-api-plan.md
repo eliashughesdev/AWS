@@ -44,9 +44,11 @@ next one that depends on it is started.
   off the public API (D2.4), so only public routes need one, and the router reads it from
   there in 2.5. Tests: every public route names a known permission, `any` or `null`; merchant
   routes name merchant permissions; money-moving routes name a Move money one. → D5 — done 2026-10-14, f0cd87e
-- [ ] **1.3 Path parameters in the router.** Match `event.path` against templates
-  (`/accounts/{id}`, static paths first), pass the captured `pathParameters` to the schema
-  check, exact paths keep working. Router tests. → D6.2
+- [x] **1.3 Path parameters in the router.** Match `event.path` against templates
+  (`/accounts/{id}`, static paths first), check each value against the route's pattern
+  (`params`, `100031`) and hand it on as `pathParameters`; exact paths keep working. Routes are
+  keyed by method and path, so `GET` and `PATCH /accounts/{id}` can both exist; `PublicRoute`
+  takes `PATCH`. Router tests. → D6.2 — done 2026-10-14, eda9040
 - [ ] **1.4 Idempotency helper.** `utils/idempotency.ts`: `Idempotency-Key` header →
   `id=<caller>#<key>`, `sk=IDEMPOTENCY` in `v2CustomerTable` with the first response, 24 h TTL;
   same key + different body → 409; a request still running → 409 "in progress". Today's
