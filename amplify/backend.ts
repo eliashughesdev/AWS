@@ -246,7 +246,7 @@ const loudiblyRestApi = new RestApi(apiStack, 'LoudiblyRestApi', {
   defaultCorsPreflightOptions: {
     allowOrigins: Cors.ALL_ORIGINS,
     allowMethods: Cors.ALL_METHODS,
-    allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project'],
+    allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project', 'Idempotency-Key'],
   },
 })
 
@@ -349,7 +349,7 @@ const publicApi = new RestApi(apiStack, 'LoudiblyPublicApi', {
   defaultCorsPreflightOptions: {
     allowOrigins: Cors.ALL_ORIGINS,
     allowMethods: Cors.ALL_METHODS,
-    allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project'],
+    allowHeaders: [...Cors.DEFAULT_HEADERS, 'X-Project', 'Idempotency-Key'],
   },
 })
 publicApi.addGatewayResponse('Default4xxCors', {
@@ -433,6 +433,8 @@ const v2CustomerTable = new dynamo.Table(apiStack, 'CustomerTable', {
   billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
   stream: dynamo.StreamViewType.KEYS_ONLY,
   tableName: 'v2CustomerTable',
+  // Idempotency-Key rows (utils/idempotency.ts) expire after a day; no other row has a ttl
+  timeToLiveAttribute: 'ttl',
 })
 
 v2CustomerTable.addGlobalSecondaryIndex({

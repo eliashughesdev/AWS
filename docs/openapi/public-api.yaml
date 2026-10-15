@@ -574,6 +574,8 @@ paths:
       summary: Move funds from one of the user's accounts to another account
       description: |
         Moves `amount` from the user's account to any account, at once.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -627,6 +629,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
         '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500':
@@ -647,6 +650,8 @@ paths:
         result arrives later: the deposit appears in `/accounts/transactions`.
 
         Only native coins (`TRON`, `SOL`) can be bought with a card.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -699,6 +704,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
         '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
@@ -715,6 +721,8 @@ paths:
         The send finishes later and shows in `/accounts/transactions` as `WITHDRAWAL`,
         `WITHDRAWAL_FAILED` or `WITHDRAWAL_UNCERTAIN` (the result is not known yet). A withdrawal whose result is not known must not be sent
         again: the coins may already have left.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -780,6 +788,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
         '403': { $ref: '#/components/responses/ForbiddenKyc' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
 
@@ -981,7 +990,28 @@ components:
       name: X-Project
       description: The merchant id the API key was issued for.
 
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Any string of up to 255 letters, digits, `_`, `.`, `:` or `-`, unique to this operation
+        (a UUID does). A retry with the same key and the same request gets the first answer again,
+        with the header `Idempotent-Replayed: true`, and nothing runs twice. Keys are kept for 24
+        hours, separately for each caller. Without the header, every request runs.
+      schema: { type: string, pattern: '^[A-Za-z0-9_.:-]{1,255}$' }
+
   responses:
+    IdempotencyConflict:
+      description: |
+        `100061`: the `Idempotency-Key` was already used for a different request, or the first
+        request with it has not finished. One that never finished (the connection dropped while
+        it ran) keeps its key until it expires: check whether it took effect, then send it again
+        with a new key.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     Forbidden:
       description: The credential is missing or was refused (bad signature, old timestamp, expired token), or the caller may not use this route.
       content:

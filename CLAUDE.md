@@ -282,7 +282,11 @@ and becomes the `routes` map keyed `<METHOD> <path>`, so a path can have one rou
 A path may be a template (`/accounts/{id}`, `service/routeMatch.ts`): `params` gives each
 placeholder a pattern (a value it refuses answers `100031`), the handler gets the values as
 `event.pathParameters`, and a path written as it is always wins over a template. Tests find a
-route with `routeAt(path)`. To add an endpoint: create a handler class with an `execute(event,
+route with `routeAt(path)`. A route with `idempotency` takes an `Idempotency-Key` header
+(`utils/idempotency.ts`): the first request claims `IDEM#<caller>#<key>` in `v2CustomerTable`, a
+retry of the same request gets its stored answer, another request on the key or one still
+running gets 409 `100061`, and a handler that throws leaves its key claimed until it expires
+(24 h, the table's `ttl`), never run again on its own. To add an endpoint: create a handler class with an `execute(event,
 context)` method under `service/routes/<area>/`, then add it to `routeList`. The router
 does, in order: parse body (preserving `rawBody` for signature verification, e.g. Stripe
 webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowedRoles` is set,

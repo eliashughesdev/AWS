@@ -36,6 +36,10 @@ const httpErrors: any = {
   // 100054–100058 are planned for API keys (docs/public-api-plan.md D2.6)
   // params names the operations and currency, e.g. 'withdrawals in USDT_TRON' (utils/kycPolicy.ts)
   100059: (params: any) => params ? `${params} need a verified identity` : 'this operation needs a verified identity',
+  // 409, from utils/idempotency.ts
+  100061: (params: any) => params === 'running'
+    ? 'a request with this Idempotency-Key has not finished; check its result before sending it again with a new key'
+    : 'this Idempotency-Key was already used for a different request',
 }
 
 // statusCode is 400 unless the code needs another, as 100053's 403 does

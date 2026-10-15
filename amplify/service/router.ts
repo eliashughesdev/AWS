@@ -67,6 +67,7 @@ import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
 import { isTemplate, matchTemplate, moreSpecificFirst, placeholdersOf } from './routeMatch'
+import { idempotencyKeyOf, withIdempotency } from '../utils/idempotency'
 
 type Route = {
   handler: any
@@ -75,6 +76,9 @@ type Route = {
   // For a template (/accounts/{id}): the pattern each placeholder's value must match, or the
   // request answers 100031 naming it. Every placeholder has one (router.test.ts checks)
   params?: Record<string, RegExp>
+  // Takes an Idempotency-Key header (utils/idempotency.ts): 'required' refuses a request without
+  // one, 'optional' runs such a request as before
+  idempotency?: 'required' | 'optional'
 } & (
   // A JSON schema for the body, or for a GET route the query string (amplify/service/schemas/),
   // or the older top-level-only check
@@ -102,9 +106,9 @@ const routeList: [string, Route][] = [
   // Unauthenticated: the payer has no session yet — the one-time token is the credential.
   ['/onboarding/verify', { handler: onboardingVerify, schema: onboardingVerifySchema, method: 'POST' }],
   ['/onboarding/claim', { handler: onboardingClaim, schema: onboardingClaimSchema, method: 'POST' }],
-  ['/accounts/transfer', { handler: transferFunds, schema: accountsTransferSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'] }],
-  ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST' }],
+  ['/accounts/transfer', { handler: transferFunds, schema: accountsTransferSchema, method: 'POST', allowedRoles: ['admin', 'user'], idempotency: 'optional' }],
+  ['/accounts/deposit', { handler: accountDeposit, schema: accountsDepositSchema, method: 'POST', allowedRoles: ['admin', 'user'], idempotency: 'optional' }],
+  ['/accounts/withdraw', { handler: accountWithdraw, schema: accountsWithdrawSchema, method: 'POST', idempotency: 'optional' }],
   ['/payments/save', { handler: savePayment, schema: paymentsSaveSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
   ['/payments/list', { handler: listPayments, schema: paymentsListSchema, method: 'GET', allowedRoles: ['user', 'admin'] }],
   ['/payments/process', { handler: processPayment, schema: paymentsProcessSchema, method: 'POST', allowedRoles: ['user', 'admin'] }],
@@ -151,6 +155,13 @@ export const findRoute = (path: string, method: string):
 // The route at a path, the first registered when no method is given (tests stub its handler)
 export const routeAt = (path: string, method?: string) =>
   [...routes.values()].find(route => route.path === path && (!method || route.method === method))
+
+// Whose namespace an Idempotency-Key lives in: the signed-in user, or the merchant of a key
+const idempotencyScope = (authorizer: Record<string, string> | undefined) => {
+  if (!authorizer?.authType) return undefined
+  const who = authorizer.authType === 'key' ? authorizer.merchantId : authorizer.userId
+  return who ? `${authorizer.authType}:${who}` : undefined
+}
 
 // Checks a template's captured values against its route's patterns: the name of the first that
 // does not match, or undefined
@@ -242,9 +253,20 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
 
     // Handler Execution
     console.log('DEBUG: Instantiating and executing handler...')
-    const handlerInstance = new route.handler()
-
-    const result = await handlerInstance.execute(event, context)
+    const run = () => new route.handler().execute(event, context)
+    const scope = idempotencyScope((event as any).requestContext?.authorizer)
+    // With no caller to scope a key to, the route runs as it always did
+    const result = route.idempotency && scope
+      ? await withIdempotency({
+        caller: scope,
+        key: idempotencyKeyOf((event as any).headers),
+        method: route.method,
+        path: route.path,
+        body: event.body,
+        required: route.idempotency === 'required',
+        run,
+      })
+      : await run()
     console.log('DEBUG: Handler execution completed successfully.')
     return result
   } catch (e) {
