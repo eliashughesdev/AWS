@@ -7,6 +7,7 @@ import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
 import { isValidAddressFor } from '../../../utils/addresses'
+import { callerUser } from '../../../utils/caller'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -16,17 +17,11 @@ export default class WithdrawHandler {
   async execute(event: any) {
     console.log('DEBUG: WithdrawHandler execution started.')
 
-    const userId = event.requestContext?.authorizer?.userId
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
     // Exactly one of amount and cryptoAmount, above zero, and a destination (schemas/accounts/withdraw.json)
     const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body
-
-    if (!userId) {
-      return response({
-        statusCode: 401,
-        headers: null,
-        bodyObject: { message: 'User ID not found in authorization context' }
-      })
-    }
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({

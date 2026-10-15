@@ -2,14 +2,13 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { updateItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
+import { callerUser } from '../../../utils/caller'
 
 export default class AccountsRenameHandler {
   async execute(event: any, context: Context) {
-    const userId = event.requestContext?.authorizer?.userId
-
-    if (!userId) {
-      return response({ statusCode: 401, headers: null, bodyObject: { message: 'Unauthorized' } })
-    }
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
 
     const name: string = event.body.name.trim()
 

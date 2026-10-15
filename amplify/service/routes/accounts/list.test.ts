@@ -17,7 +17,7 @@ describe('GET /accounts/list', () => {
     jest.mocked(queryRecord).mockResolvedValue({ success: true, res: [row('PCF0001a', 'Savings'), row('PCF0001b')] })
     jest.mocked(getRecord).mockResolvedValue({ success: true, res: { balance: 5, availableBalance: 5 } })
 
-    const res = await new AccountsListHandler().execute({ requestContext: { authorizer: { userId: 'user-1' } } }, {} as any)
+    const res = await new AccountsListHandler().execute({ requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } } }, {} as any)
 
     expect(res.statusCode).toBe(200)
     expect(JSON.parse(res.body).accounts).toMatchObject([

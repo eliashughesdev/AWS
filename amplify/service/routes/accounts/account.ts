@@ -9,12 +9,16 @@ import { getEmailProvider } from '../../../utils/EmailProvider'
 import { brandName } from '../../../utils/config'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/merchant'
 import { canHoldCurrency } from '../../../utils/masterAccount'
+import { callerUser } from '../../../utils/caller'
 
 export default class AccountHandler {
   async execute(event: any, context: Context) {
     console.log('DEBUG: AccountHandler execution started.')
 
-    const userId   = event.requestContext?.authorizer?.userId ?? crypto.randomUUID()
+    // Never a made-up id: without a user the account would belong to no one who can sign in
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
     const chain    = event.body.chain
     const provider = event.body.provider as ProviderName
     const email    = event.body.email

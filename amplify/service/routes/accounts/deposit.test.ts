@@ -8,7 +8,7 @@ jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 jest.mock('../../../utils/exchangeRate', () => ({ fetchCryptoPrice: jest.fn() }))
 
 const deposit = () => new DepositHandler().execute({
-  requestContext: { authorizer: { userId: 'user-1' } },
+  requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
   body: { accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4', currency: 'USD', amount: 50, paymentId: 'card_1', transactionId: 'dep_1' },
 })
 

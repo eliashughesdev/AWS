@@ -13,7 +13,7 @@ const mockWrite = jest.mocked(transactWriteItems)
 
 const open = (accountName?: string) => new AccountHandler().execute({
   body: { chain: 'TRON', provider: 'PCF0001', accountingCurrency: 'USD', accountName },
-  requestContext: { authorizer: { userId: 'user-1' } },
+  requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
 }, {} as any)
 
 describe('POST /accounts/account account name', () => {

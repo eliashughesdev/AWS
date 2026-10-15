@@ -34,7 +34,7 @@ afterEach(() => {
 })
 
 const transfer = (body: Record<string, string>) => new TransferFundsHandler().execute({
-  requestContext: { authorizer: { userId: 'user-1' } },
+  requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
   body: { provider: 'PCF0001', senderAccountNumber: sender, recipientAccountNumber: recipient, amount: '12.5', ...body },
 }, {} as any)
 
@@ -89,7 +89,7 @@ describe('/accounts/transfer handler', () => {
 
   it('still refuses a sender that is not the user\'s with 100001', async () => {
     const res = await new TransferFundsHandler().execute({
-      requestContext: { authorizer: { userId: 'someone-else' } },
+      requestContext: { authorizer: { userId: 'someone-else', authType: 'jwt' } },
       body: { provider: 'PCF0001', senderAccountNumber: sender, recipientAccountNumber: recipient, amount: '1' },
     }, {} as any)
     expect(errorCode(res)).toBe(100001)

@@ -5,9 +5,10 @@ import { processError } from '../../../errors/http'
 import { queryItemFromIndex, putItem, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
+import { callerUser } from '../../../utils/caller'
 
 type Event = {
-  requestContext?: { authorizer?: { userId?: string } }
+  requestContext?: { authorizer?: { userId?: string, role?: string, authType?: string, merchantId?: string } }
   body: {
     provider: string
     senderAccountNumber: string
@@ -18,6 +19,10 @@ type Event = {
 
 export default class TransferFundsHandler {
   async execute(event: Event, context: Context) {
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
+
     // All four present and shaped, the amount a decimal above zero (schemas/accounts/transfer.json)
     const { provider, senderAccountNumber, recipientAccountNumber, amount } = event.body
 
@@ -37,7 +42,6 @@ export default class TransferFundsHandler {
       return processError(100001)
     }
 
-    const userId = event.requestContext?.authorizer?.userId
     if (senderResult.res[0].id !== userId) {
       return processError(100001)
     }

@@ -4,6 +4,7 @@ import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
+import { callerUser } from '../../../utils/caller'
 
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the deposit could not be queued; nothing was charged'
@@ -16,16 +17,10 @@ export default class DepositHandler {
   async execute(event: any) {
     console.log('DEBUG: DepositHandler execution started.')
 
-    const userId = event.requestContext?.authorizer?.userId
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
     const { accountNumber, currency, amount, paymentId, transactionId, email } = event.body
-
-    if (!userId) {
-      return response({
-        statusCode: 401,
-        headers: null,
-        bodyObject: { message: 'User ID not found in authorization context' }
-      })
-    }
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({

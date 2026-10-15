@@ -305,7 +305,10 @@ own team who approve its treasury operations — precedence staff > admin > merc
 `merchantId` for a key): role `admin` alone does not mean a key, since the Cognito group `admin`
 has it too. The card routes (`/payments/*`) take the user from `resolvePayer()`
 (`utils/payer.ts`), never from the request: a user acts for themselves, a key only for its own
-merchant's payers, anyone else gets `100053` (403). One key per merchant: `X-Project` is the merchant id —
+merchant's payers, anyone else gets `100053` (403). The account routes (`/accounts/*` that act on a
+user) take the user from `callerUser()` (`utils/caller.ts`): a signed-in person only, never an HMAC
+key, whose `userId` is the merchant id; anything else gets `100053` (403). Onboarding and its resend
+take the merchant from `callerMerchant()`, the HMAC key's merchant only. One key per merchant: `X-Project` is the merchant id —
 onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
 `100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
 merchant: the system's own direct customers belong to `internal-001`, named `Internal001`

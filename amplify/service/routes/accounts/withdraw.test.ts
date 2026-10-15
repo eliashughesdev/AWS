@@ -12,7 +12,7 @@ const tron = 'TPPjH6SeHdZQYYR3Yfk6Wr2xrazJc5MPPf'
 const sol = 'EQ6iRuVbqobWug3MrAVfMHt72VT2mkwpCQ57jEfGqc9j'
 
 const withdraw = (body: Record<string, unknown> = {}) => new WithdrawHandler().execute({
-  requestContext: { authorizer: { userId: 'user-1' } },
+  requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
   body: { accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4', currency: 'TRON', cryptoAmount: 25, destinationAddress: tron, transactionId: 'wdr_1', ...body },
 })
 

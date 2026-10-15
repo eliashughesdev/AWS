@@ -1,18 +1,13 @@
 import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryRecord, getRecord } from '../../../utils/db'
+import { callerUser } from '../../../utils/caller'
 
 export default class AccountsListHandler {
   async execute(event: any, context: Context) {
-    const userId = event.requestContext?.authorizer?.userId
-
-    if (!userId) {
-      return response({
-        statusCode: 401,
-        headers: null,
-        bodyObject: { message: 'User ID not found in authorization context' }
-      })
-    }
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
 
     const result = await queryRecord(
       'v2CustomerTable',

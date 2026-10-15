@@ -6,9 +6,10 @@ import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { getUserStatus } from '../../../utils/cognito'
 import { claimPointerItem, claimPointerKey, claimRecordId, createClaimToken, invalidateClaim } from '../../../utils/claimToken'
 import { sendClaimInvite } from '../../../utils/claimInvite'
+import { callerMerchant } from '../../../utils/caller'
 
 type Event = {
-  requestContext?: { authorizer?: { userId?: string } }
+  requestContext?: { authorizer?: { userId?: string, role?: string, authType?: string, merchantId?: string } }
   body: { externalId: string }
 }
 
@@ -24,8 +25,11 @@ const mappingRecordId = (platform: string, externalId: string) => `EXT#${platfor
  */
 export default class OnboardingResendHandler {
   async execute(event: Event, context: Context) {
-    const platform = event.requestContext?.authorizer?.userId
-    if (!platform) return processError(100031, 'platform')
+    // The merchant whose key signed the request, never a signed-in person (whose userId is a
+    // Cognito sub). MAPPING rows are keyed on it, so it stays the merchant id for every key
+    const caller = callerMerchant(event)
+    if (caller.error) return caller.error
+    const platform = caller.merchantId
 
     const { externalId } = event.body
 

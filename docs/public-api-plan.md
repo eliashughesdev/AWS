@@ -29,7 +29,7 @@ next one that depends on it is started.
 
 ## Phase 1 — Foundations
 
-- [ ] **1.1 Who is calling: `utils/caller.ts`.** `callerUser(event)` for routes that act on a
+- [ ] **1.1 Who is calling: `utils/caller.ts`.** (in progress) `callerUser(event)` for routes that act on a
   user; refuses `authType: 'key'` (the HMAC merchant id is not a user — the bug in D0.1).
   Switch `list`, `account`, `rename`, `details`, `transactions`, `transfer`, `deposit`,
   `withdraw`, `profile*`, `kyc*` to it; drop `account.ts`'s `?? crypto.randomUUID()`.
