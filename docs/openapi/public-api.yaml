@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Loudibly Public API
-  version: '2.7.0'
+  version: '3.0.0'
   description: |
     The Loudibly API for merchant platforms and their users.
 
@@ -1138,6 +1138,12 @@ components:
         txId: { type: string }
         type:
           type: string
+          description: |
+            A `FEE` row is a network fee taken from the account, in its coin. One with the
+            `txId` of a `WITHDRAWAL` row is that withdrawal's. One whose `txId` no other row
+            has paid for moving the account's TRON or SOL to the merchant's master address,
+            which follows a deposit once the merchant has a master for that coin. It can be 0
+            when the chain charged nothing.
           enum:
             - DEPOSIT
             - WITHDRAWAL

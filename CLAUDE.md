@@ -341,7 +341,14 @@ SES) are each defined as a TS interface plus one or more concrete implementation
 runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 `PaymentProcessorConstructor` in `providers/payment/PaymentProcessor.ts` for the shape). When
 adding a new payment or ledger provider, implement the existing interface rather than
-special-casing the new provider in route handlers. When a master signs (token withdrawals, and
+special-casing the new provider in route handlers. TRON energy and bandwidth rental
+(`providers/energy/`) has the same shape: an `EnergyProvider` per vendor (`tronsave/`; the list is
+TronSave alone for now) and the shared logic in `ensureResources.ts`. `ensureEnergy` and
+`ensureBandwidth`, which a TRC-20 transfer's signer goes through, rent the address's shortfall
+plus 1%, raised to the provider's `minimum()`, and poll the address until it arrives (2 s, up to
+120 s); bandwidth is burned instead when the address's TRX covers it. A provider's `rent()`
+answers `refused` only when nothing was bought, and the next provider is tried; it throws when an
+order may exist, and then no other provider is tried. When a master signs (token withdrawals, and
 native ones once the merchant has a `ready` master for the coin), `withdrawFunds` debits both the
 customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and completes both with the same
 txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits record no fee (gas is rented
@@ -464,9 +471,14 @@ balance minus the exact fee (`sweepAll`), leaving 0, and the customer pays the f
 webhook writes their `FEE` row and `debitFee` takes it off their VA (Tatum credits the master VA
 by itself). It runs only once a person has activated the TRON master, or put the rent-exempt
 minimum on the SOL one (`canReceiveSweep`); until then it logs `CONFIG_ERROR` and claims nothing.
-Coins already on a customer's address move only with its next deposit, so until then a
-withdrawal is signed by a master that may hold too little (it fails cleanly and is refunded;
-`docs/native-sweep-plan.md`). Keep the split between the two Lambdas: the API must
+What the person sent stays on the master as its `float`, recorded on the `MASTER#` row. Coins
+already on a customer's address move with its next deposit, or when
+`scripts/migrations/cutover-native-sweep.sh` queues a sweep for them. Run it in each environment
+right after its native masters are provisioned and funded. It also prints the provision calls and
+what to send, records the `float`, and reports the master plus the coins still on addresses
+against DynamoDB and against Tatum. Until those coins are swept, a withdrawal is signed by a
+master that may hold too little (it fails cleanly and is refunded; `docs/native-sweep-plan.md`).
+Keep the split between the two Lambdas: the API must
 never be able to obtain a signature, and nothing outside the handler may read the seed path. A
 seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 

@@ -23,7 +23,7 @@ import { CreateAccountParams,
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
 import { networkFor, isNativeCurrency, trc20ContractFor, decimalsFor } from '../../../utils/currencies'
-import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
+import { ensureEnergy, ensureBandwidth } from '../../energy/ensureResources'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
