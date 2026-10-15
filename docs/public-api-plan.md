@@ -60,19 +60,21 @@ next one that depends on it is started.
   has none. The UI is unchanged. Tests incl. queue failure (record marked failed with the
   rollback). → D6.4
 
-- [ ] **1.6 KYC policy, backend.** (in progress) `POLICY#KYC` row per merchant in `v1MerchantTable`;
+- [x] **1.6 KYC policy, backend.** `POLICY#KYC` row per merchant in `v1MerchantTable`;
   `utils/kycPolicy.ts` (`kycRequired(merchantId, currency, operation)`, unset = required);
   `/accounts/withdraw`, `/accounts/transfer` and `/accounts/deposit` refuse with 403 `100059`
   when the account's merchant requires KYC for that currency and operation and the caller's KYC
   is not `approved`, before anything is debited or queued; staff `POST /merchants/policy/kyc`;
   `/merchants/list` answers each merchant's policy; `/accounts/list` answers `kycRequired` per
   account. Schemas, tests (each operation × required/not × approved/not; unset is required).
-  Deploy together with 1.7: the default blocks every unverified user. → D11
-- [ ] **1.7 KYC policy, frontends.** Loudibly Merchants: a KYC section per merchant, one switch
+  Deploy together with 1.7: the default blocks every unverified user. → D11 — done 2026-10-14,
+  0b78517; not deployed (waits for 1.7)
+- [x] **1.7 KYC policy, frontends.** Loudibly Merchants: a KYC section per merchant, one switch
   per currency and operation. NODA and Loudibly Withdraw, Transfer and Deposit (card): when the
   chosen account has `kycRequired` for the operation and the user is not verified, say so and
   offer verification (`useKyc().start()` under its usual rule) instead of the submit button;
-  `100059` from the API worded the same way. Both themes, mobile. → D11
+  `100059` from the API worded the same way. Both themes, mobile. → D11 — done 2026-10-14,
+  37901dc; not deployed, and not yet checked in a browser (needs 1.6 on staging and a test user)
 
 ## Phase 2 — API keys, backend
 
