@@ -38,6 +38,8 @@ export async function callAsUser(path: string, body?: unknown): Promise<{ status
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Authorization: `Bearer ${await accessToken()}`,
+      // API Gateway refuses a request without it before the authorizer runs; the frontends send 'web'
+      'X-Project': 'web',
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
