@@ -6,6 +6,8 @@ export const describeRequest = (event: any) => ({
   path: event?.path,
   requestId: event?.requestContext?.requestId,
   role: event?.requestContext?.authorizer?.role,
+  // Which API key, when one was sent (an id, never the secret)
+  ...(event?.requestContext?.authorizer?.keyId ? { keyId: event.requestContext.authorizer.keyId } : {}),
 })
 
 // The body's field names, never their values

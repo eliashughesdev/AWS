@@ -33,13 +33,21 @@ const httpErrors: any = {
   100051: () => 'the sender and the recipient are the same account',
   100052: (params: any) => `the recipient account does not hold ${params}`,
   100053: () => 'this user is not yours to act for',
+  100054: (params: any) => `this owner already has ${params ?? 10} active API keys; revoke one first`,
+  100055: (params: any) => params ? `this API key does not have the ${params} permission` : 'this endpoint cannot be called with an API key',
+  100056: () => 'too many requests for this API key; retry after the number of seconds in Retry-After',
+  100057: () => 'API keys are managed from a signed-in session',
+  100058: (params: any) => `unknown permission: ${params}`,
   // 100054–100058 are planned for API keys (docs/public-api-plan.md D2.6)
   // params names the operations and currency, e.g. 'withdrawals in USDT_TRON' (utils/kycPolicy.ts)
   100059: (params: any) => params ? `${params} need a verified identity` : 'this operation needs a verified identity',
+  100060: () => 'this API key does not exist',
   // 409, from utils/idempotency.ts
   100061: (params: any) => params === 'running'
     ? 'a request with this Idempotency-Key has not finished; check its result before sending it again with a new key'
     : 'this Idempotency-Key was already used for a different request',
+  // An API key's IP allowlist: single IPv4 or IPv6 addresses, at most 20 (D2.3)
+  100062: (params: any) => params === 'too-many' ? 'an API key takes at most 20 IP addresses' : `not a valid IP address: ${params}`,
 }
 
 // statusCode is 400 unless the code needs another, as 100053's 403 does

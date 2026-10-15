@@ -31,6 +31,7 @@ import setTreasuryPolicy from './routes/merchants/policy'
 import setKycPolicy from './routes/merchants/policy-kyc'
 import createTreasurySend from './routes/merchants/operations/treasury-send'
 import { isPublicRoute, PUBLIC_API_SURFACE } from './publicRoutes'
+import { apiKeyRefusal, isApiKey, withRateHeaders } from './apiKeyChecks'
 import { checkForRequiredParameters } from '../utils/params'
 import { checkBodyAgainstSchema } from '../utils/schema'
 import { bodyFields, describeRequest } from '../utils/requestLog'
@@ -156,11 +157,15 @@ export const findRoute = (path: string, method: string):
 export const routeAt = (path: string, method?: string) =>
   [...routes.values()].find(route => route.path === path && (!method || route.method === method))
 
-// Whose namespace an Idempotency-Key lives in: the signed-in user, or the merchant of a key
+// Whose namespace an Idempotency-Key lives in: the signed-in user, or the merchant of a key. An API
+// key shares its owner's: the same user or merchant, whichever credential they sent
 const idempotencyScope = (authorizer: Record<string, string> | undefined) => {
   if (!authorizer?.authType) return undefined
-  const who = authorizer.authType === 'key' ? authorizer.merchantId : authorizer.userId
-  return who ? `${authorizer.authType}:${who}` : undefined
+  const merchantKey = authorizer.authType === 'key' || (authorizer.authType === 'apikey' && authorizer.ownerType === 'merchant')
+  const userKey = authorizer.authType === 'apikey' && authorizer.ownerType === 'user'
+  const who = merchantKey ? authorizer.merchantId : authorizer.userId
+  const kind = merchantKey ? 'key' : userKey ? 'jwt' : authorizer.authType
+  return who ? `${kind}:${who}` : undefined
 }
 
 // Checks a template's captured values against its route's patterns: the name of the first that
@@ -204,6 +209,18 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   // DEBUG: Route found
   console.log(`DEBUG: Route FOUND: Handler=${route.handler.name}, Method=${route.method}, ${route.schema ? `Schema=${route.schema.title}` : `RequiredParams=${route.requiredParams.join(', ')}`}`)
 
+  // An API key: public API only, within its rate limit, holding the route's permission (D2.4)
+  const authorizer = (event as any).requestContext?.authorizer
+  if (isApiKey(authorizer)) {
+    const refusal = apiKeyRefusal(authorizer, route, viaPublicApi)
+    if (refusal) return refusal
+    return withRateHeaders(await runRoute(event, context, route, found!.params!), authorizer)
+  }
+  return runRoute(event, context, route, found!.params!)
+}
+
+// Body, roles, path values, schema, then the handler (behind its Idempotency-Key when it has one)
+const runRoute = async (event: any, context: any, route: RegisteredRoute, params: Record<string, string>) => {
   try {
     // Preserve raw body before parsing (needed for Stripe webhook signature verification)
     const rawBody = event.body
@@ -231,9 +248,9 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
     // A template's values: checked against its patterns, then handed to the handler as
     // pathParameters (API Gateway's own are { proxy } on the internal API)
     if (isTemplate(route.path)) {
-      const bad = badParam(route, found!.params!)
+      const bad = badParam(route, params)
       if (bad) return processError(100031, bad)
-      ;(event as any).pathParameters = found!.params
+      ;(event as any).pathParameters = params
     }
 
     // Parameter Validation

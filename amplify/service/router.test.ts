@@ -290,3 +290,58 @@ describe('registered routes', () => {
     for (const [key, route] of routes) expect(key).toBe(`${route.method} ${route.path}`)
   })
 })
+
+// docs/public-api-plan.md D2.4, step 2.5: what the router checks for an API key, before roles and
+// schema, and the rate headers on every answer to one
+describe('router with an API key', () => {
+  const apiKey = (extra: Record<string, string> = {}) => ({
+    userId: 'user-1',
+    role: 'user',
+    authType: 'apikey',
+    ownerType: 'user',
+    keyId: 'lk_live_0123456789abcdef',
+    permissions: 'accounts:read',
+    throttled: 'false',
+    rateLimit: '10',
+    rateRemaining: '9',
+    rateReset: '1792000001',
+    ...extra,
+  })
+  const list = (authorizer: Record<string, string>, stageVariables: Record<string, string> | null = { API_SURFACE: 'public' }) =>
+    router({ path: '/v1/accounts/list', httpMethod: 'GET', body: null, stageVariables, requestContext: { authorizer } } as any, {})
+
+  beforeEach(() => jest.spyOn(console, 'log').mockImplementation(() => {}))
+  afterEach(() => jest.restoreAllMocks())
+
+  it('runs the route for a key with its permission, adding the rate headers', async () => {
+    const execute = stubHandler('/accounts/list')
+    const res = await list(apiKey())
+    expect(res.statusCode).toBe(200)
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(res.headers).toMatchObject({ 'X-RateLimit-Limit': '10', 'X-RateLimit-Remaining': '9' })
+  })
+
+  it.each([
+    ['off the public API', apiKey(), null, 404, undefined],
+    ['over its rate limit', apiKey({ throttled: 'true' }), undefined, 429, 100056],
+    ['without the permission', apiKey({ permissions: 'withdrawals:create' }), undefined, 403, 100055],
+  ])('refuses a key %s, running nothing', async (_, authorizer, stage, status, code) => {
+    const execute = stubHandler('/accounts/list')
+    const res = await list(authorizer, stage === undefined ? { API_SURFACE: 'public' } : stage)
+    expect(res.statusCode).toBe(status)
+    if (code) expect(JSON.parse(res.body).error_code).toBe(code)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('refuses a key on a staff route as not found, as for anyone on the public API', async () => {
+    const res = await router({ path: '/v1/merchants/list', httpMethod: 'GET', body: null, stageVariables: { API_SURFACE: 'public' }, requestContext: { authorizer: apiKey({ role: 'staff' }) } } as any, {})
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('leaves a signed-in user\'s answers as they were', async () => {
+    stubHandler('/accounts/list')
+    const res = await list({ userId: 'user-1', role: 'user', authType: 'jwt' })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers).not.toHaveProperty('X-RateLimit-Limit')
+  })
+})

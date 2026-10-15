@@ -73,3 +73,29 @@ describe('every route that moves money', () => {
     expect(routeAt(path)?.idempotency).toBeDefined()
   })
 })
+
+// docs/public-api-plan.md step 2.5: a key's Idempotency-Keys are its owner's, so a retry through
+// either credential is the same request, and two users' keys never meet
+describe('an API key', () => {
+  const userKey = (userId: string) => ({ userId, role: 'user', authType: 'apikey', ownerType: 'user', permissions: 'withdrawals:create', throttled: 'false' })
+  const viaKey = (authorizer: Record<string, string>, key: string) =>
+    router({ path: '/v1/accounts/withdraw', httpMethod: 'POST', body: JSON.stringify(body), headers: { 'Idempotency-Key': key }, stageVariables: { API_SURFACE: 'public' }, requestContext: { authorizer } } as any, {})
+
+  it('shares its user\'s keys with their signed-in session', async () => {
+    const execute = jest.spyOn(routeAt('/accounts/withdraw')!.handler.prototype, 'execute')
+      .mockResolvedValue({ statusCode: 200, headers: {}, body: '{}' })
+    await withdraw({ 'Idempotency-Key': 'shared' })
+    const again = await viaKey(userKey('user-1'), 'shared')
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(again.headers).toMatchObject({ 'Idempotent-Replayed': 'true' })
+    expect([...rows.keys()]).toEqual(['IDEM#jwt:user-1#shared|IDEMPOTENCY'])
+  })
+
+  it('keeps two users\' keys apart', async () => {
+    const execute = jest.spyOn(routeAt('/accounts/withdraw')!.handler.prototype, 'execute')
+      .mockResolvedValue({ statusCode: 200, headers: {}, body: '{}' })
+    await viaKey(userKey('user-1'), 'k')
+    await viaKey(userKey('user-2'), 'k')
+    expect(execute).toHaveBeenCalledTimes(2)
+  })
+})

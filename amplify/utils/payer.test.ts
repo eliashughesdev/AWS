@@ -77,3 +77,21 @@ describe('resolvePayer', () => {
     })
   })
 })
+
+// docs/public-api-plan.md step 2.5: API keys act as their owner's other credential does
+describe('resolvePayer with an API key', () => {
+  const userKey = { userId: 'user-a', role: 'user', authType: 'apikey', ownerType: 'user' }
+  const merchantApiKey = { userId: 'merchant-1', role: 'admin', authType: 'apikey', ownerType: 'merchant', merchantId: 'merchant-1' }
+
+  it('takes a user\'s key as its user, and refuses another userId', async () => {
+    expect(await resolvePayer(userKey, undefined)).toEqual({ userId: 'user-a' })
+    expect((await resolvePayer(userKey, 'user-b')).error).toMatchObject(notYours)
+  })
+
+  it('takes a merchant\'s key for its own users only', async () => {
+    jest.mocked(queryRecord).mockResolvedValue(profileOf('merchant-1') as any)
+    expect(await resolvePayer(merchantApiKey, 'user-b')).toEqual({ userId: 'user-b' })
+    jest.mocked(queryRecord).mockResolvedValue(profileOf('merchant-2') as any)
+    expect((await resolvePayer(merchantApiKey, 'user-b')).error).toMatchObject(notYours)
+  })
+})
