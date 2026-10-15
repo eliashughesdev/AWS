@@ -18,3 +18,11 @@ export const API_KEYS_BY_OWNER = 'byOwner'
 export const API_KEY_USAGE_TABLE = 'v1ApiKeyUsageTable'
 
 export const apiKeyParameterName = (keyId: string) => `${API_KEY_PARAMETER_PREFIX}${keyId}`
+
+// A new key's calls per second when its creator names none (D2.5): API_KEY_DEFAULT_RPS in SSM
+// (/loudibly/api/), else 10. Staff change a key's own limit; the authorizer reads it from its row
+export const DEFAULT_RATE_LIMIT = 10
+export const defaultRateLimit = () => {
+  const configured = Number(process.env.API_KEY_DEFAULT_RPS)
+  return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_RATE_LIMIT
+}

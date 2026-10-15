@@ -1,6 +1,6 @@
 const crypto = require('crypto')
 const net = require('net')
-const { DynamoDBClient, GetItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb')
+const { DynamoDBClient, GetItemCommand, ReturnValue, UpdateItemCommand } = require('@aws-sdk/client-dynamodb')
 const { GetParameterCommand, SSMClient } = require('@aws-sdk/client-ssm')
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb')
 
@@ -10,7 +10,9 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb')
  * A key is let in only when, in this order: its row in v1ApiKeysTable is there, active and not
  * expired; the caller's IP is on its allowlist (an empty or missing list: any IP); the SHA-256 of
  * the secret equals the hash kept in SSM under /loudibly/api-keys/<keyId> (compared in constant
- * time); and its owner is still active. The row is read on every call, so a revoked key or a
+ * time); and its owner is still active. Each call is then counted against the key's rate limit; a key
+ * over it is still let in, marked `throttled`, since a Deny can only answer 401 or 403 and the
+ * router answers 429 with Retry-After instead. The row is read on every call, so a revoked key or a
  * changed allowlist applies at once; only the hash is cached, since a key's hash never changes.
  *
  * Keys work on the public API only: the internal API's stage has no API_SURFACE (the router
@@ -22,6 +24,7 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb')
 
 // Names set in amplify/utils/apiKeyStore.ts; this function is plain JS and cannot import it
 const KEYS_TABLE = 'v1ApiKeysTable'
+const USAGE_TABLE = 'v1ApiKeyUsageTable'
 const PARAMETER_PREFIX = '/loudibly/api-keys/'
 // PUBLIC_API_SURFACE in amplify/service/publicRoutes.ts
 const PUBLIC_SURFACE = 'public'
@@ -30,6 +33,10 @@ const KEY_ID = /^lk_live_[0-9a-f]{16}$/
 const SECRET = /^lks_[A-Za-z0-9_-]{43}$/
 
 const HASH_TTL_MS = 10 * 60 * 1000
+// DEFAULT_RATE_LIMIT in amplify/utils/apiKeyStore.ts, for a row with no limit (every key gets one)
+const DEFAULT_RATE_LIMIT = 10
+// A second's counter is useless a second later; DynamoDB removes it within a few days
+const USAGE_TTL_SECONDS = 60
 const LAST_USED_EVERY_MS = 60 * 1000
 
 const db = new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-2' })
@@ -135,6 +142,36 @@ const touch = async (keyId) => {
 }
 
 /**
+ * Counts the call against the key's limit for the current second (D2.5): one conditional update of
+ * `<keyId>#<epochSecond>`, which only adds while the count is below the limit, so a refused call is
+ * not counted. Answers what the API needs for 429 and the X-RateLimit-* headers. When the counter
+ * cannot be written the call is let through: the stage's own throttle still holds, and a table
+ * that cannot be written must not take the API down.
+ */
+const countCall = async (keyId, perSecond) => {
+  const limit = Number.isInteger(perSecond) && perSecond > 0 ? perSecond : DEFAULT_RATE_LIMIT
+  const second = Math.floor(Date.now() / 1000)
+  const limits = { rateLimit: String(limit), rateReset: String(second + 1) }
+  try {
+    const res = await db.send(new UpdateItemCommand({
+      TableName: USAGE_TABLE,
+      Key: marshall({ id: `${keyId}#${second}` }),
+      UpdateExpression: 'ADD #count :one SET #ttl = if_not_exists(#ttl, :ttl)',
+      ConditionExpression: 'attribute_not_exists(#count) OR #count < :limit',
+      ExpressionAttributeNames: { '#count': 'count', '#ttl': 'ttl' },
+      ExpressionAttributeValues: marshall({ ':one': 1, ':limit': limit, ':ttl': second + USAGE_TTL_SECONDS }),
+      ReturnValues: ReturnValue.UPDATED_NEW,
+    }))
+    const count = Number(unmarshall(res.Attributes ?? {}).count ?? 1)
+    return { throttled: 'false', ...limits, rateRemaining: String(Math.max(limit - count, 0)) }
+  } catch (err) {
+    if (err?.name === 'ConditionalCheckFailedException') return { throttled: 'true', ...limits, rateRemaining: '0' }
+    console.log(`API_KEY: ${keyId} not counted (${err?.name}); let through`)
+    return { throttled: 'false', ...limits, rateRemaining: String(limit) }
+  }
+}
+
+/**
  * Checks a Basic header. Answers { allowed: false, reason } or { allowed: true, keyId, context },
  * the context being what the API gets in requestContext.authorizer: strings only.
  * Throws when a table or SSM could not be read; the caller denies.
@@ -157,6 +194,7 @@ const authenticateWithApiKey = async ({ authorization, sourceIp, stageVariables 
 
   if (!(await ownerActive(row))) return { allowed: false, keyId, reason: `${row.ownerType} not active` }
 
+  const rate = await countCall(keyId, row.rateLimit?.perSecond)
   await touch(keyId)
 
   const merchantKey = row.ownerType === 'merchant'
@@ -172,6 +210,8 @@ const authenticateWithApiKey = async ({ authorization, sourceIp, stageVariables 
       ownerType: row.ownerType,
       keyId,
       permissions: [...(row.permissions ?? [])].join(','),
+      // 'true' when the key is over its limit this second: the router answers 429 (D2.4)
+      ...rate,
       ...(merchantKey ? { merchantId: row.ownerId } : {}),
     },
   }

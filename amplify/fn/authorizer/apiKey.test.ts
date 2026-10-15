@@ -42,6 +42,7 @@ beforeEach(() => {
     })]),
     v2CustomerTable: new Map([row({ id: 'user-1', sk: 'USERPROFILE' }, { deleted_at: null })]),
     v1MerchantTable: new Map([row({ id: 'acme', sk: 'PROFILE' }, { status: 'active' })]),
+    v1ApiKeyUsageTable: new Map(),
   }
   parameters = new Map([[`/loudibly/api-keys/${keyId}`, hash]])
 
@@ -51,6 +52,15 @@ beforeEach(() => {
     if (command instanceof GetItemCommand) {
       const item = table?.get(keyOf(Key))
       return { Item: item ? marshall(item, { removeUndefinedValues: true }) : undefined }
+    }
+    if (command instanceof UpdateItemCommand && TableName === 'v1ApiKeyUsageTable') {
+      // ADD count :one, only while count < :limit
+      const values = unmarshall(command.input.ExpressionAttributeValues!)
+      const counter = table.get(keyOf(Key)) ?? { ...unmarshall(Key), ttl: values[':ttl'] }
+      if ((counter.count ?? 0) >= values[':limit']) throw Object.assign(new Error('condition'), { name: 'ConditionalCheckFailedException' })
+      counter.count = (counter.count ?? 0) + values[':one']
+      table.set(keyOf(Key), counter)
+      return { Attributes: marshall({ count: counter.count }) }
     }
     if (command instanceof UpdateItemCommand) {
       const item = table.get(keyOf(Key))!
@@ -102,6 +112,10 @@ describe('authorizer: API keys', () => {
       ownerType: 'user',
       keyId,
       permissions: 'accounts:read,withdrawals:create',
+      throttled: 'false',
+      rateLimit: '10',
+      rateRemaining: '9',
+      rateReset: String(Math.floor(Date.now() / 1000) + 1),
     })
     expectNothingSecretLogged()
   })
@@ -111,7 +125,17 @@ describe('authorizer: API keys', () => {
     const policy = await handler(event())
     expect(effect(policy)).toBe('Allow')
     expect(policy.context).toEqual({
-      userId: 'acme', role: 'admin', authType: 'apikey', ownerType: 'merchant', keyId, permissions: 'users:create', merchantId: 'acme',
+      userId: 'acme',
+      role: 'admin',
+      authType: 'apikey',
+      ownerType: 'merchant',
+      keyId,
+      permissions: 'users:create',
+      merchantId: 'acme',
+      throttled: 'false',
+      rateLimit: '10',
+      rateRemaining: '9',
+      rateReset: expect.stringMatching(/^\d+$/),
     })
   })
 
@@ -170,7 +194,7 @@ describe('authorizer: API keys', () => {
     const first = keyRow().lastUsedAt
     expect(first).toBeDefined()
     await handler(event())
-    expect(dbSend.mock.calls.filter(([c]) => c instanceof UpdateItemCommand)).toHaveLength(1)
+    expect(dbSend.mock.calls.filter(([c]) => c instanceof UpdateItemCommand && c.input.TableName === 'v1ApiKeysTable')).toHaveLength(1)
     expect(keyRow().lastUsedAt).toBe(first)
   })
 
@@ -199,6 +223,72 @@ describe('authorizer: API keys', () => {
     const res = await handler(event({ authorization: 'Basic U2lnbmF0dXJl' }))
     expect(effect(res)).toBe('Deny')
     expect(logged.join('\n')).toContain('Auth Type: Basic')
+  })
+})
+
+// D2.5: each key's calls per second, counted by the authorizer; over the limit the call is let
+// in marked throttled, and the router answers 429
+describe('authorizer: rate limit', () => {
+  const second = 1_792_000_000
+  beforeEach(() => jest.spyOn(Date, 'now').mockReturnValue(second * 1000 + 250))
+
+  const rate = async () => {
+    const { context } = await handler(event())
+    return [context.throttled, context.rateRemaining]
+  }
+
+  it('lets a key make its limit\'s calls in a second, then marks the rest throttled', async () => {
+    keyRow().rateLimit = { perSecond: 3 }
+    expect(await rate()).toEqual(['false', '2'])
+    expect(await rate()).toEqual(['false', '1'])
+    expect(await rate()).toEqual(['false', '0'])
+    expect(await rate()).toEqual(['true', '0'])
+    expect(await rate()).toEqual(['true', '0'])
+    // A throttled call is not counted
+    expect(tables.v1ApiKeyUsageTable.get(keyOf(marshall({ id: `${keyId}#${second}` })))).toMatchObject({ count: 3, ttl: second + 60 })
+    expect(logged.join('\n')).toContain('allowed, over its rate limit')
+  })
+
+  it('starts again the next second, and says when', async () => {
+    keyRow().rateLimit = { perSecond: 1 }
+    await rate()
+    const { context } = await handler(event())
+    expect(context).toMatchObject({ throttled: 'true', rateLimit: '1', rateReset: String(second + 1) })
+    jest.mocked(Date.now).mockReturnValue((second + 1) * 1000)
+    expect(await rate()).toEqual(['false', '0'])
+  })
+
+  it('counts each key on its own', async () => {
+    keyRow().rateLimit = { perSecond: 1 }
+    await rate()
+    tables.v1ApiKeyUsageTable.set(keyOf(marshall({ id: `lk_live_ffffffffffffffff#${second}` })), { count: 99 })
+    expect(await rate()).toEqual(['true', '0'])
+    expect(tables.v1ApiKeyUsageTable.size).toBe(2)
+  })
+
+  it('applies a changed limit on the next call', async () => {
+    keyRow().rateLimit = { perSecond: 1 }
+    await rate()
+    expect(await rate()).toEqual(['true', '0'])
+    keyRow().rateLimit = { perSecond: 5 }
+    expect(await rate()).toEqual(['false', '3'])
+  })
+
+  it('takes 10 a second for a row with no limit', async () => {
+    delete keyRow().rateLimit
+    const { context } = await handler(event())
+    expect(context).toMatchObject({ throttled: 'false', rateLimit: '10', rateRemaining: '9' })
+  })
+
+  it('lets the call through when the counter cannot be written', async () => {
+    const send = dbSend.getMockImplementation()!
+    dbSend.mockImplementation(async (command: any) => {
+      if (command.input.TableName === 'v1ApiKeyUsageTable') throw Object.assign(new Error('x'), { name: 'ProvisionedThroughputExceededException' })
+      return send(command)
+    })
+    const policy = await handler(event())
+    expect(effect(policy)).toBe('Allow')
+    expect(policy.context.throttled).toBe('false')
   })
 })
 

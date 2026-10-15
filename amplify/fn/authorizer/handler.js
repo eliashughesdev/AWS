@@ -52,7 +52,7 @@ const handler = async (event) => {
     if (isBasic(auth)) {
       console.log('DEBUG: Auth Type: Basic (API key)')
       const res = await authenticateWithApiKey({ authorization: auth, sourceIp, stageVariables: event.stageVariables })
-      console.log(`DEBUG: API key ${res.keyId ?? '(none)'}: ${res.allowed ? 'allowed' : `denied, ${res.reason}`}`)
+      console.log(`DEBUG: API key ${res.keyId ?? '(none)'}: ${res.allowed ? (res.context.throttled === 'true' ? 'allowed, over its rate limit' : 'allowed') : `denied, ${res.reason}`}`)
       if (!res.allowed) return generatePolicy(sourceIp, 'Deny', resource)
       return { ...generatePolicy(res.principalId, 'Allow', resource, res.context.role, 'apikey'), context: res.context }
     } else if (auth?.includes('Bearer')) {

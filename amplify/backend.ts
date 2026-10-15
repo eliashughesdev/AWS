@@ -346,8 +346,10 @@ const publicApi = new RestApi(apiStack, 'LoudiblyPublicApi', {
     loggingLevel: MethodLoggingLevel.INFO,
     accessLogDestination: new LogGroupLogDestination(publicApiLogGroup),
     accessLogFormat: AccessLogFormat.jsonWithStandardFields(),
-    throttlingRateLimit: 50,
-    throttlingBurstLimit: 100,
+    // One bucket for every caller of the public API, above the sum of keys' own limits (D2.5:
+    // raised from 50/100 on 2026-10-15, so a key meets its own limit and our 429, not this one)
+    throttlingRateLimit: 500,
+    throttlingBurstLimit: 1000,
     variables: { API_SURFACE: PUBLIC_API_SURFACE },
   },
   defaultCorsPreflightOptions: {
