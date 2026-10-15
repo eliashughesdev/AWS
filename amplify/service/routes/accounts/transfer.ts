@@ -152,7 +152,10 @@ export default class TransferFundsHandler {
       })
     } catch (err) {
       console.error('Funds transfer error:', err)
-      return processError(100004, 'Failed to transfer funds')
+      // The ledger refused (Tatum answers 403 to a sender whose balance is short): nothing moved
+      // and nothing was written. 100004 was answered here, which is no code: processError threw
+      // and the caller got a bare 500
+      return processError(100002, 'Failed to transfer funds')
     }
   }
 }

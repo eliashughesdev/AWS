@@ -129,6 +129,16 @@ describe('/accounts/transfer handler', () => {
     expect(errorCode(await transfer({}))).toBe(100001)
   })
 
+  // Found live on staging, 2026-10-15: a 1 TRX transfer from an empty account answered a bare 500
+  it('answers 100002 when the ledger refuses, writing nothing', async () => {
+    transferFunds.mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 403'), { response: { status: 403 } }))
+    const res = await transfer({})
+    expect([res.statusCode, errorCode(res)]).toEqual([400, 100002])
+    expect(JSON.parse(res.body).message).toBe('Failed to transfer funds')
+    expect(putItem).not.toHaveBeenCalled()
+    expect(updateItem).not.toHaveBeenCalled()
+  })
+
   it('moves funds between two accounts of the same merchant', async () => {
     accounts[sender].merchantId = 'acme'
     accounts[recipient].merchantId = 'acme'
