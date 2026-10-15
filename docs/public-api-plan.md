@@ -49,10 +49,10 @@ next one that depends on it is started.
   (`params`, `100031`) and hand it on as `pathParameters`; exact paths keep working. Routes are
   keyed by method and path, so `GET` and `PATCH /accounts/{id}` can both exist; `PublicRoute`
   takes `PATCH`. Router tests. → D6.2 — done 2026-10-14, eda9040
-- [ ] **1.4 Idempotency helper.** `utils/idempotency.ts`: `Idempotency-Key` header →
+- [x] **1.4 Idempotency helper.** `utils/idempotency.ts`: `Idempotency-Key` header →
   `id=<caller>#<key>`, `sk=IDEMPOTENCY` in `v2CustomerTable` with the first response, 24 h TTL;
   same key + different body → 409; a request still running → 409 "in progress". Today's
-  `transactionId` is only a label, so a retried withdrawal sends twice. Tests. → D6.1
+  `transactionId` is only a label, so a retried withdrawal sends twice. Tests. → D6.1 — done 2026-10-14, cf59092
 - [ ] **1.5 Operation records.** `/accounts/withdraw` and `/accounts/deposit` write
   `id=<userId>, sk=OP#<opId>` in `v2CustomerTable` (`kind`, `status: pending`, account, amounts,
   destination) before queueing — for a withdrawal in the same `transactWriteItems` as the debit;
