@@ -58,3 +58,46 @@ export interface Merchant {
   // By ledger currency, every one the backend knows.
   kycRequired?: Record<string, KycSwitches>
 }
+
+// An API key as /accounts/api-keys/list and the staff list answer it: never its secret or hash.
+export interface ApiKey {
+  // lk_live_ and 16 hex digits; with the secret it is the key's Basic credential.
+  keyId: string
+  name: string
+  ownerType: 'user' | 'merchant'
+  // The user's id, or the merchant's.
+  ownerId: string
+  merchantId: string
+  permissions: string[]
+  // `revoked` keys stay listed. An expired key is still `active`: compare expiresAt.
+  status: 'active' | 'revoked'
+  rateLimit?: { perSecond: number }
+  // Empty: any IP.
+  ipAllowlist: string[]
+  expiresAt: string | null
+  createdAt: string
+  createdBy: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+  revokedBy: string | null
+  revokeReason: string | null
+}
+
+// How the key screens group permissions (amplify/service/permissions.ts): `view` is ticked on a
+// new key, `move-money` may need a verified identity when the key is used, `users` is a merchant's.
+export type ApiKeyPermissionGroup = 'view' | 'manage' | 'move-money' | 'users'
+
+export interface ApiKeyPermission {
+  name: string
+  // The backend's English description; a view may show its own wording instead.
+  description: string
+  group: ApiKeyPermissionGroup
+}
+
+// What a new key is made with. ipAllowlist empty or left out: any IP.
+export interface NewApiKey {
+  name: string
+  permissions: string[]
+  expiresAt?: string
+  ipAllowlist?: string[]
+}
