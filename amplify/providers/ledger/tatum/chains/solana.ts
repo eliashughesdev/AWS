@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Connection, PublicKey } from '@solana/web3.js'
+import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { OnChainTransaction } from '../../provider'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
@@ -78,4 +78,59 @@ export async function getSolanaHistory(address: string): Promise<OnChainTransact
     })
   }
   return results
+}
+
+// The lamports an account with no data must hold: a transfer that would leave an
+// account between 0 and this is refused
+export async function getSolanaRentExemptMinimum(): Promise<number> {
+  return rpcConnection().getMinimumBalanceForRentExemption(0)
+}
+
+// Whether an account already holds that minimum, so a transfer of any size can land on it
+export async function isSolanaRentExempt(address: string): Promise<boolean> {
+  const [balance, minimum] = await Promise.all([
+    rpcConnection().getBalance(new PublicKey(address), 'confirmed'), getSolanaRentExemptMinimum(),
+  ])
+  return balance >= minimum
+}
+
+// A v0 message, the shape Tatum's node accepts (see tatum.ts)
+function transferMessage(from: PublicKey, to: PublicKey, lamports: number, blockhash: string) {
+  return new TransactionMessage({
+    payerKey: from,
+    recentBlockhash: blockhash,
+    instructions: [SystemProgram.transfer({ fromPubkey: from, toPubkey: to, lamports })],
+  }).compileToV0Message()
+}
+
+export interface SolanaSweep {
+  tx: VersionedTransaction
+  amountLamports: number
+  feeLamports: number
+}
+
+// The unsigned transaction that sends from's whole balance minus the fee the node
+// quotes for it (5000 lamports per signature) to `to`, leaving 0. The fee depends
+// on the signatures, not the amount, so one quote serves. null when the balance
+// can't pay the fee.
+export async function buildSolanaSweep(from: string, to: string): Promise<SolanaSweep | null> {
+  const connection = rpcConnection()
+  const fromPubkey = new PublicKey(from)
+  const toPubkey = new PublicKey(to)
+  const [balance, { blockhash }] = await Promise.all([
+    connection.getBalance(fromPubkey, 'confirmed'), connection.getLatestBlockhash(),
+  ])
+
+  const { value: feeLamports } = await connection.getFeeForMessage(transferMessage(fromPubkey, toPubkey, balance, blockhash))
+  if (feeLamports === null) throw new Error(`Solana node quoted no fee for a sweep of ${from}`)
+  if (balance <= feeLamports) return null
+
+  const amountLamports = balance - feeLamports
+  return { tx: new VersionedTransaction(transferMessage(fromPubkey, toPubkey, amountLamports, blockhash)), amountLamports, feeLamports }
+}
+
+// The SOL the chain charged for a transaction, or null until it is confirmed
+export async function getSolanaTransactionFee(signature: string): Promise<number | null> {
+  const tx = await rpcConnection().getTransaction(signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 })
+  return tx?.meta ? tx.meta.fee / LAMPORTS_PER_SOL : null
 }

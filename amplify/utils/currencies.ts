@@ -25,6 +25,12 @@ export const networkFor = (currency?: string): Network | undefined =>
 export const isNativeCurrency = (currency?: string): boolean =>
   !!currency && networkFor(currency) === currency.toUpperCase()
 
+// Decimal places a currency carries on its chain. The withdraw route rounds to
+// these and so does Tatum's withdrawal, so both ledgers and the chain move the same amount
+const DECIMALS: Record<string, number> = { TRON: 6, SOL: 9, USDT_TRON: 6, TUSDT_TRON: 6 }
+
+export const decimalsFor = (currency: string): number => DECIMALS[currency.toUpperCase()] ?? 6
+
 const TRC20_CONTRACTS: Record<string, string> = {
   USDT_TRON: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
   TUSDT_TRON: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',

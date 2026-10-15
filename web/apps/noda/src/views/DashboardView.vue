@@ -11,7 +11,7 @@ import AssetRow from '../components/AssetRow.vue'
 import StatCard from '../components/StatCard.vue'
 import ActivityItem from '../components/ActivityItem.vue'
 import ListState from '../components/ListState.vue'
-import { activityKind } from '../activity'
+import { activityKinds } from '../activity'
 import { coinFor } from '../coins'
 import { BLANK, coinAmount, priced, timeAgo, usdSum, usdValue, type UsdValue } from '../format'
 import type { IconName } from '../icons'
@@ -126,16 +126,17 @@ const outgoing: Look = { icon: 'withdraw', mobileIcon: 'withdraw-sm', tone: 'yel
 
 const activity = computed(() => {
   const chainOf = new Map(cryptoAccounts.value.map(account => [account.accountNo, account.chain]))
+  const kindOf = activityKinds(transactions.value)
   return transactions.value
     .flatMap(tx => {
-      const kind = activityKind(tx.type)
+      const kind = kindOf(tx)
       if (!kind) return []
       const chain = chainOf.get(tx.accountNo) ?? String(tx.currency ?? '')
       const amount = Number(tx.amount)
       const known = Number.isFinite(amount)
       return [{
         key:    `${tx.accountNo}:${tx.type}:${tx.txId ?? tx.reference ?? tx.createdAt}`,
-        kind:   kind.label,
+        kind:   kind.name ?? kind.label,
         asset:  coinFor(chain).symbol,
         amount: known ? `${kind.incoming ? '+' : '-'}${coinAmount(amount)}` : '',
         // At today's price: the price at the time is not kept anywhere.

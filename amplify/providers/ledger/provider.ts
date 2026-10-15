@@ -86,6 +86,15 @@ export class BroadcastUncertainError extends Error {
   }
 }
 
+// A fee the chain charged for a transaction already broadcast, to take from a VA
+export interface DebitFeeParams {
+  accountId: string
+  address: string
+  amount: number
+  currency: string
+  txId: string
+}
+
 export interface SendOnChainParams {
   chain: string
   senderAddress: string
@@ -96,6 +105,15 @@ export interface SendOnChainParams {
 
 export interface SendOnChainResponse {
   txId: string
+}
+
+export type SweepAllParams = Omit<SendOnChainParams, 'amount'>
+
+// In the network's coin
+export interface SweepAllResponse {
+  txId: string
+  amount: number
+  fee: number
 }
 
 export interface CreateSubscriptionParams {
@@ -112,6 +130,11 @@ export interface CreateSubscriptionResponse {
 export interface OnChainBalanceParams{
   chain: string
   address: string
+}
+
+export interface TransactionFeeParams {
+  chain: string
+  txId: string
 }
 
 export interface GetAddressHistoryParams {
@@ -141,8 +164,12 @@ export interface AccountProvider {
   removeDepositAddress(params: AssignDepositAddressParams): Promise<void>;
   deactivateVaAccount(accountId: string): Promise<void>;
   withdrawFunds(params: WithdrawFundsParams): Promise<WithdrawFundsResponse>;
+  debitFee(params: DebitFeeParams): Promise<string>;
   sendOnChain(params: SendOnChainParams): Promise<SendOnChainResponse>;
+  sweepAll(params: SweepAllParams): Promise<SweepAllResponse | null>;
+  canReceiveSweep(params: OnChainBalanceParams): Promise<boolean>;
   getOnChainBalance(params: OnChainBalanceParams): Promise<number>;
   getVaBalance(accountId: string): Promise<{ accountBalance: number, availableBalance: number }>;
+  getTransactionFee(params: TransactionFeeParams): Promise<number | null>;
   getAddressHistory(params: GetAddressHistoryParams): Promise<OnChainTransaction[]>
 }

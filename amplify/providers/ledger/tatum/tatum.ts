@@ -12,15 +12,18 @@ import { CreateAccountParams,
   CreateSubscriptionResponse, 
   WithdrawFundsParams, WithdrawFundsResponse, BroadcastUncertainError,
   SendOnChainParams, SendOnChainResponse,
+  SweepAllParams, SweepAllResponse,
   GetAddressHistoryParams,
   OnChainBalanceParams,
-  OnChainTransaction} from '../provider'
-  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth } from './chains/tron'
-  import { getSolanaBalance, getSolanaHistory } from './chains/solana'
+  OnChainTransaction,
+  TransactionFeeParams,
+  DebitFeeParams} from '../provider'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee, buildTronSweep, isTronAccountActive } from './chains/tron'
+  import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee, buildSolanaSweep, isSolanaRentExempt } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
-import { networkFor, isNativeCurrency, trc20ContractFor } from '../../../utils/currencies'
-import { ensureEnergy, ensureBandwidth } from '../tronsave/tronsave'
+import { networkFor, isNativeCurrency, trc20ContractFor, decimalsFor } from '../../../utils/currencies'
+import { ensureEnergy, ensureBandwidth } from '../../energy/ensureResources'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -133,13 +136,9 @@ export class TatumProvider implements AccountProvider {
     }
   }
 
-  // Maximum decimal places accepted by each chain.
-  private readonly DECIMAL_PLACES: Record<string, number> = {
-    TRON: 6,
-    SOL: 9,
-  }
-
   // Network fees required by Tatum's offchain withdrawal endpoint (in native currency).
+  // Only an own-address native withdrawal sends one: a master-signed one's fee is
+  // settled from the receipt (debitFee)
   private readonly WITHDRAWAL_FEES: Record<string, string> = {
     TRON: '1',
     SOL: '0.000005',
@@ -172,14 +171,14 @@ export class TatumProvider implements AccountProvider {
    */
   async withdrawFunds({ accountId, address, amount, currency, key, senderAddress, masterAccountId }: WithdrawFundsParams): Promise<WithdrawFundsResponse> {
     const chain = currency.toUpperCase()
-    const decimals = this.DECIMAL_PLACES[chain] ?? 6
-    const roundedAmount = parseFloat(amount).toFixed(decimals).replace(/\.?0+$/, '') || '0'
+    const roundedAmount = this._ledgerAmount(chain, parseFloat(amount))
 
     console.log(`DEBUG (TatumProvider): withdrawFunds started. chain=${chain}, amount=${roundedAmount}, from=${senderAddress}, to=${address}`)
 
     // Step 1: Create withdrawal record — debits the VA. A token transfer's gas is
-    // paid in rented TRX, so no token leaves as a fee and none is recorded.
-    const fee = isNativeCurrency(chain) ? this.WITHDRAWAL_FEES[networkFor(chain) ?? chain] : '0'
+    // paid in rented TRX, so no token leaves as a fee and none is recorded. A
+    // master-signed native withdrawal's fee is only known from its receipt.
+    const fee = isNativeCurrency(chain) && !masterAccountId ? this.WITHDRAWAL_FEES[networkFor(chain) ?? chain] : '0'
     const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: roundedAmount, currency: chain, fee })
     console.log(`DEBUG (TatumProvider): Step 1 done — withdrawal record created. withdrawalId=${withdrawalId}`)
 
@@ -230,6 +229,21 @@ export class TatumProvider implements AccountProvider {
   }
 
   /**
+   * Takes a fee the chain already charged for a broadcast transaction from a
+   * VA: an offchain withdrawal of the fee, completed with that transaction's id.
+   */
+  async debitFee({ accountId, address, amount, currency, txId }: DebitFeeParams): Promise<string> {
+    const chain = currency.toUpperCase()
+    const withdrawalId = await this._createOffchainWithdrawal({ accountId, address, amount: this._ledgerAmount(chain, amount), currency: chain, fee: '0' })
+    try {
+      await this._completeWithdrawal(withdrawalId, txId)
+    } catch (err) {
+      throw new Error(`Fee withdrawal ${withdrawalId} on ${accountId} was created but not completed with ${txId}`, { cause: err })
+    }
+    return withdrawalId
+  }
+
+  /**
    * Moves already-custodied on-chain funds from one address to another,
    * signed by the given key — no Tatum ledger interaction. Unlike
    * withdrawFunds(), there is no virtual account to debit here: used for
@@ -246,6 +260,48 @@ export class TatumProvider implements AccountProvider {
 
     console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
     return { txId }
+  }
+
+  /**
+   * Sends a native coin address's whole balance, minus the exact fee the chain
+   * charges for this very transaction, leaving 0. Like sendOnChain, no ledger
+   * interaction. null when the balance can't pay the fee.
+   */
+  async sweepAll({ chain, senderAddress, recipientAddress, key }: SweepAllParams): Promise<SweepAllResponse | null> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': {
+        const sweep = await buildTronSweep(senderAddress, recipientAddress)
+        if (!sweep) return null
+        const signatureHex = await signTron(key, sweep.tx)
+        const txId = await this._broadcastTransaction('TRON', { ...sweep.tx, signature: [signatureHex] })
+        return { txId, amount: sweep.amountSun / 1_000_000, fee: sweep.feeSun / 1_000_000 }
+      }
+      case 'SOL': {
+        const sweep = await buildSolanaSweep(senderAddress, recipientAddress)
+        if (!sweep) return null
+        const signatureHex = await signSol(key, sweep.tx.message.serialize())
+        sweep.tx.addSignature(new PublicKey(senderAddress), Buffer.from(signatureHex, 'hex'))
+        const txId = await this._broadcastTransaction('SOL', Buffer.from(sweep.tx.serialize()).toString('base64'))
+        return { txId, amount: sweep.amountLamports / 1_000_000_000, fee: sweep.feeLamports / 1_000_000_000 }
+      }
+      default: throw new Error(`sweepAll: unsupported chain ${chain}`)
+    }
+  }
+
+  // Whether a sweep can land on an address paying only its bandwidth fee: a TRON
+  // address must be active (activating one costs 1.1 TRX more), and a Solana one
+  // must hold the rent-exempt minimum (a smaller transfer to it is refused)
+  async canReceiveSweep({ chain, address }: OnChainBalanceParams): Promise<boolean> {
+    switch (chain.toUpperCase()) {
+      case 'TRON': return isTronAccountActive(address)
+      case 'SOL': return isSolanaRentExempt(address)
+      default: throw new Error(`canReceiveSweep: unsupported chain ${chain}`)
+    }
+  }
+
+  // An amount as Tatum takes it: at most the chain's decimals, no trailing zeros
+  private _ledgerAmount(chain: string, amount: number): string {
+    return amount.toFixed(decimalsFor(chain)).replace(/\.?0+$/, '') || '0'
   }
 
   /**
@@ -476,6 +532,16 @@ export class TatumProvider implements AccountProvider {
     }
   }
  
+  // What the chain charged for a transaction, in its network's coin (a USDT_TRON
+  // transfer's fee is TRX), or null while it isn't in a block yet
+  async getTransactionFee({ chain, txId }: TransactionFeeParams): Promise<number | null> {
+    switch (networkFor(chain)) {
+      case 'TRON': return getTronTransactionFee(txId)
+      case 'SOL': return getSolanaTransactionFee(txId)
+      default: throw new Error(`getTransactionFee: unsupported chain ${chain}`)
+    }
+  }
+
   async getAddressHistory({ chain, address }: GetAddressHistoryParams): Promise<OnChainTransaction[]> {
     switch (chain.toUpperCase()) {
       case 'TRON': return getTronHistory(address)

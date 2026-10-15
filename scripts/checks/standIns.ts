@@ -53,7 +53,11 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
       if (condition) {
         const missing = condition.match(/^attribute_not_exists\((#\w+)\)$/)
         const equals = condition.match(/^(#\w+) = (:\w+)$/)
-        if (!missing && !equals) throw new Error(`stand-in: unsupported condition ${condition}`)
+        // settleOperation's: only a record that exists and is still pending (utils/operations.ts)
+        const operation = condition.startsWith('attribute_exists(id) AND ')
+        if (operation) {
+          if (!row || !['pending', 'requires_action'].includes(row.status)) throw named('ConditionalCheckFailedException')
+        } else if (!missing && !equals) throw new Error(`stand-in: unsupported condition ${condition}`)
         if (missing && row?.[names[missing[1]]] !== undefined) throw named('ConditionalCheckFailedException')
         if (equals && row?.[names[equals[1]]] !== values[equals[2]]) throw named('ConditionalCheckFailedException')
       }
@@ -62,7 +66,11 @@ const wire = (item: any) => marshall(item, { removeUndefinedValues: true })
       if (update.startsWith('SET ')) {
         for (const part of update.slice(4).split(', ')) {
           const [name, value] = part.split(' = ')
-          next[names[name]] = values[value]
+          // `#a = #a + :v` / `#a = #a - :v`, as a balance is moved
+          const relative = value.match(/^(#\w+) ([+-]) (:\w+)$/)
+          next[names[name]] = relative
+            ? (next[names[relative[1]]] ?? 0) + (relative[2] === '+' ? 1 : -1) * values[relative[3]]
+            : values[value]
         }
       } else if (update.startsWith('ADD ')) {
         const [name, value] = update.slice(4).split(' ')

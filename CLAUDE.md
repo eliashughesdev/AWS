@@ -63,14 +63,23 @@ There are three deployable pieces in this one repo:
     `priced()`. The Dashboard is real where the backend has
     something to show: the total in USD, one asset row per currency held, Recent Activity and
     the "KYC Verified" row, which starts Didit. `src/activity.ts` says what each backend
-    transaction `type` shows as; a type it does not have, such as `FEE`, is not listed. The
+    transaction `type` shows as; a type it does not have is not listed. A list of rows asks
+    `activityKinds()`, which also decides each `FEE` row: one that shares its account and `txId`
+    with a listed row (a withdrawal) goes in that row's Fee column, and one with no such row (the
+    fee of a TRX or SOL sweep to the merchant's master) is listed as "Fee" (Recent Activity:
+    "Network fee"), Completed and outgoing, when it is above 0. A free-bandwidth sweep's `FEE`
+    row of 0 is not shown. The
     Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
     still mockup data (`placeholders/dashboard.ts`). Transactions is real: every listed row of
     the user's crypto accounts, a search, three filters, and four totals that cover the chosen
     date range. It opens on the type and range given in the address
     (`/transactions?type=Deposit&range=all`). The user's side of From/To is the account's name. Its Fee column is real: a
-    row shows the `FEE` row of the same account and `txId`, and a dash when there is none (only
-    a TRX or SOL withdrawal is charged one, and its row arrives with the chain's webhook). The %
+    row shows the `FEE` row of the same account and `txId`, and a dash when there is none (of the
+    listed rows only a TRX or SOL withdrawal is charged one; its row arrives with the chain's
+    webhook, or from the receipt when the merchant's master sent it). A TRX or SOL account is also
+    charged for each sweep of its deposits to the merchant's master: that fee is a row of its own,
+    with a brown "Fee" badge, a dash in its Fee column and "—" as its To, and it counts in the
+    totals like any row. The %
     line under each total is still mockup data (`placeholders/transactions.ts`). Deposit is real for the Crypto method: a dropdown with one line
     per account (two accounts can share a coin), the chosen account's network, address and QR
     code, and Recent Deposits, the four newest `DEPOSIT` rows of every account. Nothing tells
@@ -360,13 +369,44 @@ SES) are each defined as a TS interface plus one or more concrete implementation
 runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 `PaymentProcessorConstructor` in `providers/payment/PaymentProcessor.ts` for the shape). When
 adding a new payment or ledger provider, implement the existing interface rather than
-special-casing the new provider in route handlers. When a master signs (token withdrawals),
-`withdrawFunds` debits both the customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and
-completes both with the same txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits
-record no fee (gas is rented TRX). `withdrawFunds` reverts its Tatum debits only
+special-casing the new provider in route handlers. TRON energy and bandwidth rental
+(`providers/energy/`) has the same shape: an `EnergyProvider` per vendor (`tronsave/`; the list is
+TronSave alone for now) and the shared logic in `ensureResources.ts`. `ensureEnergy` and
+`ensureBandwidth`, which a TRC-20 transfer's signer goes through, rent the address's shortfall
+plus 1%, raised to the provider's `minimum()`, and poll the address until it arrives (2 s, up to
+120 s); bandwidth is burned instead when the address's TRX covers it. A provider's `rent()`
+answers `refused` only when nothing was bought, and the next provider is tried; it throws when an
+order may exist, and then no other provider is tried. When a master signs (token withdrawals, and
+native ones once the merchant has a `ready` master for the coin), `withdrawFunds` debits both the
+customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and completes both with the same
+txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits record no fee (gas is rented
+TRX). A master-signed native withdrawal's fee is read from its receipt instead, since a master has
+no subscription and no fee webhook comes: after telling the user it was sent, the withdrawal handler
+polls `getTransactionFee` every 3 s for up to 90 s, writes the customer's `FEE` row as the fee
+webhook does, and takes the fee off both VAs with `debitFee` (an offchain withdrawal completed with
+the same txId; none when the fee is 0). What it cannot settle is logged as `CRITICAL
+FEE_UNSETTLED` and never rolled back. A native withdrawal sent from the customer's own address
+still sends Tatum the fixed `WITHDRAWAL_FEES` and gets its `FEE` row from the webhook.
+`/accounts/withdraw` rounds the amount to the coin's decimals (`decimalsFor()` in
+`utils/currencies.ts`, which `withdrawFunds` uses too) and requires a native coin's available
+balance to cover the amount plus its `FEE_RESERVES` (TRON 1, SOL 0.000005, core's
+`withdrawalFeeReserve` numbers), while debiting only the amount. `withdrawFunds` reverts its Tatum debits only
 when the tx provably never reached the chain (failed before broadcast, or the node refused it);
 an ambiguous broadcast throws `BroadcastUncertainError` and nothing — ledger or app balance —
-may be refunded automatically, since the coins may already have left.
+may be refunded automatically, since the coins may already have left. A native transfer's exact
+fee comes from `chains/tron.ts` (`tronBandwidthBytes`, the bytes java-tron charges once signed,
+and `tronBandwidthFeeSun`: 0 when staked or free bandwidth alone covers every byte, else bytes ×
+the `getTransactionFee` chain parameter; activating an address costs 1.1 TRX on top) and
+`chains/solana.ts`. `buildTronSweep` and `buildSolanaSweep` build, unsigned, the transfer of an
+address's whole balance minus that fee, and the provider's `sweepAll` signs and broadcasts that
+very transaction (`null` when the balance can't pay the fee). `estimateTronBandwidth` pads 100 bytes to size rentals and
+is never a fee. What the chain did charge is `getTransactionFee({ chain, txId })`, in the
+network's coin, and `null` until the transaction is in a block. `/accounts/transfer` moves
+only the ledger, so it refuses two accounts of different merchants (compared as
+`merchantId ?? SYSTEM_MERCHANT_ID`, so the pre-rename `loudibly` is not `internal-001`): coins
+move to another merchant's customer as a withdrawal. The refusal is `100001`, the answer for an
+account that does not exist, and comes before the currency check, so a caller cannot tell that
+another merchant's account exists (D11).
 
 **Account provisioning undoes itself.** `provisionCustodialAccount` (`utils/custodialAccount.ts`)
 creates the Tatum VA, then takes the next address under the merchant's seed, and on any failure
@@ -407,7 +447,10 @@ index: `/merchants/list` (staff) answers every merchant with its currencies by s
 be atomic (e.g. idempotent transaction creation) go through `transactWriteItems` in
 `utils/db.ts`, which supports a per-item `conditionExpression` (e.g.
 `attribute_not_exists(id)`) — use this instead of a plain multi-item write whenever two records
-must succeed or fail together.
+must succeed or fail together. A balance in `v1AccountBalanceTable` only ever moves by a relative
+update (`SET #balance = #balance + :delta`), never a value read and written back, which loses a
+concurrent change (B4). A queue handler moves one with `applyBalanceChange` (`utils/balance.ts`),
+which first claims `TX#<txId>` on the account, so a transaction applies once.
 
 **Async work is queue-driven.** Four SQS queues (`v1WebhookQueue`, `v1GeneralQueue`,
 `v1PaymentProcessingQueue`, `v1WithdrawalProcessingQueue`, `v1AccountBackfillQueue`) feed two
@@ -449,7 +492,21 @@ record, and `signTron` / `signSol` ask the signer, which reads the seed and inde
 build that reference from a queue message. A token account needs its merchant's master (its
 deposits are swept there, its withdrawals are signed by it): routes call `canHoldCurrency()`
 (`utils/masterAccount.ts`) before creating anything and answer `100050` when there is none, and
-`provisionCustodialAccount` refuses too. Keep the split between the two Lambdas: the API must
+`provisionCustodialAccount` refuses too. A native coin needs none yet, but a `ready` TRON or SOL
+master (`/merchants/masters/provision` takes both) switches that coin over for its merchant: it
+signs the withdrawals, and each deposit queues a sweep. A native sweep sends the address's whole
+balance minus the exact fee (`sweepAll`), leaving 0, and the customer pays the fee: the fee
+webhook writes their `FEE` row and `debitFee` takes it off their VA (Tatum credits the master VA
+by itself). It runs only once a person has activated the TRON master, or put the rent-exempt
+minimum on the SOL one (`canReceiveSweep`); until then it logs `CONFIG_ERROR` and claims nothing.
+What the person sent stays on the master as its `float`, recorded on the `MASTER#` row. Coins
+already on a customer's address move with its next deposit, or when
+`scripts/migrations/cutover-native-sweep.sh` queues a sweep for them. Run it in each environment
+right after its native masters are provisioned and funded. It also prints the provision calls and
+what to send, records the `float`, and reports the master plus the coins still on addresses
+against DynamoDB and against Tatum. Until those coins are swept, a withdrawal is signed by a
+master that may hold too little (it fails cleanly and is refunded; `docs/native-sweep-plan.md`).
+Keep the split between the two Lambdas: the API must
 never be able to obtain a signature, and nothing outside the handler may read the seed path. A
 seed has no backup copy yet (B31 step 7), which must exist before any mainnet seed.
 
