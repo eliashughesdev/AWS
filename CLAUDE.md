@@ -370,13 +370,21 @@ runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 `PaymentProcessorConstructor` in `providers/payment/PaymentProcessor.ts` for the shape). When
 adding a new payment or ledger provider, implement the existing interface rather than
 special-casing the new provider in route handlers. TRON energy and bandwidth rental
-(`providers/energy/`) has the same shape: an `EnergyProvider` per vendor (`tronsave/`; the list is
-TronSave alone for now) and the shared logic in `ensureResources.ts`. `ensureEnergy` and
-`ensureBandwidth`, which a TRC-20 transfer's signer goes through, rent the address's shortfall
-plus 1%, raised to the provider's `minimum()`, and poll the address until it arrives (2 s, up to
-120 s); bandwidth is burned instead when the address's TRX covers it. A provider's `rent()`
-answers `refused` only when nothing was bought, and the next provider is tried; it throws when an
-order may exist, and then no other provider is tried. When a master signs (token withdrawals, and
+(`providers/energy/`) has the same shape: an `EnergyProvider` per vendor (`catfee/`, energy only
+and at least 65,000; `tronsave/`, both resources) and the shared logic in `ensureResources.ts`,
+which tries them in the order `TRON_ENERGY_PROVIDERS` names (SSM, default `catfee,tronsave`; a
+name it does not know logs `CONFIG_ERROR`). `ensureEnergy` and `ensureBandwidth`, which a TRC-20
+transfer's signer goes through, rent the address's shortfall plus 1%, raised to the provider's
+`minimum()`, and poll the address until it arrives (2 s, up to the provider's `deliveryTimeoutMs`:
+CatFee 60 s, TronSave 120 s); bandwidth is burned instead when the address's TRX covers it. A
+provider's `rent()` answers `refused` only when it will deliver nothing (a missing setting, a
+failed quote, a definite refusal), and the next provider is tried, as it is when a placed order's
+`orderState()` says it failed (CatFee's `DELEGATE_FAIL`). A `rent()` that throws, or a wait that
+runs out, may leave an order behind, and then no other provider is tried. CatFee answers its
+errors as HTTP 200 with a `code`, and sends an unclear create once more with the same
+`client_order_id`, which never makes a second order. Each rental logs `ENERGY_RENTED` and each
+move to the next provider `ENERGY_FALLBACK`; CatFee's settings are `CATFEE_BASE_URL`,
+`CATFEE_API_KEY` and `CATFEE_API_SECRET`. When a master signs (token withdrawals, and
 native ones once the merchant has a `ready` master for the coin), `withdrawFunds` debits both the
 customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and completes both with the same
 txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits record no fee (gas is rented

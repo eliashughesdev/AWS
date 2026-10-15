@@ -25,11 +25,14 @@ const DURATION_SEC = 900
 // TronSave accepts a named speed tier or an explicit SUN price.
 const UNIT_PRICE = 'MEDIUM'
 
+const REQUEST_TIMEOUT_MS = 10_000
+
 async function tronsaveRequest(path: string, method: 'GET' | 'POST', body?: unknown) {
   const res = await fetch(`${resolveBase()}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json', [resolveAuthHeader()]: resolveApiKey() },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
   const text = await res.text()
   if (!res.ok) throw new Error(`TronSave ${method} ${path} -> ${res.status}: ${text}`)
@@ -39,6 +42,7 @@ async function tronsaveRequest(path: string, method: 'GET' | 'POST', body?: unkn
 export class TronSaveProvider implements EnergyProvider {
   readonly name = 'TronSave'
   readonly resources: EnergyProvider['resources'] = ['ENERGY', 'BANDWIDTH']
+  readonly deliveryTimeoutMs = 120_000
 
   minimum(): number {
     return 0
@@ -47,7 +51,13 @@ export class TronSaveProvider implements EnergyProvider {
   async rent({ resource, receiver, amount }: RentRequest): Promise<RentOutcome> {
     const order = { resourceType: resource, resourceAmount: amount, durationSec: DURATION_SEC, receiver, unitPrice: UNIT_PRICE }
 
-    const { data: quote } = await tronsaveRequest('/v2/estimate-buy-resource', 'POST', order)
+    // A quote buys nothing, so one that fails is a refusal
+    let quote
+    try {
+      ({ data: quote } = await tronsaveRequest('/v2/estimate-buy-resource', 'POST', order))
+    } catch (err) {
+      return { status: 'refused', reason: `no quote: ${(err as Error).message}` }
+    }
     console.log(
       `DEBUG (TronSaveProvider): ${resource} quote for ${receiver} — renting ${amount}, ` +
       `unitPriceSun=${quote.unitPrice}, estimatedCostTrx=${(quote.estimateTrx / 1_000_000).toFixed(6)}, ` +
@@ -57,7 +67,10 @@ export class TronSaveProvider implements EnergyProvider {
       return { status: 'refused', reason: `only ${quote.availableResource} ${resource} available` }
     }
 
-    const { data } = await tronsaveRequest('/v2/buy-resource', 'POST', { ...order, options: { onlyCreateWhenFulfilled: true } })
-    return { status: 'placed', orderId: data.orderId }
+    // No second order while an identical one is unfinished
+    const options = { onlyCreateWhenFulfilled: true, preventDuplicateIncompleteOrders: true }
+    const { data } = await tronsaveRequest('/v2/buy-resource', 'POST', { ...order, options })
+    // The answer has only the orderId, so the cost is the quote's
+    return { status: 'placed', orderId: data.orderId, costSun: quote.estimateTrx }
   }
 }
