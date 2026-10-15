@@ -1,6 +1,6 @@
 import { getSsmParametersByPath } from './ssm'
 
-const SSM_PATH = '/loudibly/api/'
+export const SSM_PATH = '/loudibly/api/'
 
 const TTL_MS = 60 * 1000
 

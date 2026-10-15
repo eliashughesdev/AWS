@@ -80,10 +80,10 @@ next one that depends on it is started.
 
 ## Phase 2 — API keys, backend
 
-- [ ] **2.1 Infrastructure.** KMS key `alias/loudibly-api-keys`, SSM path
+- [x] **2.1 Infrastructure.** KMS key `alias/loudibly-api-keys`, SSM path
   `/loudibly/api-keys/*`, `apiKeyIssuerFn` + role, explicit DENY for `mainApiFn`, authorizer
   read/decrypt, tables `v1ApiKeysTable` (GSI `byOwner`) and `v1ApiKeyUsageTable` (TTL).
-  Deploy to `main`. → D2.1
+  Deploy to `main`. → D2.1 — done 2026-10-15, bfaac56
 - [ ] **2.2 Issuer Lambda.** `create` (id + secret, hash to SSM, row, secret returned once) and
   `revoke` (delete parameter, mark row). Tests with SSM/DynamoDB mocked. → D2.1, D2.2
 - [ ] **2.3 Authorizer `Basic` branch.** Row check, IP allowlist, cached hash, constant-time

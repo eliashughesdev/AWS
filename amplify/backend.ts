@@ -16,6 +16,7 @@ import {
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import * as apigatewayv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as kms from 'aws-cdk-lib/aws-kms'
 import * as dynamo from 'aws-cdk-lib/aws-dynamodb'
 import * as lambda from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -33,6 +34,9 @@ import { data } from './data/resource'
 import { AttributeType } from 'aws-cdk-lib/aws-dynamodb'
 import { SYSTEM_MERCHANT_ID, SYSTEM_MERCHANT_NAME } from './utils/systemMerchant'
 import { PUBLIC_API_SURFACE, publicRoutes } from './service/publicRoutes'
+import {
+  API_KEY_ISSUER_FN, API_KEY_KMS_ALIAS, API_KEY_PARAMETER_PREFIX, API_KEY_USAGE_TABLE, API_KEYS_BY_OWNER, API_KEYS_TABLE,
+} from './utils/apiKeyStore'
 
 
 const backend = defineBackend({
@@ -565,6 +569,28 @@ const v1MerchantTable = new dynamo.Table(apiStack, 'MerchantTable', {
   tableName: 'v1MerchantTable',
 })
 
+// API keys that users and merchants call the public API with (docs/public-api-plan.md D2.1):
+// one row per key, never its secret or hash (those are in SSM, see below)
+const v1ApiKeysTable = new dynamo.Table(apiStack, 'ApiKeysTable', {
+  partitionKey: { name: 'id', type: dynamo.AttributeType.STRING },
+  billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+  tableName: API_KEYS_TABLE,
+})
+v1ApiKeysTable.addGlobalSecondaryIndex({
+  indexName: API_KEYS_BY_OWNER,
+  partitionKey: { name: 'ownerId', type: dynamo.AttributeType.STRING },
+  sortKey: { name: 'createdAt', type: dynamo.AttributeType.STRING },
+  projectionType: dynamo.ProjectionType.ALL,
+})
+
+// Each key's calls per second, for its rate limit (D2.5); a row is useless a second later
+const v1ApiKeyUsageTable = new dynamo.Table(apiStack, 'ApiKeyUsageTable', {
+  partitionKey: { name: 'id', type: dynamo.AttributeType.STRING },
+  billingMode: dynamo.BillingMode.PAY_PER_REQUEST,
+  tableName: API_KEY_USAGE_TABLE,
+  timeToLiveAttribute: 'ttl',
+})
+
 // The system merchant (the system's own direct customers, no API key) exists in
 // every environment: each deploy creates its profile unless it is already there.
 const ensureSystemMerchant: cr.AwsSdkCall = {
@@ -770,6 +796,107 @@ backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
 sqsV1WebhookProcessingFn.addToRolePolicy(new iam.PolicyStatement({
   actions: ['lambda:InvokeFunction'],
   resources: [hdSignerFn.functionArn],
+}))
+
+// --- API keys (docs/public-api-plan.md D2.1) ---
+// A key's secret is never stored. Its SHA-256 is an SSM SecureString under its own KMS key, which
+// only apiKeyIssuerFn may encrypt with and only the authorizer may decrypt with. mainApiFn asks
+// the issuer to create or delete one and never reads it.
+const API_KEY_PARAMETERS = `arn:aws:ssm:*:*:parameter${API_KEY_PARAMETER_PREFIX}*`
+
+const apiKeyIssuerRole = new iam.Role(apiStack, 'ApiKeyIssuerRole', {
+  assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+  managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')],
+})
+const authorizerRole = customAuthorizerFn.role!
+
+const apiKeyHashKey = new kms.Key(apiStack, 'ApiKeyHashKey', {
+  alias: API_KEY_KMS_ALIAS,
+  description: 'Encrypts the hashes of API key secrets in SSM (/loudibly/api-keys/)',
+  enableKeyRotation: true,
+  policy: new iam.PolicyDocument({
+    statements: [
+      new iam.PolicyStatement({
+        sid: 'AccountAdministers',
+        principals: [new iam.AccountRootPrincipal()],
+        actions: ['kms:*'],
+        resources: ['*'],
+      }),
+      new iam.PolicyStatement({
+        sid: 'IssuerEncrypts',
+        principals: [new iam.ArnPrincipal(apiKeyIssuerRole.roleArn)],
+        actions: ['kms:Encrypt', 'kms:DescribeKey'],
+        resources: ['*'],
+      }),
+      new iam.PolicyStatement({
+        sid: 'AuthorizerDecrypts',
+        principals: [new iam.ArnPrincipal(authorizerRole.roleArn)],
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: ['*'],
+      }),
+      // Whatever IAM grants anyone else (kms:* on '*', the account's administrators included)
+      new iam.PolicyStatement({
+        sid: 'OnlyAuthorizerDecrypts',
+        effect: iam.Effect.DENY,
+        principals: [new iam.AnyPrincipal()],
+        actions: ['kms:Decrypt'],
+        resources: ['*'],
+        conditions: { ArnNotEquals: { 'aws:PrincipalArn': authorizerRole.roleArn } },
+      }),
+    ],
+  }),
+})
+
+apiKeyIssuerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['ssm:PutParameter', 'ssm:DeleteParameter'],
+  resources: [API_KEY_PARAMETERS],
+}))
+apiKeyIssuerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['kms:Encrypt'],
+  resources: [apiKeyHashKey.keyArn],
+}))
+apiKeyIssuerRole.addToPolicy(new iam.PolicyStatement({
+  actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
+  resources: [v1ApiKeysTable.tableArn],
+}))
+
+// No trigger or URL: only mainApiFn invokes it
+new lambda.NodejsFunction(apiStack, 'ApiKeyIssuerFn', {
+  entry: url.fileURLToPath(new URL('./fn/api-key-issuer/handler.ts', import.meta.url)),
+  runtime: Runtime.NODEJS_20_X,
+  functionName: API_KEY_ISSUER_FN,
+  role: apiKeyIssuerRole,
+  timeout: Duration.seconds(10),
+})
+
+// The ARN is built from the name, as for hdAddressFn: a reference would make the stacks circular
+backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['lambda:InvokeFunction'],
+  resources: [`arn:aws:lambda:*:*:function:${API_KEY_ISSUER_FN}`],
+}))
+// mainApiFn has ssm:* on everything; key hashes are an exception, like seeds
+backend.mainApiFn.resources.lambda.addToRolePolicy(new iam.PolicyStatement({
+  effect: iam.Effect.DENY,
+  actions: ['ssm:*'],
+  resources: [API_KEY_PARAMETERS],
+}))
+
+// The authorizer checks a key on every call (D2.3): its row, its hash, its owner, its rate (D2.5)
+customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['ssm:GetParameter'],
+  resources: [API_KEY_PARAMETERS],
+}))
+customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['kms:Decrypt'],
+  resources: [apiKeyHashKey.keyArn],
+}))
+customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
+  resources: [v1ApiKeysTable.tableArn, v1ApiKeyUsageTable.tableArn],
+}))
+customAuthorizerFn.addToRolePolicy(new iam.PolicyStatement({
+  actions: ['dynamodb:GetItem'],
+  resources: [v2CustomerTable.tableArn, v1MerchantTable.tableArn],
 }))
 
 backend.addOutput({
