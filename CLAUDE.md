@@ -286,7 +286,12 @@ route with `routeAt(path)`. A route with `idempotency` takes an `Idempotency-Key
 (`utils/idempotency.ts`): the first request claims `IDEM#<caller>#<key>` in `v2CustomerTable`, a
 retry of the same request gets its stored answer, another request on the key or one still
 running gets 409 `100061`, and a handler that throws leaves its key claimed until it expires
-(24 h, the table's `ttl`), never run again on its own. To add an endpoint: create a handler class with an `execute(event,
+(24 h, the table's `ttl`), never run again on its own. Each withdrawal and card deposit also has a record
+on its user, `OP#<transactionId>` in `v2CustomerTable` (`utils/operations.ts`): the route writes it
+`pending` before queueing (a withdrawal in the same `transactWriteItems` as its debit), and the
+queue processors move it on with `settleOperation()` (completed, failed, requires_action, or
+pending with a `stage` of `uncertain` or `credit-failed`), forward only and never throwing. It is
+what an API caller reads for an outcome the browser gets over the WebSocket. To add an endpoint: create a handler class with an `execute(event,
 context)` method under `service/routes/<area>/`, then add it to `routeList`. The router
 does, in order: parse body (preserving `rawBody` for signature verification, e.g. Stripe
 webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowedRoles` is set,

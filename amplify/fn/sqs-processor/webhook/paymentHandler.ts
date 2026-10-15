@@ -2,6 +2,7 @@ import { queryRecord, updateItem } from '../../../utils/db'
 import { PaymentProviderType } from '../../../utils/PaymentProviders'
 import { PaymentOrchestrator, AttemptLogEntry } from '../../../utils/PaymentOrchestrator'
 import { notifyPaymentResult } from '../../../utils/websocket'
+import { settleOperation } from '../../../utils/operations'
 import { lookupBin, getProviderByCountry } from '../../../utils/binLookup'
 import {
   generatePaymentOrderId,
@@ -27,6 +28,23 @@ export const handlePayment = async (message: any): Promise<boolean> => {
   // paymentId is used to look up the saved payment method (or a synthetic WIDGET# key for guest payments)
   const wsTransactionId = transactionId || paymentId
 
+  // Tells the browser over the WebSocket and, for a deposit, moves its record
+  // (utils/operations.ts) to the same outcome, which is what an API caller reads
+  const notify = async (result: Parameters<typeof notifyPaymentResult>[2] & { depositCredited?: boolean }) => {
+    await notifyPaymentResult(wsTransactionId, userId, result, paymentId)
+    if (!depositMode || !transactionId) return
+    if (result.status === 'succeeded') {
+      // Charged but not credited: neither done nor failed until staff resolve it
+      await settleOperation(userId, transactionId, result.depositCredited === false
+        ? { status: 'pending', stage: 'credit-failed' }
+        : { status: 'completed', txId: result.paymentTransactionId })
+    } else if (result.status === 'requires_action') {
+      await settleOperation(userId, transactionId, { status: 'requires_action', authenticationUrl: result.authenticationUrl })
+    } else {
+      await settleOperation(userId, transactionId, { status: 'failed' })
+    }
+  }
+
   console.log('DEBUG: Processing payment for userId:', userId, 'paymentId:', paymentId, 'transactionId:', wsTransactionId, 'amount:', amount, 'currency:', currency, 'provider:', provider, 'guestMode:', guestMode)
 
   if (!paymentId || !userId || !amount || !currency) {
@@ -50,11 +68,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
     if (!encryptedCardData) {
       console.log('DEBUG: Guest mode but no cardData provided')
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: false,
         status: 'failed',
         error: 'No card data provided',
-      }, paymentId)
+      })
       return false
     }
   } else {
@@ -72,11 +90,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
 
     if (!paymentRecord.success || !paymentRecord.res || paymentRecord.res.length === 0) {
       console.log('DEBUG: Payment method not found')
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: false,
         status: 'failed',
         error: 'Payment method not found',
-      }, paymentId)
+      })
       return false
     }
 
@@ -243,11 +261,11 @@ export const handlePayment = async (message: any): Promise<boolean> => {
     if (!paymentResult.success) {
       console.error('Payment processing failed:', paymentResult.error)
 
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: false,
         status: 'failed',
         error: paymentResult.error || 'Payment processing failed',
-      }, paymentId)
+      })
 
       return false
     }
@@ -256,13 +274,13 @@ export const handlePayment = async (message: any): Promise<boolean> => {
       // 3DS authentication required — send redirect URL to client
       console.log('DEBUG: 3DS authentication required')
 
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: true,
         status: 'requires_action',
         authenticationUrl: paymentResult.metadata?.authenticationUrl,
         paymentIntentId: paymentResult.metadata?.paymentIntentId,
         clientSecret: paymentResult.metadata?.clientSecret,
-      }, paymentId)
+      })
 
       return true
     } else if (paymentResult.status === 'succeeded') {
@@ -284,22 +302,22 @@ export const handlePayment = async (message: any): Promise<boolean> => {
         }
       }
 
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: true,
         status: 'succeeded',
         paymentTransactionId: paymentResult.transactionId,
         ...(depositCredited !== undefined ? { depositCredited } : {}),
-      }, paymentId)
+      })
 
       return true
     } else {
       console.log('DEBUG: Payment status:', paymentResult.status)
 
-      await notifyPaymentResult(wsTransactionId, userId, {
+      await notify({
         success: false,
         status: paymentResult.status,
         error: paymentResult.error || 'Payment failed',
-      }, paymentId)
+      })
 
       return false
     }

@@ -1,6 +1,8 @@
 import { handlePayment } from './paymentHandler'
 import { PaymentOrchestrator } from '../../../utils/PaymentOrchestrator'
 import { notifyPaymentResult } from '../../../utils/websocket'
+import { settleOperation } from '../../../utils/operations'
+import { creditAccountByVAccountId } from './balanceUpdateHandler'
 
 // v2CustomerTable as DynamoDB keys it: a card row is found by its owner's id and its own sk only
 const table = [
@@ -22,6 +24,7 @@ jest.mock('../../../utils/paymentLogger', () => ({
 }))
 jest.mock('../../../utils/PaymentOrchestrator', () => ({ PaymentOrchestrator: { processWithFailover: jest.fn() } }))
 jest.mock('./balanceUpdateHandler', () => ({ creditAccountByVAccountId: jest.fn() }))
+jest.mock('../../../utils/operations', () => ({ settleOperation: jest.fn() }))
 
 const message = (userId: string, paymentId: string) =>
   ({ queue: 'v1-payment-processing-queue', userId, paymentId, transactionId: 'txn_1', amount: 50, currency: 'USD' })
@@ -47,5 +50,51 @@ describe('handlePayment: whose card is charged', () => {
     expect(await handlePayment(message('user-a', 'card-b'))).toBe(false)
     expect(PaymentOrchestrator.processWithFailover).not.toHaveBeenCalled()
     expect(notifyPaymentResult).toHaveBeenCalledWith('txn_1', 'user-a', expect.objectContaining({ error: 'Payment method not found' }), 'card-b')
+  })
+})
+
+// docs/public-api-plan.md step 1.5: a deposit's record follows what the browser is told
+describe('handlePayment: the deposit\'s record', () => {
+  const deposit = { ...message('user-b', 'card-b'), depositMode: true, vAccountId: 'va-1', transactionId: 'dep_1' }
+  const charge = (result: Record<string, unknown>) =>
+    (PaymentOrchestrator.processWithFailover as jest.Mock).mockResolvedValue(result)
+
+  it('completes it with the payment\'s id once the account is credited', async () => {
+    charge({ success: true, status: 'succeeded', transactionId: 'pi_1' })
+    ;(creditAccountByVAccountId as jest.Mock).mockResolvedValue(true)
+    await handlePayment(deposit)
+    expect(settleOperation).toHaveBeenCalledWith('user-b', 'dep_1', { status: 'completed', txId: 'pi_1' })
+  })
+
+  it('keeps it pending when the card was charged but the account not credited', async () => {
+    charge({ success: true, status: 'succeeded', transactionId: 'pi_1' })
+    ;(creditAccountByVAccountId as jest.Mock).mockResolvedValue(false)
+    await handlePayment(deposit)
+    expect(settleOperation).toHaveBeenCalledWith('user-b', 'dep_1', { status: 'pending', stage: 'credit-failed' })
+  })
+
+  it('says it waits for 3-D Secure, with where', async () => {
+    charge({ success: true, status: 'requires_action', metadata: { authenticationUrl: 'https://3ds.example/x' } })
+    await handlePayment(deposit)
+    expect(settleOperation).toHaveBeenCalledWith('user-b', 'dep_1', { status: 'requires_action', authenticationUrl: 'https://3ds.example/x' })
+  })
+
+  it('fails it when the card is declined, or is not the user\'s', async () => {
+    await handlePayment(deposit)
+    expect(settleOperation).toHaveBeenCalledWith('user-b', 'dep_1', { status: 'failed' })
+    jest.mocked(settleOperation).mockClear()
+    await handlePayment({ ...deposit, paymentId: 'card-a' })
+    expect(settleOperation).toHaveBeenCalledWith('user-b', 'dep_1', { status: 'failed' })
+  })
+
+  it('leaves it pending when processing throws: the card may have been charged', async () => {
+    ;(PaymentOrchestrator.processWithFailover as jest.Mock).mockRejectedValue(new Error('lost'))
+    await handlePayment(deposit)
+    expect(settleOperation).not.toHaveBeenCalled()
+  })
+
+  it('touches no record for a payment that is not a deposit', async () => {
+    await handlePayment(message('user-b', 'card-b'))
+    expect(settleOperation).not.toHaveBeenCalled()
   })
 })

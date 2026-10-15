@@ -94,6 +94,15 @@ interface ITransactWriteItemsRequest { // ADDED: Interface for transactional wri
     // e.g. 'attribute_not_exists(id)' — the whole transaction is cancelled if it fails
     conditionExpression?: string;
   }[]
+  // Updates in the same transaction, after the puts (a balance debit beside its record)
+  updates?: {
+    tableName: string
+    key: Record<string, any>
+    updateExpression: string
+    conditionExpression?: string
+    attributeNames?: Record<string, string>
+    attributeValues: Record<string, any>
+  }[]
 }
 
 /**
@@ -212,13 +221,25 @@ export const updateItem = async (r: IUpdateItemRequest) => {
 }
 
 export const transactWriteItems = async (r: ITransactWriteItemsRequest) => {
-  const transactItems = r.puts.map(putOperation => ({
-    Put: {
-      TableName: putOperation.tableName,
-      Item: marshall(putOperation.item, { removeUndefinedValues: true }),
-      ConditionExpression: putOperation.conditionExpression,
-    }
-  }))
+  const transactItems = [
+    ...r.puts.map(putOperation => ({
+      Put: {
+        TableName: putOperation.tableName,
+        Item: marshall(putOperation.item, { removeUndefinedValues: true }),
+        ConditionExpression: putOperation.conditionExpression,
+      }
+    })),
+    ...(r.updates ?? []).map(update => ({
+      Update: {
+        TableName: update.tableName,
+        Key: marshall(update.key, { removeUndefinedValues: true }),
+        UpdateExpression: update.updateExpression,
+        ConditionExpression: update.conditionExpression,
+        ExpressionAttributeNames: update.attributeNames,
+        ExpressionAttributeValues: marshall(update.attributeValues, { removeUndefinedValues: true }),
+      }
+    })),
+  ]
 
   const command = new TransactWriteItemsCommand({
     TransactItems: transactItems,
@@ -228,8 +249,10 @@ export const transactWriteItems = async (r: ITransactWriteItemsRequest) => {
     const response = await db.send(command)
     return { success: true, res: response, error: null }
   } catch (e: any) {
-    console.error('TransactWriteItems failed:', e)
-    // In case of a transaction failure, provide the error details
-    return { success: false, res: null, error: e }
+    console.error('TransactWriteItems failed:', e?.name, e?.message)
+    // In case of a transaction failure, provide the error details. `reasons` holds one code per
+    // item, puts then updates ('ConditionalCheckFailed', 'None'…), when DynamoDB cancelled it
+    const reasons: string[] = (e?.CancellationReasons ?? []).map((reason: any) => reason?.Code ?? 'None')
+    return { success: false, res: null, error: e, reasons }
   }
 }

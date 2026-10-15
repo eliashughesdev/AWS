@@ -694,7 +694,8 @@ paths:
           description: |
             - `100029` a required field is missing
             - `100031` a field is malformed: the account number, a `currency` that is not a
-              3-letter code, an `amount` that is not a number above 0, or `email`
+              3-letter code, an `amount` that is not a number above 0, or `email`; or
+              `transactionId` when a deposit with that id was already sent (nothing is charged)
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` `currency` is not the account's
@@ -776,7 +777,8 @@ paths:
             - `100029` a required field is missing (`amount or cryptoAmount` when neither was
               sent)
             - `100031` a field is malformed: the account number, an amount that is not a number
-              above 0, both amounts sent, or with `amount` a `currency` that is not a 3-letter code
+              above 0, both amounts sent, or with `amount` a `currency` that is not a 3-letter code; or
+              `transactionId` when a withdrawal with that id was already sent (nothing is debited)
             - `100001` no such account
             - `100005` the account belongs to someone else
             - `100006` the account cannot send coins

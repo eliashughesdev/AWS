@@ -1,5 +1,5 @@
 import { response } from '../../../utils/http'
-import { queryItemFromIndex, updateItem } from '../../../utils/db'
+import { queryItemFromIndex, transactWriteItems, updateItem } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
@@ -9,6 +9,7 @@ import { accountKeyRef } from '../../../utils/signing'
 import { isValidAddressFor } from '../../../utils/addresses'
 import { callerUser } from '../../../utils/caller'
 import { checkKyc } from '../../../utils/kycPolicy'
+import { newOperation, settleOperation } from '../../../utils/operations'
 
 /**
  * Queues a crypto withdrawal for async processing.
@@ -101,29 +102,51 @@ export default class WithdrawHandler {
 
     const effectiveTransactionId = transactionId || `wdr_${Date.now()}`
 
-    // Atomically deduct balance — fails if insufficient funds
-    const deductResult = await updateItem({
-      tableName: 'v1AccountBalanceTable',
-      key: { id: vAccountId },
-      updateExpression: 'SET #balance = #balance - :amount, #availableBalance = #availableBalance - :amount, #lastUpdated = :now',
-      conditionExpression: '#availableBalance >= :amount',
-      attributeNames: {
-        '#balance': 'balance',
-        '#availableBalance': 'availableBalance',
-        '#lastUpdated': 'lastUpdated',
-      },
-      attributeValues: {
-        ':amount': cryptoAmount,
-        ':now': new Date().toISOString(),
-      },
+    // The withdrawal's record (utils/operations.ts) and the debit, together or not at all: the
+    // debit fails if the balance is short, the record if this transactionId was used before
+    const deductResult = await transactWriteItems({
+      puts: [{
+        tableName: 'v2CustomerTable',
+        item: newOperation({
+          userId,
+          opId: effectiveTransactionId,
+          kind: 'withdrawal',
+          accountNumber,
+          currency: accountChain,
+          amount: cryptoAmount,
+          ...(directCryptoAmount == null ? { fiatAmount: amount, fiatCurrency: currency } : {}),
+          destinationAddress,
+        }),
+        conditionExpression: 'attribute_not_exists(id)',
+      }],
+      updates: [{
+        tableName: 'v1AccountBalanceTable',
+        key: { id: vAccountId },
+        updateExpression: 'SET #balance = #balance - :amount, #availableBalance = #availableBalance - :amount, #lastUpdated = :now',
+        conditionExpression: '#availableBalance >= :amount',
+        attributeNames: {
+          '#balance': 'balance',
+          '#availableBalance': 'availableBalance',
+          '#lastUpdated': 'lastUpdated',
+        },
+        attributeValues: {
+          ':amount': cryptoAmount,
+          ':now': new Date().toISOString(),
+        },
+      }],
     })
 
     if (!deductResult.success) {
-      if (deductResult.error?.name === 'ConditionalCheckFailedException') {
+      const [recordReason, debitReason] = deductResult.reasons ?? []
+      if (debitReason === 'ConditionalCheckFailed') {
         console.error(`ERROR: Insufficient balance. vAccountId: ${vAccountId}, requested: ${cryptoAmount} ${accountChain}`)
         return processError(100007)
       }
-      console.error('ERROR: Failed to deduct balance:', deductResult.error)
+      if (recordReason === 'ConditionalCheckFailed') {
+        console.error(`ERROR: Withdrawal ${effectiveTransactionId} already exists; nothing was debited`)
+        return processError(100031, 'transactionId')
+      }
+      console.error('ERROR: Failed to deduct balance:', deductResult.error?.name)
       return processError(100002, 'the withdrawal could not be started; nothing was debited')
     }
 
@@ -191,6 +214,8 @@ export default class WithdrawHandler {
           ':now': new Date().toISOString(),
         },
       })
+      // Not sent, and never will be: the record says so whether or not the balance came back
+      await settleOperation(userId, effectiveTransactionId, { status: 'failed', code: 100002 })
       if (!restored.success) {
         // Nothing was sent, but the balance stays short until someone credits it back
         console.error(`CRITICAL: Withdrawal ${effectiveTransactionId} was not queued and ${cryptoAmount} ${accountChain} could not be credited back to ${vAccountId}`, restored.error)

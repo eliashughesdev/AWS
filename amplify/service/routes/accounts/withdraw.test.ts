@@ -1,9 +1,9 @@
 import WithdrawHandler from './withdraw'
-import { queryItemFromIndex, updateItem } from '../../../utils/db'
+import { queryItemFromIndex, transactWriteItems, updateItem } from '../../../utils/db'
 import { sendToQueue } from '../../../utils/sqs'
 import { checkKyc } from '../../../utils/kycPolicy'
 
-jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn(), updateItem: jest.fn() }))
+jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn(), updateItem: jest.fn(), transactWriteItems: jest.fn() }))
 jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 jest.mock('../../../utils/exchangeRate', () => ({ fetchCryptoPrice: jest.fn(async () => 0.25) }))
 jest.mock('../../../utils/masterAccount', () => ({ getMasterAccount: jest.fn(async () => ({ key: 'master' })) }))
@@ -21,7 +21,12 @@ const withdraw = (body: Record<string, unknown> = {}) => new WithdrawHandler().e
 })
 
 const answer = (res: { body: string } | undefined) => JSON.parse(res!.body)
-const debits = () => (updateItem as jest.Mock).mock.calls.map(([call]) => call)
+// The debit goes with the withdrawal's record in one transaction; a rollback is a plain update
+const transaction = () => jest.mocked(transactWriteItems).mock.calls[0]?.[0]
+const debits = () => transaction()?.updates ?? []
+const balanceUpdates = () => jest.mocked(updateItem).mock.calls.map(([call]) => call).filter(call => call.tableName === 'v1AccountBalanceTable')
+const recordUpdates = () => jest.mocked(updateItem).mock.calls.map(([call]) => call).filter(call => call.tableName === 'v2CustomerTable')
+const cancelled = (reasons: string[]) => ({ success: false, res: null, error: { name: 'TransactionCanceledException' }, reasons }) as any
 
 beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {})
@@ -30,6 +35,7 @@ beforeEach(() => {
     res: [{ id: 'user-1', vAccountId: 'va-1', chain: 'TRON', merchantId: 'internal-001' }],
   })
   ;(updateItem as jest.Mock).mockResolvedValue({ success: true })
+  jest.mocked(transactWriteItems).mockResolvedValue({ success: true, res: {} as any, error: null })
 })
 afterEach(() => jest.restoreAllMocks())
 
@@ -42,6 +48,33 @@ describe('/accounts/withdraw handler', () => {
     expect(debits()[0].updateExpression).toContain('#availableBalance = #availableBalance - :amount')
   })
 
+  // docs/public-api-plan.md step 1.5: an API caller reads the outcome from this record
+  it('writes the withdrawal\'s record as pending in the same transaction as the debit', async () => {
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
+    await withdraw()
+    const [record] = transaction()!.puts
+    expect(record.tableName).toBe('v2CustomerTable')
+    expect(record.conditionExpression).toBe('attribute_not_exists(id)')
+    expect(record.item).toMatchObject({
+      id: 'user-1',
+      sk: 'OP#wdr_1',
+      opId: 'wdr_1',
+      kind: 'withdrawal',
+      status: 'pending',
+      accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4',
+      currency: 'TRON',
+      amount: 25,
+      destinationAddress: tron,
+    })
+  })
+
+  it('answers 100031 for a transactionId used before, debiting and queueing nothing', async () => {
+    jest.mocked(transactWriteItems).mockResolvedValue(cancelled(['ConditionalCheckFailed', 'None']))
+    const res = await withdraw()
+    expect(answer(res)).toEqual({ error_code: 100031, message: 'invalid value for transactionId' })
+    expect(sendToQueue).not.toHaveBeenCalled()
+  })
+
   // Regression: a SOL address sent to a TRON account was debited and failed later, in the queue processor
   it.each([
     ['another network\'s address', sol],
@@ -49,7 +82,7 @@ describe('/accounts/withdraw handler', () => {
   ])('answers 100048 for %s, before debiting anything', async (_, destinationAddress) => {
     const res = await withdraw({ destinationAddress })
     expect(answer(res).error_code).toBe(100048)
-    expect(updateItem).not.toHaveBeenCalled()
+    expect(transactWriteItems).not.toHaveBeenCalled()
     expect(sendToQueue).not.toHaveBeenCalled()
   })
 
@@ -64,14 +97,14 @@ describe('/accounts/withdraw handler', () => {
 
   // Regression: this answered 100029, the code for a missing parameter
   it('answers 100002 when the debit fails for another reason than the balance', async () => {
-    ;(updateItem as jest.Mock).mockResolvedValue({ success: false, error: { name: 'ProvisionedThroughputExceededException' } })
+    jest.mocked(transactWriteItems).mockResolvedValue(cancelled(['None', 'ThrottlingError']))
     const res = await withdraw()
     expect(answer(res)).toEqual({ error_code: 100002, message: 'the withdrawal could not be started; nothing was debited' })
     expect(sendToQueue).not.toHaveBeenCalled()
   })
 
   it('still answers 100007 when the available balance is too low', async () => {
-    ;(updateItem as jest.Mock).mockResolvedValue({ success: false, error: { name: 'ConditionalCheckFailedException' } })
+    jest.mocked(transactWriteItems).mockResolvedValue(cancelled(['None', 'ConditionalCheckFailed']))
     expect(answer(await withdraw()).error_code).toBe(100007)
   })
 
@@ -80,18 +113,22 @@ describe('/accounts/withdraw handler', () => {
     ;(sendToQueue as jest.Mock).mockResolvedValue({ success: false })
     const res = await withdraw()
     expect(answer(res)).toEqual({ error_code: 100002, message: 'the withdrawal could not be started; nothing was sent and the balance was restored' })
-    const [debit, rollback] = debits()
+    const [debit] = debits()
+    const [rollback] = balanceUpdates()
     expect(debit.attributeValues[':amount']).toBe(25)
     expect(rollback.attributeValues[':amount']).toBe(25)
     expect(rollback.updateExpression).toContain('#balance = #balance + :amount')
     expect(rollback.updateExpression).toContain('#availableBalance = #availableBalance + :amount')
+    // The record says it failed: never sent
+    const [settled] = recordUpdates()
+    expect(settled.key).toEqual({ id: 'user-1', sk: 'OP#wdr_1' })
+    expect(Object.values(settled.attributeValues)).toEqual(expect.arrayContaining(['failed', 100002]))
   })
 
   it('says so when the balance could not be credited back', async () => {
     ;(sendToQueue as jest.Mock).mockRejectedValue(new Error('network'))
-    ;(updateItem as jest.Mock)
-      .mockResolvedValueOnce({ success: true })
-      .mockResolvedValueOnce({ success: false, error: new Error('throttled') })
+    ;(updateItem as jest.Mock).mockImplementation(async ({ tableName }) =>
+      tableName === 'v1AccountBalanceTable' ? { success: false, error: new Error('throttled') } : { success: true })
     const res = await withdraw()
     expect(answer(res)).toEqual({ error_code: 100002, message: 'the withdrawal could not be started; nothing was sent, but the balance could not be restored yet' })
   })
@@ -113,7 +150,7 @@ describe('/accounts/withdraw KYC policy', () => {
     const res = await withdraw()
     expect(res!.statusCode).toBe(403)
     expect(answer(res).error_code).toBe(100059)
-    expect(updateItem).not.toHaveBeenCalled()
+    expect(transactWriteItems).not.toHaveBeenCalled()
     expect(sendToQueue).not.toHaveBeenCalled()
   })
 })

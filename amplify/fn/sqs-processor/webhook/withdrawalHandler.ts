@@ -7,6 +7,7 @@ import { isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { findAccountForUser } from '../../../utils/custodialAccount'
 import { accountKeyRef } from '../../../utils/signing'
+import { settleOperation } from '../../../utils/operations'
 
 const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
@@ -80,6 +81,8 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       createdAt,
     })
 
+    await settleOperation(userId, transactionId, { status: 'completed', txId })
+
     await notifyPaymentResult(transactionId, userId, {
       success: true,
       status: 'withdrawal_complete',
@@ -109,6 +112,8 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
         to: destinationAddress,
         createdAt,
       })
+      // Still pending, never failed: the coins may already have left
+      await settleOperation(userId, transactionId, { status: 'pending', stage: 'uncertain' })
       return false
     }
 
@@ -149,6 +154,9 @@ export const handleWithdrawal = async (message: any): Promise<boolean> => {
       to: destinationAddress,
       createdAt,
     })
+
+    // Provably not sent, and refunded above
+    await settleOperation(userId, transactionId, { status: 'failed' })
 
     await notifyPaymentResult(transactionId, userId, {
       success: false,

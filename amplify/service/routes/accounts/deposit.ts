@@ -1,11 +1,12 @@
 import { response } from '../../../utils/http'
-import { queryItemFromIndex } from '../../../utils/db'
+import { putItem, queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { callerUser } from '../../../utils/caller'
 import { checkKyc } from '../../../utils/kycPolicy'
+import { newOperation, settleOperation } from '../../../utils/operations'
 
 // Nothing was charged when the job could not be queued, so the caller may send it again
 const NOT_QUEUED = 'the deposit could not be queued; nothing was charged'
@@ -91,6 +92,28 @@ export default class DepositHandler {
 
     console.log('DEBUG: Account verified. vAccountId:', vAccountId, 'userId:', userId, 'amount:', amount, 'currency:', currency)
 
+    // The deposit's record (utils/operations.ts), before the job can be charged. Refused for a
+    // transactionId used before, so the first one's record is never overwritten
+    const recorded = await putItem('v2CustomerTable', newOperation({
+      userId,
+      opId: effectiveTransactionId,
+      kind: 'cardDeposit',
+      accountNumber,
+      currency: accountChain ?? accountRecord.currency,
+      amount: cryptoAmount ?? amount,
+      fiatAmount: amount,
+      fiatCurrency: currency,
+      paymentId,
+    }), 'attribute_not_exists(id)')
+    if (!recorded.success) {
+      if (recorded.error?.name === 'ConditionalCheckFailedException') {
+        console.error(`ERROR: Deposit ${effectiveTransactionId} already exists; nothing was charged`)
+        return processError(100031, 'transactionId')
+      }
+      console.error('ERROR: The deposit could not be recorded:', recorded.error?.name)
+      return processError(100002, NOT_QUEUED)
+    }
+
     try {
       const queueMessage = {
         queue: 'v1-payment-processing-queue',
@@ -135,10 +158,12 @@ export default class DepositHandler {
       }
 
       console.error('ERROR: The queue refused the deposit job')
+      await settleOperation(userId, effectiveTransactionId, { status: 'failed', code: 100002 })
       return processError(100002, NOT_QUEUED)
     } catch (err: any) {
       console.error('FATAL ERROR: Failed to queue deposit:', err)
       console.error('Error stack:', err.stack)
+      await settleOperation(userId, effectiveTransactionId, { status: 'failed', code: 100002 })
       return processError(100002, NOT_QUEUED)
     }
   }

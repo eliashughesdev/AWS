@@ -1,10 +1,10 @@
 import DepositHandler from './deposit'
-import { queryItemFromIndex } from '../../../utils/db'
+import { putItem, queryItemFromIndex, updateItem } from '../../../utils/db'
 import { sendToQueue } from '../../../utils/sqs'
 import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 import { checkKyc } from '../../../utils/kycPolicy'
 
-jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn() }))
+jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn(), putItem: jest.fn(), updateItem: jest.fn() }))
 jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 jest.mock('../../../utils/exchangeRate', () => ({ fetchCryptoPrice: jest.fn() }))
 // The policy itself is tested in utils/kycPolicy.test.ts; here it allows unless a test says not
@@ -19,6 +19,8 @@ const deposit = () => new DepositHandler().execute({
 beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {})
   ;(fetchCryptoPrice as jest.Mock).mockResolvedValue(0.25)
+  jest.mocked(putItem).mockResolvedValue({ success: true, res: {} as any, error: null })
+  jest.mocked(updateItem).mockResolvedValue({ success: true, res: {} as any, error: null })
   ;(queryItemFromIndex as jest.Mock).mockResolvedValue({
     success: true,
     res: [{ id: 'user-1', vAccountId: 'va-1', chain: 'TRON', currency: 'USD' }],
@@ -64,6 +66,38 @@ describe('/accounts/deposit handler', () => {
     ;(sendToQueue as jest.Mock).mockRejectedValue(new Error('network'))
     const res = await deposit()
     expect(JSON.parse(res!.body).error_code).toBe(100002)
+  })
+})
+
+// docs/public-api-plan.md step 1.5: an API caller reads the outcome from this record
+describe('/accounts/deposit record', () => {
+  it('writes the deposit\'s record as pending before queueing it', async () => {
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } })
+    await deposit()
+    const [[table, item, condition]] = jest.mocked(putItem).mock.calls
+    expect([table, condition]).toEqual(['v2CustomerTable', 'attribute_not_exists(id)'])
+    expect(item).toMatchObject({ id: 'user-1', sk: 'OP#dep_1', kind: 'cardDeposit', status: 'pending', currency: 'TRON', amount: 200, fiatAmount: 50, fiatCurrency: 'USD', paymentId: 'card_1' })
+    expect(jest.mocked(putItem).mock.invocationCallOrder[0]).toBeLessThan(jest.mocked(sendToQueue).mock.invocationCallOrder[0])
+  })
+
+  it('answers 100031 for a transactionId used before, queueing no charge', async () => {
+    jest.mocked(putItem).mockResolvedValue({ success: false, res: null, error: { name: 'ConditionalCheckFailedException' } } as any)
+    expect(JSON.parse((await deposit())!.body)).toEqual({ error_code: 100031, message: 'invalid value for transactionId' })
+    expect(sendToQueue).not.toHaveBeenCalled()
+  })
+
+  it('queues no charge when the record cannot be written', async () => {
+    jest.mocked(putItem).mockResolvedValue({ success: false, res: null, error: { name: 'InternalServerError' } } as any)
+    expect(JSON.parse((await deposit())!.body).error_code).toBe(100002)
+    expect(sendToQueue).not.toHaveBeenCalled()
+  })
+
+  it('marks the record failed when the job cannot be queued', async () => {
+    ;(sendToQueue as jest.Mock).mockResolvedValue({ success: false })
+    await deposit()
+    const [settled] = jest.mocked(updateItem).mock.calls.map(([call]) => call)
+    expect(settled.key).toEqual({ id: 'user-1', sk: 'OP#dep_1' })
+    expect(Object.values(settled.attributeValues)).toEqual(expect.arrayContaining(['failed', 100002]))
   })
 })
 
