@@ -93,9 +93,10 @@ next one that depends on it is started.
   authorizer's logs (no headers, no `res` objects). Tests incl. the old JWT/HMAC cases. → D2.3 — done
   2026-10-15, bd1810f. A merchant key is role `admin` (as its HMAC key), a user key `user`; the
   public API's authorizer needs only `Authorization` (no `X-Project`).
-- [ ] **2.4 Rate limiting.** Conditional counters in the authorizer, `throttled` in context,
+- [x] **2.4 Rate limiting.** Conditional counters in the authorizer, `throttled` in context,
   SSM default `API_KEY_DEFAULT_RPS`, public stage throttle 50/100 → 500/1000 (agreed
-  2026-10-14). → D2.5
+  2026-10-14). → D2.5 — done 2026-10-15, ad1681a. A counter that cannot be written lets
+  the call through; `API_KEY_DEFAULT_RPS=10` set on staging only.
 - [ ] **2.5 Router checks.** Key only on the public API (404), 429 with `Retry-After` and
   `X-RateLimit-*`, missing permission → 403 `100055`; `resolvePayer()` accepts a merchant
   `apikey` like HMAC (own payers only); `callerUser()` refuses a merchant key. KYC is not the
