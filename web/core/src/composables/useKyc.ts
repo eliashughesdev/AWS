@@ -3,6 +3,18 @@ import { getKycStatus, startDiditSession } from '../api/kyc'
 
 export type KycStatus = 'approved' | 'pending' | 'not-started' | 'failed'
 
+// The API's answer to a money operation its merchant's KYC policy refuses for an unverified user.
+export const KYC_REQUIRED = 100059
+
+// Whether to tell the user to verify before an operation the account's policy gates. Not while
+// the status is unknown: the API decides then, and answers KYC_REQUIRED if it must.
+export const verificationNeeded = (required: boolean | undefined, status: KycStatus | null) =>
+  !!required && status !== null && status !== 'approved'
+
+// Opening a Didit session resets the stored status, so a session is offered only to a user who
+// has none under way: never approved, nor waiting for Didit's review.
+export const canStartKyc = (status: KycStatus | null) => status === 'not-started' || status === 'failed'
+
 // Identity verification (Didit) for the signed-in user.
 export function useKyc() {
   const status   = ref<KycStatus | null>(null)

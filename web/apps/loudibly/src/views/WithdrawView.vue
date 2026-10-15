@@ -7,6 +7,9 @@ import MainLayout from '../layouts/MainLayout.vue'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useExchangeRate } from '@loudibly/core/composables/useExchangeRate'
 import { useWithdraw } from '@loudibly/core/composables/useWithdraw'
+import KycNotice from '../components/KycNotice.vue'
+import { useKycGate } from '../kycGate'
+import { KYC_REQUIRED, verificationNeeded } from '@loudibly/core/composables/useKyc'
 
 const router = useRouter()
 
@@ -16,6 +19,7 @@ const { rate: exchangeRate, loading: rateLoading, load: fetchExchangeRate } = us
 const {
   status: withdrawStatus,
   error:  withdrawError,
+  errorCode: withdrawErrorCode,
   txId:   withdrawTxId,
   submitting,
   send,
@@ -36,6 +40,16 @@ const withdrawMode       = ref<'usd' | 'crypto'>('usd')
 const selectedAccountData = computed(() =>
   accounts.value.find(a => a.accountNo === selectedAccount.value)
 )
+
+// The account's merchant may want a verified identity for withdrawals in its currency
+const { kyc, readKyc } = useKycGate()
+const mustVerify = computed(() => verificationNeeded(selectedAccountData.value?.kycRequired?.withdraw, kyc.value))
+const failureText = computed(() => withdrawErrorCode.value === KYC_REQUIRED
+  ? 'Withdrawals in this currency need a verified identity. Verify it, then try again.'
+  : withdrawError.value)
+
+// The policy refused it: the status read before may be out of date, and the notice must show
+watch(withdrawErrorCode, code => { if (code === KYC_REQUIRED) readKyc() })
 
 const cryptoEquivalent = computed(() => {
   if (!exchangeRate.value || !amount.value || isNaN(parseFloat(amount.value))) return null
@@ -84,6 +98,7 @@ async function submit() {
   formError.value = ''
 
   if (!selectedAccount.value) { formError.value = 'Please select an account.'; return }
+  if (mustVerify.value) return
 
   const parsed = parseFloat(amount.value)
   if (!amount.value || isNaN(parsed) || parsed <= 0) {
@@ -200,7 +215,7 @@ async function handleSignOut() {
               <template v-else-if="withdrawStatus === 'failed'">
                 <span class="material-symbols-outlined text-6xl text-red-400" style="font-variation-settings: 'FILL' 1">cancel</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Failed</p>
-                <p class="text-sm text-red-400">{{ withdrawError }}</p>
+                <p class="text-sm text-red-400">{{ failureText }}</p>
                 <button @click="resetForm"
                   class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-surface-1 border border-border-subtle text-white rounded-full hover:bg-surface-2 active:scale-95 transition-all">
                   Try Again
@@ -296,8 +311,10 @@ async function handleSignOut() {
             <!-- Error -->
             <p v-if="formError" class="text-red-400 text-xs -mt-2">{{ formError }}</p>
 
-            <!-- Submit -->
+            <!-- Submit, or what the account's KYC policy wants first -->
+            <KycNotice v-if="mustVerify" :what="`Withdrawals in ${selectedAccountData?.chain}`" :status="kyc!" />
             <button
+              v-else
               type="button"
               @click="submit"
               :disabled="submitting"

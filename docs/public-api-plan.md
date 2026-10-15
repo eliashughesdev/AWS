@@ -29,17 +29,21 @@ next one that depends on it is started.
 
 ## Phase 1 — Foundations
 
-- [ ] **1.1 Who is calling: `utils/caller.ts`.** `callerUser(event)` for routes that act on a
+- [x] **1.1 Who is calling: `utils/caller.ts`.** `callerUser(event)` for routes that act on a
   user; refuses `authType: 'key'` (the HMAC merchant id is not a user — the bug in D0.1).
   Switch `list`, `account`, `rename`, `details`, `transactions`, `transfer`, `deposit`,
   `withdraw`, `profile*`, `kyc*` to it; drop `account.ts`'s `?? crypto.randomUUID()`.
   Add `callerMerchant(event)` (merchant id from HMAC or a merchant key) and switch
   `onboarding.ts` and `onboarding-resend.ts` to it. Tests: each user handler refuses an HMAC
-  caller; onboarding behaves as before with HMAC. → D3, D9
-- [ ] **1.2 Permission catalogue.** `amplify/service/permissions.ts` (no imports),
-  `permission` on `Route` and `PublicRoute` (a permission name, or `any` for a route every key
-  may call: `GET /v1/me` only), a test that every public route names a known permission or
-  `any`. → D5
+  caller; onboarding behaves as before with HMAC. → D3, D9 — done 2026-10-14, d57d316 (e2e scripts
+  moved to a signed-in test user: 446d1c1); not deployed yet
+- [x] **1.2 Permission catalogue.** `amplify/service/permissions.ts` (no imports)
+  and a `permission` on each `PublicRoute` with `auth: 'custom'`: a permission name, `any` for a
+  route every key may call (`GET /v1/me` only), or `null` for one no key may call
+  (`/payments/save`, D1.9). Only on `PublicRoute`, not the router's `Route`: a key is refused
+  off the public API (D2.4), so only public routes need one, and the router reads it from
+  there in 2.5. Tests: every public route names a known permission, `any` or `null`; merchant
+  routes name merchant permissions; money-moving routes name a Move money one. → D5 — done 2026-10-14, f0cd87e
 - [ ] **1.3 Path parameters in the router.** Match `event.path` against templates
   (`/accounts/{id}`, static paths first), pass the captured `pathParameters` to the schema
   check, exact paths keep working. Router tests. → D6.2
@@ -55,6 +59,22 @@ next one that depends on it is started.
   operation cannot be looked up; the web UI learns results over the WebSocket, an API caller
   has none. The UI is unchanged. Tests incl. queue failure (record marked failed with the
   rollback). → D6.4
+
+- [x] **1.6 KYC policy, backend.** `POLICY#KYC` row per merchant in `v1MerchantTable`;
+  `utils/kycPolicy.ts` (`kycRequired(merchantId, currency, operation)`, unset = required);
+  `/accounts/withdraw`, `/accounts/transfer` and `/accounts/deposit` refuse with 403 `100059`
+  when the account's merchant requires KYC for that currency and operation and the caller's KYC
+  is not `approved`, before anything is debited or queued; staff `POST /merchants/policy/kyc`;
+  `/merchants/list` answers each merchant's policy; `/accounts/list` answers `kycRequired` per
+  account. Schemas, tests (each operation × required/not × approved/not; unset is required).
+  Deploy together with 1.7: the default blocks every unverified user. → D11 — done 2026-10-14,
+  0b78517; not deployed (waits for 1.7)
+- [x] **1.7 KYC policy, frontends.** Loudibly Merchants: a KYC section per merchant, one switch
+  per currency and operation. NODA and Loudibly Withdraw, Transfer and Deposit (card): when the
+  chosen account has `kycRequired` for the operation and the user is not verified, say so and
+  offer verification (`useKyc().start()` under its usual rule) instead of the submit button;
+  `100059` from the API worded the same way. Both themes, mobile. → D11 — done 2026-10-14,
+  37901dc; not deployed, and not yet checked in a browser (needs 1.6 on staging and a test user)
 
 ## Phase 2 — API keys, backend
 
@@ -73,11 +93,9 @@ next one that depends on it is started.
   2026-10-14). → D2.5
 - [ ] **2.5 Router checks.** Key only on the public API (404), 429 with `Retry-After` and
   `X-RateLimit-*`, missing permission → 403 `100055`; `resolvePayer()` accepts a merchant
-  `apikey` like HMAC (own payers only); `callerUser()` refuses a merchant key; a money-moving
-  permission is refused with `100059` unless the owner's KYC is approved now (one
-  `USERPROFILE` read, on those routes only). Error codes `100054`–`100062`. Tests per check,
-  incl. a key whose owner's KYC was approved when it was granted and is not any more.
-  → D2.4, D2.6, D5
+  `apikey` like HMAC (own payers only); `callerUser()` refuses a merchant key. KYC is not the
+  router's: the routes check the KYC policy for keys and users alike (1.6). Error codes
+  `100054`–`100062` (`100059` already from 1.6). Tests per check. → D2.4, D2.6, D5
 - [ ] **2.6 Key-management routes.** `/accounts/api-keys/{permissions,create,list,update,revoke}`
   and staff `/merchants/api-keys/{create,list,rate-limit,revoke}` (staff create a merchant's
   keys), JWT only, schemas, tests. The owner is emailed when one of their keys is created or
@@ -231,6 +249,7 @@ against the chain and has no backend to expose.
 | D1.8 | Merchants | **Basic keys for merchants too in v1** (`ownerType: 'merchant'`, created by staff, D9). HMAC stays unchanged on today's paths and is not offered on `/v1`. | One scheme for every `/v1` caller; requirement 8 keeps today's integrations working. | Confirmed 2026-10-14 |
 | D1.9 | Adding a payment card by API | **No.** Cards are added in the UI only; the API charges cards already saved. | Card data reaches us only encrypted by Evervault in the browser; a server-to-server add would put the caller's systems in PCI scope and need a relay setup per caller. | Confirmed 2026-10-14 |
 | D1.10 | Results of queued operations | **Polling** `GET /v1/withdrawals/{id}` / `/deposits/{id}` in v1; webhooks next (6.1). | The WebSocket is a browser channel; polling needs no new infrastructure. | Confirmed 2026-10-14 |
+| D1.11 | KYC for moving money | **A policy per merchant, currency and operation** (withdraw, transfer, card deposit), switched on and off by staff; unset means required. It applies to everyone — web UI and API — and is checked in the route, not tied to a key's permissions (D11). | Merchants and currencies carry different risk; one rule for every channel. | Confirmed 2026-10-14 |
 
 ## D2. API keys — backend
 
@@ -300,9 +319,9 @@ next call (the row is read every call; only the hash is cached).
 1. `authType === 'apikey'` and not via the public API → 404.
 2. `throttled` → 429 `100056`, `Retry-After`, `X-RateLimit-*`.
 3. `apikey` and `route.permission` missing or not granted → 403 `100055` (`any` passes).
-4. `apikey`, a money-moving permission (D5 "KYC" column) and the owner's KYC not approved now →
-   403 `100059`.
-5. The existing `allowedRoles` check (keys are role `user`).
+4. The existing `allowedRoles` check (keys are role `user`).
+
+KYC is checked by the money routes themselves, for every caller (D11).
 
 ### D2.5 Rate limiting
 
@@ -330,10 +349,10 @@ staff-granted limits nears it.
 
 | Route | Role | Does |
 |---|---|---|
-| `GET /accounts/api-keys/permissions` | user | The catalogue (name, description, group, `requiresKyc`). |
-| `POST /accounts/api-keys/create` | user | `{ name, permissions[], expiresAt?, ipAllowlist? }` → `{ keyId, secret, … }`; ≤ 10 active keys, known permissions, money-moving ones only with KYC approved. |
+| `GET /accounts/api-keys/permissions` | user | The catalogue (name, description, group). |
+| `POST /accounts/api-keys/create` | user | `{ name, permissions[], expiresAt?, ipAllowlist? }` → `{ keyId, secret, … }`; ≤ 10 active keys, known permissions. Money-moving ones may be granted without KYC: each use is checked against the KYC policy (D11). |
 | `GET /accounts/api-keys/list` | user | Own keys, never secret or hash. |
-| `POST /accounts/api-keys/update` | user | Name, permissions (same KYC rule), `ipAllowlist` (an empty list allows any IP again). Not the rate limit. |
+| `POST /accounts/api-keys/update` | user | Name, permissions, `ipAllowlist` (an empty list allows any IP again). Not the rate limit. |
 | `POST /accounts/api-keys/revoke` | user | Own key; idempotent. |
 | `POST /merchants/api-keys/create` | staff | `{ merchantId, name, permissions[], expiresAt?, ipAllowlist? }` → `{ keyId, secret }`, shown once; merchant must be `active`; ≤ 10 active keys per merchant. |
 | `GET /merchants/api-keys/list` | staff | All keys, filters (scan while small). |
@@ -347,7 +366,8 @@ not in v1 (Part 3).
 
 Codes (last used today is `100053`): `100054` key limit reached, `100055` key lacks permission
 (403), `100056` rate limited (429), `100057` keys are managed from a signed-in session (403),
-`100058` unknown permission, `100059` permission needs verified identity (403), `100060` key not
+`100058` unknown permission, `100059` this operation in this currency needs a verified identity
+(403; from 1.6, D11), `100060` key not
 found, `100061` idempotency key reused with another body / still in progress (409), `100062`
 not a valid IP address (with the entry) or more than 20.
 
@@ -381,15 +401,16 @@ mean no key was made; `useStaffApiKeys()` (`keys`, `failed`, `load`, `createForM
 
 ## D5. Permission catalogue (`amplify/service/permissions.ts`)
 
-*Confirmed 2026-10-14, with: `GET /v1/me` open to any key; KYC checked when a money-moving
-permission is used as well as when it is granted.*
+*Confirmed 2026-10-14, with `GET /v1/me` open to any key. KYC moved out of permissions on
+2026-10-14 into the KYC policy (D1.11, D11).*
 
-`read` never moves money; anything that moves money is its own permission. It is granted only
-while the owner's KYC is approved, and the router refuses its use (`100059`) whenever the KYC is
-not approved at that moment, so a key granted earlier stops moving money if the status
-changes. `GET /v1/me` takes any key (`permission: 'any'`), so a key can always be tested.
+`read` never moves money; anything that moves money is its own permission (group *Move
+money*). Whether a use needs approved KYC is decided per operation by the KYC policy (D11),
+checked in the route for keys and signed-in users alike, so a permission carries no KYC rule.
+`GET /v1/me` takes any key (`permission: 'any'`), so a key can always be tested. `null` marks a
+public route no key may call (`/payments/save`, D1.9).
 
-| Permission | Endpoints | KYC |
+| Permission | Endpoints | Moves money |
 |---|---|---|
 | any key | `GET /v1/me` | |
 | `profile:read` | `GET /v1/profile` | |
@@ -402,7 +423,7 @@ changes. `GET /v1/me` takes any key (`permission: 'any'`), so a key can always b
 | `withdrawals:read` | `GET /v1/withdrawals[/{id}]`, `POST /v1/withdrawals/estimate` | |
 | `withdrawals:create` | `POST /v1/withdrawals` | yes |
 | `payment-methods:read` | `GET /v1/payment-methods` | |
-| `deposits:read` / `deposits:create` | `GET /v1/deposits[/{id}]`, `POST /v1/deposits/card` | create: yes |
+| `deposits:read` / `deposits:create` | `GET /v1/deposits[/{id}]`, `POST /v1/deposits/card` | create |
 | `rates:read` | `GET /v1/rates` | |
 | `webhooks:manage` (6.1) | `/v1/webhook-endpoints` | |
 | `users:create` / `users:invite` / `users:read` — merchant keys only (D9) | `POST /v1/users`, `…/{id}/invite`, `GET /v1/users/{id}[/payment-methods]` | |
@@ -455,7 +476,7 @@ finds it among the caller's rows, never trusts it. New top-level paths (`/transa
 | `GET /v1/me` | `profile.ts` + key info | id, email, KYC status, key name and permissions (connectivity check, Airtm `/me`). |
 | `GET/PATCH /v1/profile` | `profile.ts`, `profile-save.ts` | |
 | `GET /v1/kyc`, `POST /v1/kyc/session` | `kyc-status.ts`, `kyc-didit-session.ts` | Session refused when approved or pending (opening one resets status). |
-| `GET /v1/accounts`, `GET /v1/accounts/{id}` | `list.ts`, `details.ts` | `{ id, name, currency, network, address, balance, availableBalance, withdrawalFeeReserve, createdAt }`; `name` is `null` when none was typed (read from the row, not `list.ts`'s `name ?? accountNo`); balances, stored as numbers, are sent as decimal strings (D6.1). |
+| `GET /v1/accounts`, `GET /v1/accounts/{id}` | `list.ts`, `details.ts` | `{ id, name, currency, network, address, balance, availableBalance, withdrawalFeeReserve, kycRequired, createdAt }` (`kycRequired` from D11); `name` is `null` when none was typed (read from the row, not `list.ts`'s `name ?? accountNo`); balances, stored as numbers, are sent as decimal strings (D6.1). |
 | `POST /v1/accounts`, `PATCH /v1/accounts/{id}` | `account.ts`, `rename.ts` | Provider and accounting currency set by us, not the caller. |
 | `GET /v1/accounts/{id}/deposit-address` | `list.ts` row | |
 | `GET /v1/transactions[/{id}]` | `transactions.ts`, generalised (D6.5) | |
@@ -532,8 +553,8 @@ The avatar menu gains **API keys** above Sign out.
 - Empty: "No API keys yet", one line on what a key does, "Create key".
 - **Create key** (`AppDialog`, mounted with `v-if`):
   1. Form: name; permissions in three `chip` groups — *View*, *Manage*, *Move money* — View
-     ticked; *Move money* disabled with a `text-warn-ink` line and a link to verification until
-     KYC is approved; expiry (Never / 30 / 90 / 365 days); allowed IPs (optional, one per line; "Leave empty to allow any IP").
+     ticked; under *Move money* a `text-warn-ink` line when the user is not verified: some
+     currencies need a verified identity, with a link to verification; expiry (Never / 30 / 90 / 365 days); allowed IPs (optional, one per line; "Leave empty to allow any IP").
   2. Secret: key id and secret in `value-box`es with copy buttons, a `border-yellow` warning
      ("shown once — nobody, including NODA, can show it again"), a `curl -u` example, one
      button "I've stored it" (the only way to close).
@@ -587,6 +608,54 @@ revoking a key loses nothing.
 Move each from `v1UserKeysTable.key` to `/loudibly/hmac-keys/<merchantId>` (encrypted — HMAC
 needs the secret itself — authorizer-only decrypt), switch the authorizer, remove the attribute;
 CloudShell migration in `scripts/migrations/` with dry run / `--commit`.
+
+## D11. KYC policy (1.6, 1.7)
+
+*Confirmed 2026-10-14 (D1.11).*
+
+**What it decides.** Whether a money operation needs the caller's KYC `approved`, per merchant,
+currency and operation:
+
+| Operation | Route | Currency | Merchant |
+|---|---|---|---|
+| `withdraw` | `/accounts/withdraw` (`/v1/withdrawals`) | the account's | the account's `merchantId` |
+| `transfer` | `/accounts/transfer` (`/v1/transfers`) | the sender's | the sender account's |
+| `cardDeposit` | `/accounts/deposit` (`/v1/deposits/card`) | the account credited | the account's |
+
+Crypto arriving at a deposit address is not gated: coins on the chain cannot be refused.
+
+**Where.** `v1MerchantTable`, `id` = merchant id, `sk` = `POLICY#KYC`, one top-level attribute
+per switch: `{ 'USDT_TRON#withdraw': false, 'SOL#transfer': true, …, updatedAt, updatedBy }`.
+Only an explicit `false` turns KYC off; a merchant, currency or operation with no attribute
+requires it. `internal-001` holds NODA's direct users'. Each switch is its own `SET`, so two staff
+changes do not overwrite each other (a nested map cannot be written key by key in DynamoDB
+before its parents exist). Accounts made before 2026-10-06 belong to `loudibly`, which needs
+its own policy.
+
+**The check** (`utils/kycPolicy.ts`, `checkKyc()`), in each route after the account is loaded
+and owned, before any debit, charge or queueing: read the policy (one `GetItem`, not cached, so
+a switch applies on the next call) and, only when it requires KYC, the caller's
+`USERPROFILE.kyc.status`; anything but Didit's `Approved` → 403 `100059` "withdrawals in
+USDT_TRON need a verified identity". A failed read answers 500 and never lets the operation
+through. The same for a key and a signed-in user,
+since both reach the same route.
+
+**Staff.**
+- `POST /merchants/policy/kyc` (staff): `{ merchantId, currency, withdraw?, transfer?,
+  cardDeposit? }` — the given switches only; currency one of `LEDGER_CURRENCIES`; logged with
+  the staff user.
+- `/merchants/list` answers each merchant's effective policy per currency (unset shown as
+  required).
+- Loudibly Merchants: a KYC section per merchant, a row per currency, three switches.
+
+**Users.** `/accounts/list` answers `kycRequired: { withdraw, transfer, cardDeposit }` per
+account, so Withdraw, Transfer and Deposit can say before submitting that the user must verify,
+with `useKyc().start()` offered under its usual rule. A view still words `100059` from the
+server, which decides.
+
+**Rollout.** Unset means required, so the deploy blocks every unverified user from withdrawing,
+transferring and card deposits in every currency until staff switch some off. 1.6 and 1.7 go out
+together, and staff set `internal-001`'s policy right after the deploy.
 
 ---
 

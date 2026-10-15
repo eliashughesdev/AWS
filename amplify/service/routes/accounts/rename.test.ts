@@ -5,7 +5,7 @@ jest.mock('../../../utils/db', () => ({ updateItem: jest.fn() }))
 const mockUpdate = jest.mocked(updateItem)
 
 const accountNumber = 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4'
-const rename = (name: string, authorizer: Record<string, string> = { userId: 'user-1' }) =>
+const rename = (name: string, authorizer: Record<string, string> = { userId: 'user-1', authType: 'jwt' }) =>
   new AccountsRenameHandler().execute({ body: { accountNumber, name }, requestContext: { authorizer } }, {} as any)
 
 describe('POST /accounts/rename', () => {
@@ -54,7 +54,8 @@ describe('POST /accounts/rename', () => {
 
   it('writes nothing for a caller with no user id', async () => {
     const res = await rename('Savings', {})
-    expect(res.statusCode).toBe(401)
+    expect(res.statusCode).toBe(403)
+    expect(JSON.parse(res.body).error_code).toBe(100053)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 })

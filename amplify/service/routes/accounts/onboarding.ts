@@ -6,6 +6,7 @@ import { queryRecord, transactWriteItems } from '../../../utils/db'
 import { addUserToGroup, adminCreateUser, EMAIL_RE, findUserByEmail } from '../../../utils/cognito'
 import { ClaimToken, claimPointerItem, claimRecordId, createClaimToken } from '../../../utils/claimToken'
 import { sendClaimInvite } from '../../../utils/claimInvite'
+import { callerMerchant } from '../../../utils/caller'
 import { networkFor } from '../../../utils/currencies'
 import { discardProvisionedAccount, provisionCustodialAccount } from '../../../utils/custodialAccount'
 import { getMerchant } from '../../../utils/merchant'
@@ -13,7 +14,7 @@ import { canHoldCurrency } from '../../../utils/masterAccount'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 
 type Event = {
-  requestContext?: { authorizer?: { userId?: string } }
+  requestContext?: { authorizer?: { userId?: string, role?: string, authType?: string, merchantId?: string } }
   body: {
     externalId: string
     firstName: string
@@ -43,8 +44,11 @@ const txnRecordId = (platform: string, providerTxId: string) => `TXN#${platform}
  * */
 export default class OnboardingHandler {
   async execute(event: Event, context: Context) {
-    const platform = event.requestContext?.authorizer?.userId
-    if (!platform) return processError(100031, 'platform')
+    // The merchant whose key signed the request, never a signed-in person (whose userId is a
+    // Cognito sub). MAPPING rows are keyed on it, so it stays the merchant id for every key
+    const caller = callerMerchant(event)
+    if (caller.error) return caller.error
+    const platform = caller.merchantId
 
     const merchantId = platform
     const merchant = await getMerchant(merchantId)

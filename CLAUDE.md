@@ -209,7 +209,11 @@ There are three deployable pieces in this one repo:
   sign-in, and throws when either fails: `passwordSet` says which, and a view must not send the
   user to sign-in while it is false. Its failure results, and `verify()`'s, carry the API's
   `errorCode`. Composables stop their own timers and sockets with `onScopeDispose`, so call them
-  in `setup`.
+  in `setup`. An account's `kycRequired` says which money operations its merchant's KYC policy
+  gates; a form whose operation is gated for a user who is not verified shows its app's
+  `KycNotice` instead of its submit button (`verificationNeeded()`, `canStartKyc()` in
+  `useKyc`), and words the API's `KYC_REQUIRED` (`100059`) itself. A status that could not be
+  read gates nothing: the API decides.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and
   `node_modules/` may still exist and should be ignored.
@@ -261,7 +265,10 @@ npx tsx amplify/service/routes/e2e/accounts/AccountsOnboardingTest.ts
 These only work against a deployed stack (the target URL, e.g.
 `https://<api-id>.execute-api.us-east-2.amazonaws.com`, is baked into each test file) — a
 route added in code isn't reachable until `ampx pipeline-deploy` runs. Signing credentials for
-these live in `amplify/service/routes/e2e/credentials.ts`.
+these live in `amplify/service/routes/e2e/credentials.ts`. The account routes refuse an HMAC key,
+so their scripts call as a signed-in test user through `e2e/userSession.ts` (`callAsUser()`,
+`accountFor()`): set `E2E_USER_EMAIL` and `E2E_USER_PASSWORD` to a user of main's pool, never
+written into a file. They read the user's own account numbers and saved cards from the API.
 
 Four checks run locally with no deployed stack, all around custody keys:
 `npx tsx scripts/checks/hdWallet.ts` (the derivation module, against published test vectors
@@ -314,7 +321,13 @@ own team who approve its treasury operations — precedence staff > admin > merc
 `merchantId` for a key): role `admin` alone does not mean a key, since the Cognito group `admin`
 has it too. The card routes (`/payments/*`) take the user from `resolvePayer()`
 (`utils/payer.ts`), never from the request: a user acts for themselves, a key only for its own
-merchant's payers, anyone else gets `100053` (403). One key per merchant: `X-Project` is the merchant id —
+merchant's payers, anyone else gets `100053` (403). The account routes (`/accounts/*` that act on a
+user) take the user from `callerUser()` (`utils/caller.ts`): a signed-in person only, never an HMAC
+key, whose `userId` is the merchant id; anything else gets `100053` (403). Onboarding and its resend
+take the merchant from `callerMerchant()`, the HMAC key's merchant only. Withdraw, transfer and card deposit
+call `checkKyc()` (`utils/kycPolicy.ts`) once the account is the caller's and before anything
+moves: the account's merchant's `POLICY#KYC` row says, per currency and operation, whether KYC
+must be `Approved`; only a switch set to `false` turns it off (staff: `/merchants/policy/kyc`). One key per merchant: `X-Project` is the merchant id —
 onboarding takes `merchantId` from it (never the body), rejects unknown/inactive merchants with
 `100040`, and stamps it on the payer's profile and account rows. Every account belongs to a
 merchant: the system's own direct customers belong to `internal-001`, named `Internal001`
@@ -330,7 +343,9 @@ for merchant platforms and signed-in users: it has one resource per route in
 `amplify/service/publicRoutes.ts` and nothing else, with the same authorizer function and stage
 name `v1` (HMAC callers sign the path, `/v1` included). Its stage variable
 `API_SURFACE=public` makes the router answer 404 to any route not on that list. To expose a
-route publicly, add it to `publicRoutes` and document it in `docs/openapi/public-api.yaml`;
+route publicly, add it to `publicRoutes` with the permission an API key needs to call it
+(`amplify/service/permissions.ts`; `any` for every key, `null` for none) and document it in
+`docs/openapi/public-api.yaml`;
 staff (`/merchants/*`) and `/webhook/*` routes never go there. That document is rendered per
 branch, with the branch's URL, coins and brand, into `docs/openapi/branches/<branch>/` by the
 `api-docs` project skill (`.claude/skills/api-docs/`; wording and look in its `branding.yaml`).

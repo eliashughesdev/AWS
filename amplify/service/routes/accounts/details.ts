@@ -2,12 +2,13 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { getRecord, queryItemFromIndex } from '../../../utils/db'
 import { processError } from '../../../errors/http'
+import { callerUser } from '../../../utils/caller'
 
 export default class DetailsHandler {
   async execute(event: any, context: Context) {
-    // todo ensure that customer have enough right to get this account
-    // const cstomer = await getRecord('v2CustomerTable', event.body.accountNumber)
-    // const account = await byindes('v2CustomerTable', event.body.accountNumber)
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+
     const account = await queryItemFromIndex({
       tableName: 'v2CustomerTable',
       indexName: 'v1v2CustomerTableToAccountId',
@@ -19,13 +20,12 @@ export default class DetailsHandler {
         ':accountNumber': `ACCOUNT#${event.body.accountNumber}`,
       }
     })
-    if (!account.success || !account.res) {
-      console.error(`ERROR: Account not found for accountNo: ${event.body.accountNumber}`)
+    // Someone else's account is a miss, like one that does not exist: it read any account before
+    const accountDet = account.success ? account.res?.[0] : undefined
+    if (!accountDet || accountDet.id !== caller.userId) {
+      console.error(`ERROR: Account not found for the caller: ${event.body.accountNumber}`)
       return processError(100001)
     }
-
-
-    const accountDet = account.res[0]
 
     console.log('DEBUG: Retrieved Account Record:', JSON.stringify(account))
 

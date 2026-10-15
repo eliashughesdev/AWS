@@ -1,18 +1,22 @@
 import WithdrawHandler from './withdraw'
 import { queryItemFromIndex, updateItem } from '../../../utils/db'
 import { sendToQueue } from '../../../utils/sqs'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn(), updateItem: jest.fn() }))
 jest.mock('../../../utils/sqs', () => ({ sendToQueue: jest.fn() }))
 jest.mock('../../../utils/exchangeRate', () => ({ fetchCryptoPrice: jest.fn(async () => 0.25) }))
 jest.mock('../../../utils/masterAccount', () => ({ getMasterAccount: jest.fn(async () => ({ key: 'master' })) }))
 jest.mock('../../../utils/signing', () => ({ accountKeyRef: jest.fn(() => 'key-ref') }))
+// The policy itself is tested in utils/kycPolicy.test.ts; here it allows unless a test says not
+jest.mock('../../../utils/kycPolicy', () => ({ checkKyc: jest.fn() }))
+beforeEach(() => jest.mocked(checkKyc).mockResolvedValue(undefined))
 
 const tron = 'TPPjH6SeHdZQYYR3Yfk6Wr2xrazJc5MPPf'
 const sol = 'EQ6iRuVbqobWug3MrAVfMHt72VT2mkwpCQ57jEfGqc9j'
 
 const withdraw = (body: Record<string, unknown> = {}) => new WithdrawHandler().execute({
-  requestContext: { authorizer: { userId: 'user-1' } },
+  requestContext: { authorizer: { userId: 'user-1', authType: 'jwt' } },
   body: { accountNumber: 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4', currency: 'TRON', cryptoAmount: 25, destinationAddress: tron, transactionId: 'wdr_1', ...body },
 })
 
@@ -126,5 +130,26 @@ describe('/accounts/withdraw handler', () => {
       .mockResolvedValueOnce({ success: false, error: new Error('throttled') })
     const res = await withdraw()
     expect(answer(res)).toEqual({ error_code: 100002, message: 'the withdrawal could not be started; nothing was sent, but the balance could not be restored yet' })
+  })
+})
+
+// docs/public-api-plan.md D11
+describe('/accounts/withdraw KYC policy', () => {
+  it('asks the account\'s merchant\'s policy for withdrawals in the account\'s currency', async () => {
+    jest.mocked(queryItemFromIndex).mockResolvedValue({ success: true, res: [{ id: 'user-1', vAccountId: 'va-1', chain: 'TRON', merchantId: 'mrc_1' }] })
+    jest.mocked(updateItem).mockResolvedValue({ success: true, res: {}, error: null } as any)
+    jest.mocked(sendToQueue).mockResolvedValue({ success: true, res: { MessageId: 'job-1' } } as any)
+    await withdraw()
+    expect(checkKyc).toHaveBeenCalledWith({ userId: 'user-1', merchantId: 'mrc_1', currency: 'TRON', operation: 'withdraw' })
+  })
+
+  it('answers the refusal and debits and queues nothing', async () => {
+    jest.mocked(queryItemFromIndex).mockResolvedValue({ success: true, res: [{ id: 'user-1', vAccountId: 'va-1', chain: 'TRON', merchantId: 'mrc_1' }] })
+    jest.mocked(checkKyc).mockResolvedValue({ statusCode: 403, headers: {}, body: JSON.stringify({ error_code: 100059, message: 'x' }) } as any)
+    const res = await withdraw()
+    expect(res!.statusCode).toBe(403)
+    expect(answer(res).error_code).toBe(100059)
+    expect(updateItem).not.toHaveBeenCalled()
+    expect(sendToQueue).not.toHaveBeenCalled()
   })
 })

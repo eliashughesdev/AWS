@@ -1,45 +1,19 @@
-import crypto from 'crypto'
-import { customer } from '../credentials'
+import { accountsFor, callAsUser, run } from '../userSession'
 
-const path = '/v1/accounts/transfer'
-console.log('path: ', path)
+// Moves 1 TRX between two of the test user's TRON accounts (open a second one first).
+// E2E_TRANSFER_TO sends it to any other TRON account instead
+run(async () => {
+  const [sender, ownRecipient] = await accountsFor('TRON')
+  const recipient = process.env.E2E_TRANSFER_TO ?? ownRecipient
+  if (!sender || !recipient) throw new Error('The test user needs two TRON accounts, or set E2E_TRANSFER_TO')
 
-const body = JSON.stringify({
-  provider: 'PCF0001',
-  senderAccountNumber: 'PCF0001dd8701f8ede1456d987ac215fbd37f62',
-  recipientAccountNumber: 'PCF0001abc87b1a27d44fb6a794229f60987020',
-  amount: '120.30',
+  const { status, data } = await callAsUser('/accounts/transfer', {
+    provider: 'PCF0001',
+    senderAccountNumber: sender,
+    recipientAccountNumber: recipient,
+    amount: '1',
+  })
+  console.log(status, data)
 })
 
-const bodyHash = crypto.createHash('md5').update(JSON.stringify(body)).digest('hex')
-console.log('bodyHash', bodyHash)
-
-const timestamp = Date.now()
-console.log('timestamp', timestamp)
-
-console.log('stringToSign: ', `${path}${timestamp}${bodyHash}`)
-
-// create signature
-const signature = crypto
-  .createHmac('sha256', Buffer.from(customer.key, 'hex'))
-  .update(`${path}${timestamp}${bodyHash}`)
-  .digest('base64')
-console.log('signature: ', signature)
-
-const headers = {
-  Accept: 'application/json',
-  'Content-Type': 'application/json',
-  'X-Project': 'e2e-hmac',
-  'Authorization': `Signature ${timestamp}:${bodyHash}:${signature}`
-}
-
-const url = 'https://siao2sha29.execute-api.us-east-2.amazonaws.com/v1/accounts/transfer'
-fetch(url, { method: 'POST', body, headers })
-  .then(res => res.json())
-  .then(data => { console.log(data) })
-  .catch(err => console.log(err))
-
-// {
-//   success: true,
-//   res: { data: { id: '0198d8c8-6144-73ef-97b0-5eb24ec125f2' } }
-// }
+// 200 { success: true, res: { data: { transactionId: '<ledger reference>' } } }

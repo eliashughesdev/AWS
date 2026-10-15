@@ -2,18 +2,13 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { updateItem } from '../../../utils/db'
 import { DiditKycProvider } from '../../../providers/kyc/DiditKycProvider'
+import { callerUser } from '../../../utils/caller'
 
 export default class KycDiditSessionHandler {
   async execute(event: any, context: Context) {
-    const userId = event.requestContext?.authorizer?.userId
-
-    if (!userId) {
-      return response({
-        statusCode: 401,
-        headers: null,
-        bodyObject: { message: 'User ID not found in authorization context' }
-      })
-    }
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
 
     let provider: DiditKycProvider
     try {

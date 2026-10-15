@@ -2,16 +2,15 @@ import type { Context } from 'aws-lambda'
 import { response } from '../../../utils/http'
 import { queryItemFromIndex, queryRecord } from '../../../utils/db'
 import { processError } from '../../../errors/http'
+import { callerUser } from '../../../utils/caller'
 
 export default class TransactionsHandler {
   async execute(event: any, context: Context) {
-    const userId = event.requestContext?.authorizer?.userId
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
     // Shaped as an account number (schemas/accounts/transactions.json)
     const accountNumber: string = event.body.accountNumber
-
-    if (!userId) {
-      return response({ statusCode: 401, headers: null, bodyObject: { message: 'User ID not found in authorization context' } })
-    }
 
     const accountResult = await queryItemFromIndex({
       tableName: 'v2CustomerTable',

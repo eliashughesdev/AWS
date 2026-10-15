@@ -6,9 +6,11 @@ import { queryItemFromIndex, putItem, updateItem } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import { SYSTEM_MERCHANT_ID } from '../../../utils/systemMerchant'
+import { callerUser } from '../../../utils/caller'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 type Event = {
-  requestContext?: { authorizer?: { userId?: string } }
+  requestContext?: { authorizer?: { userId?: string, role?: string, authType?: string, merchantId?: string } }
   body: {
     provider: string
     senderAccountNumber: string
@@ -19,6 +21,10 @@ type Event = {
 
 export default class TransferFundsHandler {
   async execute(event: Event, context: Context) {
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
+
     // All four present and shaped, the amount a decimal above zero (schemas/accounts/transfer.json)
     const { provider, senderAccountNumber, recipientAccountNumber, amount } = event.body
 
@@ -38,7 +44,6 @@ export default class TransferFundsHandler {
       return processError(100001)
     }
 
-    const userId = event.requestContext?.authorizer?.userId
     if (senderResult.res[0].id !== userId) {
       return processError(100001)
     }
@@ -76,6 +81,10 @@ export default class TransferFundsHandler {
       console.error(`ERROR: Transfer from a ${currency} account to a ${currencyOf(recipientResult.res[0])} account refused`)
       return processError(100052, currency || 'this currency')
     }
+
+    // The sender's merchant's KYC policy for this currency (docs/public-api-plan.md D11)
+    const kycRefusal = await checkKyc({ userId, merchantId: senderResult.res[0].merchantId, currency, operation: 'transfer' })
+    if (kycRefusal) return kycRefusal
 
     const senderVAccountId = senderResult.res[0].vAccountId
     const recipientVAccountId = recipientResult.res[0].vAccountId

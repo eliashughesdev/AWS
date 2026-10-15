@@ -6,10 +6,10 @@ jest.mock('../../../utils/db', () => ({ queryItemFromIndex: jest.fn(), getRecord
 const accountNumber = 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4'
 const row = { id: 'user-1', sk: `ACCOUNT#${accountNumber}`, accountNo: accountNumber, vAccountId: 'va-1', chain: 'TRON' }
 
-const details = async () => {
-  const res = await new DetailsHandler().execute({ body: { accountNumber } }, {} as any)
-  return JSON.parse(res.body).res.data.res
-}
+const run = (userId = 'user-1') =>
+  new DetailsHandler().execute({ body: { accountNumber }, requestContext: { authorizer: { userId, authType: 'jwt' } } }, {} as any)
+
+const details = async () => JSON.parse((await run()).body).res.data.res
 
 describe('POST /accounts/details', () => {
   beforeEach(() => {
@@ -24,5 +24,19 @@ describe('POST /accounts/details', () => {
   it('answers the account number for an account that has no name', async () => {
     jest.mocked(queryItemFromIndex).mockResolvedValue({ success: true, res: [row] })
     expect((await details()).name).toBe(accountNumber)
+  })
+
+  // It answered any account to anyone signed in (docs/public-api-plan.md, step 1.1)
+  it('answers 100001 for another user\'s account, as for one that does not exist', async () => {
+    jest.mocked(queryItemFromIndex).mockResolvedValue({ success: true, res: [row] })
+    const res = await run('someone-else')
+    expect(res.statusCode).toBe(400)
+    expect(JSON.parse(res.body).error_code).toBe(100001)
+    expect(getRecord).not.toHaveBeenCalled()
+  })
+
+  it('answers 100001 for an account that does not exist', async () => {
+    jest.mocked(queryItemFromIndex).mockResolvedValue({ success: true, res: [] })
+    expect(JSON.parse((await run()).body).error_code).toBe(100001)
   })
 })

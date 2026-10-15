@@ -3,7 +3,7 @@ import { useQueuedOperation, type FailureMessages } from './queuedOperation'
 
 // A card deposit into one of the user's accounts.
 export function useDeposit(messages: FailureMessages) {
-  const { status, error, submitting, run, fail, reset } = useQueuedOperation(messages)
+  const { status, error, failure, errorCode, submitting, run, fail, reset } = useQueuedOperation(messages)
 
   function send({ accountNo, cardId, amount, userId, email }: {
     accountNo: string
@@ -37,5 +37,5 @@ export function useDeposit(messages: FailureMessages) {
     )
   }
 
-  return { status, error, submitting, send, reset }
+  return { status, error, failure, errorCode, submitting, send, reset }
 }

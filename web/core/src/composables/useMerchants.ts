@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { listMerchants, provisionMaster, registerMerchant } from '../api/merchants'
-import type { Merchant } from '../api/types'
+import { listMerchants, provisionMaster, registerMerchant, setKycPolicy } from '../api/merchants'
+import type { KycSwitches, Merchant } from '../api/types'
 
 // Every merchant with its currencies, for staff.
 export function useMerchants() {
@@ -38,5 +38,10 @@ export function useMerchants() {
     return provisionMaster({ merchantId, currency })
   }
 
-  return { merchants, loading, failed, load, refresh, register, addCurrency }
+  // Sends the request only, like register. One switch or several, for one currency.
+  function setKyc(merchantId: string, currency: string, switches: Partial<KycSwitches>) {
+    return setKycPolicy({ merchantId, currency, ...switches })
+  }
+
+  return { merchants, loading, failed, load, refresh, register, addCurrency, setKyc }
 }

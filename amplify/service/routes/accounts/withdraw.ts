@@ -7,6 +7,8 @@ import { decimalsFor, isNativeCurrency } from '../../../utils/currencies'
 import { getMasterAccount } from '../../../utils/masterAccount'
 import { accountKeyRef } from '../../../utils/signing'
 import { isValidAddressFor } from '../../../utils/addresses'
+import { callerUser } from '../../../utils/caller'
+import { checkKyc } from '../../../utils/kycPolicy'
 
 // Held back for the network fee of a native coin: the real one is only known
 // after the broadcast, and the customer pays it. The same numbers as core's
@@ -21,17 +23,11 @@ export default class WithdrawHandler {
   async execute(event: any) {
     console.log('DEBUG: WithdrawHandler execution started.')
 
-    const userId = event.requestContext?.authorizer?.userId
+    const caller = callerUser(event)
+    if (caller.error) return caller.error
+    const { userId } = caller
     // Exactly one of amount and cryptoAmount, above zero, and a destination (schemas/accounts/withdraw.json)
     const { accountNumber, currency, amount, cryptoAmount: directCryptoAmount, destinationAddress, transactionId } = event.body
-
-    if (!userId) {
-      return response({
-        statusCode: 401,
-        headers: null,
-        bodyObject: { message: 'User ID not found in authorization context' }
-      })
-    }
 
     // Look up account via GSI to verify it exists
     const account = await queryItemFromIndex({
@@ -89,6 +85,10 @@ export default class WithdrawHandler {
       console.error(`ERROR: Destination is not a ${accountChain} address`)
       return processError(100048)
     }
+
+    // The merchant's KYC policy for this currency (docs/public-api-plan.md D11), before any debit
+    const kycRefusal = await checkKyc({ userId, merchantId: accountRecord.merchantId, currency: accountChain, operation: 'withdraw' })
+    if (kycRefusal) return kycRefusal
 
     // Rounded to what the chain carries, so DynamoDB, Tatum and the chain move the same amount (B21).
     // If a direct crypto amount is provided, skip the fiat conversion

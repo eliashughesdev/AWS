@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useTransfer } from '@loudibly/core/composables/useTransfer'
+import KycNotice from '../components/KycNotice.vue'
+import { useKycGate } from '../kycGate'
+import { KYC_REQUIRED, verificationNeeded } from '@loudibly/core/composables/useKyc'
 
 const router = useRouter()
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
 const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
-const { status: transferStatus, error: transferError, submitting, send, reset } = useTransfer({
+const { status: transferStatus, error: transferError, errorCode: transferErrorCode, submitting, send, reset } = useTransfer({
   rejected:   'Transfer failed. Please try again.',
   unexpected: 'An unexpected error occurred.',
 })
@@ -22,6 +25,16 @@ const amount       = ref('')
 const formError    = ref('')
 
 const fromAccount = computed(() => accounts.value.find(a => a.accountNo === selectedFrom.value))
+
+// The sending account's merchant may want a verified identity for transfers in its currency
+const { kyc, readKyc } = useKycGate()
+const mustVerify = computed(() => verificationNeeded(fromAccount.value?.kycRequired?.transfer, kyc.value))
+const failureText = computed(() => transferErrorCode.value === KYC_REQUIRED
+  ? 'Transfers in this currency need a verified identity. Verify it, then try again.'
+  : transferError.value)
+
+// The policy refused it: the status read before may be out of date, and the notice must show
+watch(transferErrorCode, code => { if (code === KYC_REQUIRED) readKyc() })
 
 onMounted(async () => {
   if (!(await loadUser())) {
@@ -47,6 +60,7 @@ async function submit() {
     formError.value = 'Please select both source and destination accounts.'
     return
   }
+  if (mustVerify.value) return
   if (selectedFrom.value === selectedTo.value) {
     formError.value = 'Source and destination accounts must be different.'
     return
@@ -136,7 +150,7 @@ async function handleSignOut() {
               <template v-else-if="transferStatus === 'failed'">
                 <span class="material-symbols-outlined text-6xl text-red-400" style="font-variation-settings: 'FILL' 1">cancel</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Transfer Failed</p>
-                <p class="text-sm text-red-400">{{ transferError }}</p>
+                <p class="text-sm text-red-400">{{ failureText }}</p>
                 <button @click="resetForm"
                   class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-surface-1 border border-border-subtle text-white rounded-full hover:bg-surface-2 active:scale-95 transition-all">
                   Try Again
@@ -197,8 +211,10 @@ async function handleSignOut() {
             <!-- Error -->
             <p v-if="formError" class="text-red-400 text-xs -mt-2">{{ formError }}</p>
 
-            <!-- Submit -->
+            <!-- Submit, or what the account's KYC policy wants first -->
+            <KycNotice v-if="mustVerify" :what="`Transfers in ${fromAccount?.chain}`" :status="kyc!" />
             <button
+              v-else
               type="button"
               @click="submit"
               :disabled="submitting"
