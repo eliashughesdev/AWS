@@ -4,7 +4,7 @@ import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useMerchants } from '@loudibly/core/composables/useMerchants'
 import { LEDGER_CURRENCIES } from '@loudibly/core/config'
-import type { Merchant } from '@loudibly/core/api/types'
+import type { KycSwitches, Merchant } from '@loudibly/core/api/types'
 import { useRouter } from 'vue-router'
 import MainLayout from '../layouts/MainLayout.vue'
 import RegisterMerchantDialog from '../components/RegisterMerchantDialog.vue'
@@ -13,7 +13,7 @@ import { currencyLabel, statusPill } from '../merchants'
 const router = useRouter()
 
 const { userEmail, displayName, load: loadUser } = useCurrentUser()
-const { merchants, failed, load, refresh, addCurrency } = useMerchants()
+const { merchants, failed, load, refresh, addCurrency, setKyc } = useMerchants()
 
 const state       = ref<'loading' | 'failed' | 'ready'>('loading')
 const registering = ref(false)
@@ -93,6 +93,46 @@ async function provision(merchant: Merchant, currency: string) {
   }
   await reread()
   busy.value = ''
+}
+
+// ── KYC policy ─────────────────────────────────────────────────────────────────
+// Per currency, whether each money operation needs the user's identity verified. A switch nobody
+// turned off is on: the backend answers it as required.
+const kycOperations: { key: keyof KycSwitches; label: string }[] = [
+  { key: 'withdraw',    label: 'Withdraw' },
+  { key: 'transfer',    label: 'Transfer' },
+  { key: 'cardDeposit', label: 'Card deposit' },
+]
+
+// `<merchant id>:<currency>:<operation>` while its request runs. One at a time.
+const kycBusy  = ref('')
+const kycNotes = reactive<Record<string, { tone: string; text: string }>>({})
+
+async function toggleKyc(merchant: Merchant, currency: string, operation: keyof KycSwitches) {
+  const id      = merchant.merchantId
+  const current = merchant.kycRequired?.[currency]?.[operation] ?? true
+  const label   = `${kycOperations.find(op => op.key === operation)!.label} in ${currencyLabel(currency)}`
+  kycBusy.value = `${id}:${currency}:${operation}`
+  delete kycNotes[id]
+
+  try {
+    const { ok, status, data } = await setKyc(id, currency, { [operation]: !current })
+    if (ok && data.success) {
+      // Shown at once from the answer; the list read below confirms it
+      if (merchant.kycRequired && data.kycRequired) merchant.kycRequired[currency] = data.kycRequired
+      kycNotes[id] = { tone: 'text-green-400', text: `${label}: KYC ${current ? 'no longer required' : 'required'}.` }
+    } else if (status === 403) {
+      kycNotes[id] = { tone: 'text-red-400', text: 'Your session is not allowed to change merchants.' }
+    } else if (data.error_code === 100040) {
+      kycNotes[id] = { tone: 'text-red-400', text: 'This merchant does not exist.' }
+    } else {
+      kycNotes[id] = { tone: 'text-red-400', text: `${label} was not changed. Try again.` }
+    }
+  } catch {
+    kycNotes[id] = { tone: 'text-amber-400', text: `No answer came back for ${label}. Refresh to see whether it changed.` }
+  }
+  await reread()
+  kycBusy.value = ''
 }
 
 const copied = ref('')
@@ -235,6 +275,49 @@ async function copy(text: string) {
             </table>
           </div>
           <p v-else class="px-6 py-4 border-t border-border-subtle text-xs text-text-secondary">No currencies yet.</p>
+
+          <!-- KYC policy: one switch per currency and operation -->
+          <div v-if="merchant.kycRequired" class="border-t border-border-subtle">
+            <div class="px-6 pt-4">
+              <p class="font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase tracking-widest">Identity verification required</p>
+              <p class="mt-1 text-[11px] text-text-secondary">Users of this merchant must be verified before these operations. On unless switched off.</p>
+            </div>
+            <div class="overflow-x-auto pb-2">
+              <table class="w-full text-left mt-2">
+                <thead>
+                  <tr>
+                    <th class="w-56 px-6 py-2 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase">Currency</th>
+                    <th v-for="op in kycOperations" :key="op.key" class="px-6 py-2 font-['JetBrains_Mono'] text-[10px] text-text-muted uppercase whitespace-nowrap">{{ op.label }}</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border-subtle">
+                  <tr v-for="currency in LEDGER_CURRENCIES" :key="currency">
+                    <td class="px-6 py-2.5 text-[14px] whitespace-nowrap">{{ currencyLabel(currency) }}<span v-if="currencyLabel(currency) !== currency" class="ml-2 text-[11px] text-text-muted font-['JetBrains_Mono']">{{ currency }}</span></td>
+                    <td v-for="op in kycOperations" :key="op.key" class="px-6 py-2.5">
+                      <button
+                        type="button"
+                        role="switch"
+                        :aria-checked="merchant.kycRequired[currency]?.[op.key] ?? true"
+                        :aria-label="`KYC for ${op.label.toLowerCase()} in ${currencyLabel(currency)}`"
+                        :disabled="kycBusy !== ''"
+                        @click="toggleKyc(merchant, currency, op.key)"
+                        class="inline-flex items-center gap-2 text-[11px] font-['JetBrains_Mono'] disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span class="relative inline-block h-5 w-9 rounded-full border transition-colors"
+                          :class="(merchant.kycRequired[currency]?.[op.key] ?? true) ? 'bg-brand border-brand' : 'bg-surface-2 border-border-subtle'">
+                          <span class="absolute top-0.5 size-3.5 rounded-full bg-white transition-all"
+                            :class="(merchant.kycRequired[currency]?.[op.key] ?? true) ? 'left-[18px]' : 'left-0.5'" />
+                        </span>
+                        <span :class="(merchant.kycRequired[currency]?.[op.key] ?? true) ? 'text-white' : 'text-text-muted'">
+                          {{ kycBusy === `${merchant.merchantId}:${currency}:${op.key}` ? 'Saving…' : (merchant.kycRequired[currency]?.[op.key] ?? true) ? 'Required' : 'Off' }}
+                        </span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p v-if="kycNotes[merchant.merchantId]" class="px-6 pb-4 text-xs" :class="kycNotes[merchant.merchantId].tone">{{ kycNotes[merchant.merchantId].text }}</p>
+          </div>
 
           <div v-if="missing(merchant).length || notes[merchant.merchantId]"
             class="flex flex-wrap items-center gap-3 px-6 py-4 border-t border-border-subtle">

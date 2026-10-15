@@ -28,6 +28,8 @@ export function accountChoices(accounts: Account[]) {
         address:   account.depositAddress || '',
         balance:   account.balance,
         available: account.availableBalance,
+        // Which operations its merchant wants a verified identity for; unknown from an older backend
+        kycRequired: account.kycRequired,
       }
     })
     .sort((a, b) => rank(a.symbol) - rank(b.symbol) || a.name.localeCompare(b.name) || a.value.localeCompare(b.value))

@@ -200,7 +200,11 @@ There are three deployable pieces in this one repo:
   sign-in, and throws when either fails: `passwordSet` says which, and a view must not send the
   user to sign-in while it is false. Its failure results, and `verify()`'s, carry the API's
   `errorCode`. Composables stop their own timers and sockets with `onScopeDispose`, so call them
-  in `setup`.
+  in `setup`. An account's `kycRequired` says which money operations its merchant's KYC policy
+  gates; a form whose operation is gated for a user who is not verified shows its app's
+  `KycNotice` instead of its submit button (`verificationNeeded()`, `canStartKyc()` in
+  `useKyc`), and words the API's `KYC_REQUIRED` (`100059`) itself. A status that could not be
+  read gates nothing: the API decides.
 
   The old `vue-app/` directory is gone from git; a local copy holding only `dist/` and
   `node_modules/` may still exist and should be ignored.

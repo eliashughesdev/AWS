@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { looksLikeAddress, useWithdraw, withdrawalFeeReserve } from '@loudibly/core/composables/useWithdraw'
+import { KYC_REQUIRED, useKyc, verificationNeeded } from '@loudibly/core/composables/useKyc'
 import AppDialog from '../components/AppDialog.vue'
 import AppIcon from '../components/AppIcon.vue'
 import CoinRow from '../components/CoinRow.vue'
 import DropdownList from '../components/DropdownList.vue'
+import KycNotice from '../components/KycNotice.vue'
 import ListState from '../components/ListState.vue'
 import { accountChoices } from '../accountChoices'
 import { BLANK, coinAmount, shorten } from '../format'
@@ -57,6 +59,27 @@ async function read() {
 }
 
 onMounted(read)
+
+// Whether the user's identity is verified: the chosen account's merchant may want it for
+// withdrawals in its currency. Unknown while unread or when the read fails, and then the form
+// sends as usual and the API decides.
+const { status: kycStatus, failed: kycFailed, load: loadKyc } = useKyc()
+const kyc = computed(() => kycFailed.value ? null : kycStatus.value)
+
+async function readKyc() {
+  await loadKyc().catch(() => { kycStatus.value = null })
+}
+
+const mustVerify = computed(() => !!account.value && verificationNeeded(account.value.kycRequired?.withdraw, kyc.value))
+
+onMounted(readKyc)
+
+// Back from Didit with the browser's back button, the page is shown as it was left.
+function onPageShow(event: PageTransitionEvent) {
+  if (event.persisted) readKyc()
+}
+onMounted(() => window.addEventListener('pageshow', onPageShow))
+onUnmounted(() => window.removeEventListener('pageshow', onPageShow))
 
 const amount = ref('')
 const address = ref('')
@@ -140,6 +163,7 @@ const refusals: Record<number, string> = {
   100008: 'Enter a destination address.',
   100009: 'Withdrawals are not available for this currency yet.',
   100048: 'That is not an address on this network.',
+  [KYC_REQUIRED]: 'Withdrawals in this currency need a verified identity. Verify it, then try again.',
 }
 
 const { status, failure, errorCode, txId, send, reset } = useWithdraw(wording)
@@ -162,7 +186,7 @@ const outcome = computed(() => {
 })
 
 async function withdraw() {
-  if (!account.value || starting.value || status.value !== 'idle' || !check()) return
+  if (!account.value || starting.value || status.value !== 'idle' || mustVerify.value || !check()) return
   starting.value = true
   // The result is pushed to the user's own connection.
   if (userId.value || await loadUser()) {
@@ -182,6 +206,8 @@ watch(status, (now) => {
   if (now === 'success' || unsure.value) amount.value = address.value = ''
   // The amount left the account, or came back to it.
   refresh().catch(() => {})
+  // The policy refused it: the status read before may be out of date, and the notice must show
+  if (errorCode.value === KYC_REQUIRED) readKyc()
 })
 
 const copied = ref(false)
@@ -305,7 +331,8 @@ const dialogButton = 'grid h-[45px] place-items-center rounded-[5px] text-[12px]
           </div>
         </div>
 
-        <button type="submit" :disabled="!account || starting" class="bg-cta mt-[15px] h-[45px] w-full rounded-[5px] border-[0.5px] border-card-line text-[12px] font-semibold text-white light:border-0 lg:mt-[20px] lg:h-[50px] lg:text-[16px] lg:font-medium">Withdraw now</button>
+        <KycNotice v-if="mustVerify" :what="`Withdrawals in ${account.symbol}`" :status="kyc!" />
+        <button v-else type="submit" :disabled="!account || starting" class="bg-cta mt-[15px] h-[45px] w-full rounded-[5px] border-[0.5px] border-card-line text-[12px] font-semibold text-white light:border-0 lg:mt-[20px] lg:h-[50px] lg:text-[16px] lg:font-medium">Withdraw now</button>
       </form>
     </section>
 

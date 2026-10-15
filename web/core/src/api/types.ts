@@ -1,6 +1,14 @@
 // The fields the UI reads, not the full backend payloads. Optional where an
 // error response or an empty body leaves them missing.
 
+// Whether each money operation needs the user's identity verified, as the account's merchant set
+// it (the backend's KYC policy; an operation nobody switched off needs it).
+export interface KycSwitches {
+  withdraw: boolean
+  transfer: boolean
+  cardDeposit: boolean
+}
+
 export interface Account {
   accountNo: string
   // What its owner typed, or the account number when they typed nothing.
@@ -12,6 +20,8 @@ export interface Account {
   balance: number
   // What a withdrawal is checked against.
   availableBalance: number
+  // Missing from a backend older than the KYC policy, which checked nothing.
+  kycRequired?: KycSwitches
 }
 
 export interface Transaction {
@@ -45,4 +55,6 @@ export interface Merchant {
   accountingCurrency: string
   createdAt: string | null
   currencies: MerchantCurrency[]
+  // By ledger currency, every one the backend knows.
+  kycRequired?: Record<string, KycSwitches>
 }

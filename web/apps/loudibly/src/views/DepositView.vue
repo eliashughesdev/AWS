@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
 import { useRouter } from 'vue-router'
@@ -7,13 +7,16 @@ import MainLayout from '../layouts/MainLayout.vue'
 import { useAccounts } from '@loudibly/core/composables/useAccounts'
 import { useDeposit } from '@loudibly/core/composables/useDeposit'
 import { useCards } from '@loudibly/core/composables/useCards'
+import KycNotice from '../components/KycNotice.vue'
+import { useKycGate } from '../kycGate'
+import { KYC_REQUIRED, verificationNeeded } from '@loudibly/core/composables/useKyc'
 
 const router = useRouter()
 
 const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
 const { accounts, load: loadAccounts } = useAccounts()
 const { cards, load: loadCards } = useCards()
-const { status: depositStatus, error: depositError, submitting, send, reset } = useDeposit({
+const { status: depositStatus, error: depositError, errorCode: depositErrorCode, submitting, send, reset } = useDeposit({
   rejected:   'Deposit request failed. Please try again.',
   failed:     'Payment declined. Please try again.',
   timeout:    'No confirmation received. Your deposit may still be processing — check your balance later.',
@@ -26,6 +29,17 @@ const selectedAccount = ref('')
 const selectedCard    = ref('')
 const amount          = ref('')
 const formError       = ref('')
+
+// The account's merchant may want a verified identity for card deposits in its currency
+const chosenAccount = computed(() => accounts.value.find(a => a.accountNo === selectedAccount.value))
+const { kyc, readKyc } = useKycGate()
+const mustVerify = computed(() => verificationNeeded(chosenAccount.value?.kycRequired?.cardDeposit, kyc.value))
+const failureText = computed(() => depositErrorCode.value === KYC_REQUIRED
+  ? 'Card deposits in this currency need a verified identity. Verify it, then try again.'
+  : depositError.value)
+
+// The policy refused it: the status read before may be out of date, and the notice must show
+watch(depositErrorCode, code => { if (code === KYC_REQUIRED) readKyc() })
 
 onMounted(async () => {
   if (!(await loadUser())) {
@@ -52,6 +66,7 @@ async function submit() {
   formError.value = ''
 
   if (!selectedAccount.value) { formError.value = 'Please select an account.'; return }
+  if (mustVerify.value) return
   if (!selectedCard.value)    { formError.value = 'Please select a payment method.'; return }
   const parsed = parseFloat(amount.value)
   if (!amount.value || isNaN(parsed) || parsed <= 0) {
@@ -163,7 +178,7 @@ const cardTypeLabel: Record<string, string> = {
               <template v-else-if="depositStatus === 'failed'">
                 <span class="material-symbols-outlined text-6xl text-red-400" style="font-variation-settings: 'FILL' 1">cancel</span>
                 <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Deposit Failed</p>
-                <p class="text-sm text-red-400">{{ depositError }}</p>
+                <p class="text-sm text-red-400">{{ failureText }}</p>
                 <button @click="resetForm"
                   class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-surface-1 border border-border-subtle text-white rounded-full hover:bg-surface-2 active:scale-95 transition-all">
                   Try Again
@@ -222,8 +237,10 @@ const cardTypeLabel: Record<string, string> = {
             <!-- Error -->
             <p v-if="formError" class="text-red-400 text-xs -mt-2">{{ formError }}</p>
 
-            <!-- Submit -->
+            <!-- Submit, or what the account's KYC policy wants first -->
+            <KycNotice v-if="mustVerify" :what="`Card deposits in ${chosenAccount?.chain || chosenAccount?.currency}`" :status="kyc!" />
             <button
+              v-else
               type="button"
               @click="submit"
               :disabled="submitting"

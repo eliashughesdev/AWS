@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { Merchant } from './types'
+import type { KycSwitches, Merchant } from './types'
 
 // Staff only, and on the internal API only: the public one has none of these routes.
 
@@ -22,6 +22,15 @@ export function registerMerchant(body: {
     currencies?: Record<string, { status: string; depositAddress?: string }>
     seeds?: Record<string, string>
   }>('/merchants/register', { method: 'POST', body })
+}
+
+// Switches KYC on (true) or off (false) for a merchant's operations in one currency. Only the
+// switches sent change; the answer has the currency's switches as they now stand.
+export function setKycPolicy(body: { merchantId: string; currency: string } & Partial<KycSwitches>) {
+  return request<{ success?: boolean; kycRequired?: KycSwitches; error_code?: number }>(
+    '/merchants/policy/kyc',
+    { method: 'POST', body },
+  )
 }
 
 // Adds a currency to a merchant, or finishes one left `provisioning`.
