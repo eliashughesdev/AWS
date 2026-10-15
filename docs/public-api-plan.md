@@ -53,14 +53,14 @@ next one that depends on it is started.
   `id=<caller>#<key>`, `sk=IDEMPOTENCY` in `v2CustomerTable` with the first response, 24 h TTL;
   same key + different body → 409; a request still running → 409 "in progress". Today's
   `transactionId` is only a label, so a retried withdrawal sends twice. Tests. → D6.1 — done 2026-10-14, cf59092
-- [ ] **1.5 Operation records.** `/accounts/withdraw` and `/accounts/deposit` write
+- [x] **1.5 Operation records.** `/accounts/withdraw` and `/accounts/deposit` write
   `id=<userId>, sk=OP#<opId>` in `v2CustomerTable` (`kind`, `status: pending`, account, amounts,
   destination) before queueing — for a withdrawal in the same `transactWriteItems` as the debit;
   the withdrawal and payment processors set `status`, `txHash`, `fee`, `code` on it when they
   write their log row. Today nothing is written until the processor finishes, so a queued
   operation cannot be looked up; the web UI learns results over the WebSocket, an API caller
   has none. The UI is unchanged. Tests incl. queue failure (record marked failed with the
-  rollback). → D6.4
+  rollback). → D6.4 — done 2026-10-14, 20a5490
 
 - [x] **1.6 KYC policy, backend.** `POLICY#KYC` row per merchant in `v1MerchantTable`;
   `utils/kycPolicy.ts` (`kycRequired(merchantId, currency, operation)`, unset = required);
