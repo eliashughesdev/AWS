@@ -150,8 +150,8 @@ describe('/accounts/transfer handler', () => {
 describe('/accounts/transfer KYC policy', () => {
   it('asks the sender\'s merchant\'s policy for transfers in the currency', async () => {
     accounts[sender].merchantId = 'mrc_1'
+    accounts[recipient].merchantId = 'mrc_1'
     await transfer({})
-    delete accounts[sender].merchantId
     expect(checkKyc).toHaveBeenCalledWith({ userId: 'user-1', merchantId: 'mrc_1', currency: 'USDT_TRON', operation: 'transfer' })
   })
 
