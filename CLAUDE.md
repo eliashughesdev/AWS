@@ -372,8 +372,8 @@ runtime by config rather than hardcoded per route (see `PaymentProcessor` /
 adding a new payment or ledger provider, implement the existing interface rather than
 special-casing the new provider in route handlers. TRON energy and bandwidth rental
 (`providers/energy/`) has the same shape: an `EnergyProvider` per vendor (`catfee/`, energy only
-and at least 65,000; `tronsave/`, both resources) and the shared logic in `ensureResources.ts`,
-which tries them in the order `TRON_ENERGY_PROVIDERS` names (SSM, default `catfee,tronsave`; a
+and at least 65,000; `tronsave/`, both resources, at least 64,000 energy or 1,000 bandwidth) and
+the shared logic in `ensureResources.ts`, which tries them in the order `TRON_ENERGY_PROVIDERS` names (SSM, default `catfee,tronsave`; a
 name it does not know logs `CONFIG_ERROR`). `ensureEnergy` and `ensureBandwidth`, which a TRC-20
 transfer's signer goes through, rent the address's shortfall plus 1%, raised to the provider's
 `minimum()`, and poll the address until it arrives (2 s, up to the provider's `deliveryTimeoutMs`:

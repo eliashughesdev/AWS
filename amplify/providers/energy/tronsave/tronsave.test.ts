@@ -66,8 +66,14 @@ describe('TronSaveProvider.rent', () => {
     await expect(provider.rent(request)).rejects.toThrow('TronSave POST /v2/buy-resource -> 500')
   })
 
-  it('has no minimum, rents both resources and is given 120 s to deliver', () => {
-    expect(provider.minimum()).toBe(0)
+  // energy-rental-plan step 4: on Nile, 32,000 energy or 400 bandwidth was answered 500;
+  // 64,000 and 1,000 filled
+  it('rents at least 64,000 energy or 1,000 bandwidth', () => {
+    expect(provider.minimum('ENERGY')).toBe(64_000)
+    expect(provider.minimum('BANDWIDTH')).toBe(1_000)
+  })
+
+  it('rents both resources and is given 120 s to deliver', () => {
     expect(provider.resources).toEqual(['ENERGY', 'BANDWIDTH'])
     expect(provider.deliveryTimeoutMs).toBe(120_000)
   })

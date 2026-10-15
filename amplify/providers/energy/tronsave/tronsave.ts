@@ -1,5 +1,5 @@
 import { isTronAccountActive } from '../../ledger/tatum/chains/tron'
-import type { EnergyProvider, RentOutcome, RentRequest } from '../EnergyProvider'
+import type { EnergyProvider, RentOutcome, RentRequest, ResourceType } from '../EnergyProvider'
 
 // Read lazily (not as module-level consts) — loadConfig() refreshes these from
 // SSM/Secrets Manager at request time, after this module has already been
@@ -25,6 +25,10 @@ const DURATION_SEC = 900
 
 // TronSave accepts a named speed tier or an explicit SUN price.
 const UNIT_PRICE = 'MEDIUM'
+
+// The smallest order it takes (measured on Nile, energy-rental-plan step 4).
+// A smaller one is answered 500 "resourceAmount must be greater than 64000".
+const MINIMUM: Record<ResourceType, number> = { ENERGY: 64_000, BANDWIDTH: 1_000 }
 
 const REQUEST_TIMEOUT_MS = 10_000
 
@@ -80,8 +84,8 @@ export class TronSaveProvider implements EnergyProvider {
   readonly deliveryTimeoutMs = 120_000
   readonly activationSun = ACTIVATION_SUN
 
-  minimum(): number {
-    return 0
+  minimum(resource: ResourceType): number {
+    return MINIMUM[resource]
   }
 
   async rent({ resource, receiver, amount, onActivated }: RentRequest): Promise<RentOutcome> {
