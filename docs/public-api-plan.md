@@ -87,10 +87,12 @@ next one that depends on it is started.
 - [x] **2.2 Issuer Lambda.** `create` (id + secret, hash to SSM, row, secret returned once) and
   `revoke` (delete parameter, mark row). Tests with SSM/DynamoDB mocked. → D2.1, D2.2 — done
   2026-10-15, fe79afe. Permissions are a sorted list, not a set.
-- [ ] **2.3 Authorizer `Basic` branch.** Row check, IP allowlist, cached hash, constant-time
+- [x] **2.3 Authorizer `Basic` branch.** Row check, IP allowlist, cached hash, constant-time
   compare, owner still active (user, or merchant `active`), context `authType: 'apikey'`,
   `ownerType`, `permissions`, `keyId` (+ `merchantId` for a merchant key). Audit the
-  authorizer's logs (no headers, no `res` objects). Tests incl. the old JWT/HMAC cases. → D2.3
+  authorizer's logs (no headers, no `res` objects). Tests incl. the old JWT/HMAC cases. → D2.3 — done
+  2026-10-15, bd1810f. A merchant key is role `admin` (as its HMAC key), a user key `user`; the
+  public API's authorizer needs only `Authorization` (no `X-Project`).
 - [ ] **2.4 Rate limiting.** Conditional counters in the authorizer, `throttled` in context,
   SSM default `API_KEY_DEFAULT_RPS`, public stage throttle 50/100 → 500/1000 (agreed
   2026-10-14). → D2.5
