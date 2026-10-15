@@ -1,4 +1,5 @@
 import axios from 'axios'
+import '../../utils/redactAxios' // keeps the API key out of logged errors
 import { createHmac, timingSafeEqual } from 'crypto'
 
 // Didit's limit on the gap between X-Timestamp and now

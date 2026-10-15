@@ -1,4 +1,5 @@
 import axios from 'axios'
+import '../../../../utils/redactAxios' // keeps the API key out of logged errors
 import bs58 from 'bs58'
 import { createHash } from 'crypto'
 import { OnChainTransaction } from '../../provider'

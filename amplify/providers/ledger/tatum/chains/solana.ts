@@ -1,4 +1,5 @@
 import axios from 'axios'
+import '../../../../utils/redactAxios' // keeps the API key out of logged errors
 import { Connection, PublicKey, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { OnChainTransaction } from '../../provider'
 
