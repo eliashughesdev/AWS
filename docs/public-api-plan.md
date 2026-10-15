@@ -104,12 +104,13 @@ next one that depends on it is started.
   `100054`–`100062` (`100059` already from 1.6). Tests per check. → D2.4, D2.6, D5 — done
   2026-10-15, 69af03a. Answers to a key carry `X-RateLimit-*`; a key shares its owner's
   Idempotency-Key namespace.
-- [ ] **2.6 Key-management routes.** `/accounts/api-keys/{permissions,create,list,update,revoke}`
+- [x] **2.6 Key-management routes.** `/accounts/api-keys/{permissions,create,list,update,revoke}`
   and staff `/merchants/api-keys/{create,list,rate-limit,revoke}` (staff create a merchant's
   keys), JWT only, schemas, tests. The owner is emailed when one of their keys is created or
-  revoked (SES provider; a merchant key: the merchant's contact email). The email names the
+  revoked (SES provider; a merchant key: its active team members). The email names the
   key and its id, never the secret; a failed send is logged and does not fail the request.
-  → D2.6, D9
+  → D2.6, D9 — done 2026-10-15, ca6944d. A user with no profile yet gets `100063` (open an
+  account first), since the authorizer refuses a key whose owner has none.
 - [ ] **2.7 e2e** `amplify/service/routes/e2e/apiKeys/ApiKeysTest.ts` on `main`: create (JWT) →
   call `/accounts/list` with the key → missing permission 403 → burst 429 → revoke → refused;
   staff create a merchant key → `/accounts/onboarding` with it → the same key on
