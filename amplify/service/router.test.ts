@@ -1,11 +1,13 @@
-import { router, routes } from './router'
+import { findRoute, routeAt, router, routes } from './router'
+import { publicRoutes } from './publicRoutes'
+import { isTemplate, placeholdersOf } from './routeMatch'
 
 const post = (path: string, body: unknown) =>
   router({ path, httpMethod: 'POST', body: JSON.stringify(body) }, {})
 
 // Replaces a route's handler so no test reaches AWS, Tatum or DynamoDB
 const stubHandler = (path: string) => {
-  const execute = jest.spyOn(routes.get(path)!.handler.prototype, 'execute')
+  const execute = jest.spyOn(routeAt(path)!.handler.prototype, 'execute')
     .mockResolvedValue({ statusCode: 200, headers: {}, body: '{}' })
   return execute
 }
@@ -181,5 +183,110 @@ describe('router on the public API', () => {
     const res = await publicPost('/v1/accounts/details', { accountNumber })
     expect(res.statusCode).toBe(404)
     expect(execute).not.toHaveBeenCalled()
+  })
+})
+
+// docs/public-api-plan.md step 1.3: paths with {placeholders}, and several methods on one path
+describe('path templates', () => {
+  const accountNo = /^PCF[0-9]{4}[0-9a-f]{32}$/
+  const account = 'PCF00018604bbd641df4bb0aa5243e1e78f5cc4'
+  const seen: any[] = []
+  class Handler { async execute(event: any) { seen.push(event); return { statusCode: 200, headers: {}, body: JSON.stringify({ handler: this.constructor.name }) } } }
+  class ReadAccount extends Handler {}
+  class RenameAccount extends Handler {}
+  class Cancel extends Handler {}
+  class Wildcard extends Handler {}
+
+  const temporary: [string, any][] = [
+    ['GET /accounts/{id}', { path: '/accounts/{id}', method: 'GET', handler: ReadAccount, requiredParams: [], params: { id: accountNo } }],
+    ['PATCH /accounts/{id}', { path: '/accounts/{id}', method: 'PATCH', handler: RenameAccount, requiredParams: [], params: { id: accountNo } }],
+    ['POST /withdrawals/{id}/cancel', { path: '/withdrawals/{id}/cancel', method: 'POST', handler: Cancel, requiredParams: [], params: { id: /^wdr_\w+$/ } }],
+    ['POST /withdrawals/{id}/{action}', { path: '/withdrawals/{id}/{action}', method: 'POST', handler: Wildcard, requiredParams: [], params: { id: /^wdr_\w+$/, action: /^\w+$/ } }],
+  ]
+
+  beforeAll(() => { for (const [key, route] of temporary) routes.set(key, route) })
+  afterAll(() => { for (const [key] of temporary) routes.delete(key) })
+  beforeEach(() => { seen.length = 0 })
+
+  const call = (httpMethod: string, path: string, extra: Record<string, unknown> = {}) =>
+    router({ path, httpMethod, body: httpMethod === 'GET' ? null : '{}', requestContext: { authorizer: { role: 'user' } }, ...extra } as any, {})
+  const handlerOf = async (res: Promise<{ statusCode: number, body: string }>) => {
+    const r = await res
+    return r.statusCode === 200 ? JSON.parse(r.body).handler : r.statusCode
+  }
+
+  it('runs the route of the method, with the placeholder\'s value as pathParameters', async () => {
+    expect(await handlerOf(call('GET', `/v1/accounts/${account}`))).toBe('ReadAccount')
+    expect(seen[0].pathParameters).toEqual({ id: account })
+    expect(await handlerOf(call('PATCH', `/accounts/${account}`))).toBe('RenameAccount')
+  })
+
+  it('replaces API Gateway\'s own pathParameters ({ proxy } on the internal API)', async () => {
+    await call('GET', `/accounts/${account}`, { pathParameters: { proxy: `accounts/${account}` } })
+    expect(seen[0].pathParameters).toEqual({ id: account })
+  })
+
+  it('keeps a path written as it is ahead of a template', async () => {
+    const execute = stubHandler('/accounts/list')
+    const res = await call('GET', '/accounts/list')
+    expect(res.statusCode).toBe(200)
+    expect(execute).toHaveBeenCalledTimes(1)
+    expect(seen).toHaveLength(0)
+  })
+
+  it('answers 405 for a method the path does not have, a fixed path included', async () => {
+    expect(await handlerOf(call('DELETE', `/accounts/${account}`))).toBe(405)
+    // POST /accounts/list is not taken as /accounts/{id}
+    expect(await handlerOf(call('POST', '/accounts/list'))).toBe(405)
+  })
+
+  it('prefers the template with fewer placeholders', async () => {
+    expect(await handlerOf(call('POST', '/withdrawals/wdr_1/cancel'))).toBe('Cancel')
+    expect(await handlerOf(call('POST', '/withdrawals/wdr_1/commit'))).toBe('Wildcard')
+  })
+
+  it('answers 100031 naming a value its pattern refuses, without running the handler', async () => {
+    const res = await call('GET', '/accounts/not-an-account')
+    expect(res.statusCode).toBe(400)
+    expect(JSON.parse(res.body)).toMatchObject({ error_code: 100031 })
+    expect(JSON.parse(res.body).message).toContain('id')
+    expect(seen).toHaveLength(0)
+  })
+
+  it('answers 404 for a path no route fits', async () => {
+    expect(await handlerOf(call('GET', `/accounts/${account}/nothing`))).toBe(404)
+    expect(await handlerOf(call('GET', '/accounts/'))).toBe(404)
+  })
+
+  it('is public by its template on the public API', async () => {
+    const viaPublic = (path: string) => call('GET', path, { stageVariables: { API_SURFACE: 'public' } })
+    expect(await handlerOf(viaPublic(`/accounts/${account}`))).toBe(404)
+
+    publicRoutes.push({ path: '/accounts/{id}', method: 'GET', auth: 'custom', permission: 'accounts:read' })
+    try {
+      expect(await handlerOf(viaPublic(`/accounts/${account}`))).toBe('ReadAccount')
+    } finally {
+      publicRoutes.pop()
+    }
+  })
+
+  it('finds a route without running it', () => {
+    expect(findRoute(`/accounts/${account}`, 'GET')).toMatchObject({ route: { path: '/accounts/{id}' }, params: { id: account } })
+    expect(findRoute(`/accounts/${account}`, 'POST')).toEqual({ allowed: ['GET', 'PATCH'] })
+    expect(findRoute('/nowhere', 'GET')).toBeUndefined()
+  })
+})
+
+describe('registered routes', () => {
+  // A placeholder with no pattern would refuse every value it is sent (100031)
+  it('give every placeholder of a template a pattern', () => {
+    for (const route of routes.values()) {
+      if (!isTemplate(route.path)) continue
+      for (const name of placeholdersOf(route.path)) expect([route.path, name, route.params?.[name]]).toEqual([route.path, name, expect.any(RegExp)])
+    }
+  })
+
+  it('register each method of a path once', () => {
+    for (const [key, route] of routes) expect(key).toBe(`${route.method} ${route.path}`)
   })
 })

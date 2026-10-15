@@ -14,7 +14,7 @@ export const PUBLIC_API_SURFACE = 'public'
 
 export type PublicRoute = {
   path: string
-  method: 'GET' | 'POST'
+  method: 'GET' | 'POST' | 'PATCH'
 } & (
   // custom: the authorizer checks a JWT, an HMAC signature or an API key, and an API key must
   // hold the route's permission (permissions.ts; enforced by the router from step 2.5)

@@ -276,10 +276,14 @@ the AWS account linked to the current branch. The branch → account/region/prof
 
 ## Backend architecture (`amplify/`)
 
-**Everything goes through one Lambda.** `amplify/fn/api/handler.ts` → `router.ts` is a plain
-`Map<path, { handler, requiredParams, method, allowedRoles }>` (see the `routes` map at the
-top of `router.ts`). To add an endpoint: create a handler class with an `execute(event,
-context)` method under `service/routes/<area>/`, then register it in that map. The router
+**Everything goes through one Lambda.** `amplify/fn/api/handler.ts` → `router.ts`, whose
+`routeList` holds `[path, { handler, method, schema | requiredParams, allowedRoles, params }]`
+and becomes the `routes` map keyed `<METHOD> <path>`, so a path can have one route per method.
+A path may be a template (`/accounts/{id}`, `service/routeMatch.ts`): `params` gives each
+placeholder a pattern (a value it refuses answers `100031`), the handler gets the values as
+`event.pathParameters`, and a path written as it is always wins over a template. Tests find a
+route with `routeAt(path)`. To add an endpoint: create a handler class with an `execute(event,
+context)` method under `service/routes/<area>/`, then add it to `routeList`. The router
 does, in order: parse body (preserving `rawBody` for signature verification, e.g. Stripe
 webhooks), RBAC check against `event.requestContext.authorizer.role` if `allowedRoles` is set,
 then body validation. A route either names a JSON schema (draft-07, Ajv, `utils/schema.ts`), one

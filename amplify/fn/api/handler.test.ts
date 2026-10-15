@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { handler } from './handler'
-import { routes } from '../../service/router'
+import { routeAt } from '../../service/router'
 
 jest.mock('../../utils/config', () => ({ loadConfig: jest.fn() }))
 jest.mock('../../utils/db', () => ({ transactWriteItems: jest.fn(async () => ({ success: true, res: {} })) }))
@@ -37,7 +37,7 @@ describe('API request logging', () => {
   }
 
   it('logs no body value or header of a request the handler runs', async () => {
-    jest.spyOn(routes.get('/onboarding/claim')!.handler.prototype, 'execute')
+    jest.spyOn(routeAt('/onboarding/claim')!.handler.prototype, 'execute')
       .mockResolvedValue({ statusCode: 200, headers: {}, body: '{}' })
     await call({ token: secrets.token, password: secrets.password })
     expectNoSecretLogged()

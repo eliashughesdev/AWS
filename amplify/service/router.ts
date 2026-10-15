@@ -66,18 +66,24 @@ import merchantsPolicyKycSchema from './schemas/merchants/policy/kyc.json'
 import merchantsTreasurySendSchema from './schemas/merchants/operations/treasury-send.json'
 import { processError } from '../errors/http'
 import { response } from '../utils/http'
+import { isTemplate, matchTemplate, moreSpecificFirst, placeholdersOf } from './routeMatch'
 
-type RoutesMap = Map<string, {
+type Route = {
   handler: any
   method: string
   allowedRoles?: ('admin' | 'user' | 'staff' | 'merchant')[]
+  // For a template (/accounts/{id}): the pattern each placeholder's value must match, or the
+  // request answers 100031 naming it. Every placeholder has one (router.test.ts checks)
+  params?: Record<string, RegExp>
 } & (
   // A JSON schema for the body, or for a GET route the query string (amplify/service/schemas/),
   // or the older top-level-only check
   { schema: Record<string, any>, requiredParams?: never } | { requiredParams: string[], schema?: never }
-)>
+)
 
-export const routes: RoutesMap = new Map([
+// Each route by its path, or its path template (docs/public-api-plan.md D6.2). A path may have
+// several routes, one per method
+const routeList: [string, Route][] = [
   ['/webhook', { handler: webhookHandler, requiredParams: [], method: 'POST' }],
   ['/webhook/stripe', { handler: stripeWebhook, requiredParams: [], method: 'POST' }],
   ['/accounts/kyc/didit/session', { handler: accountsKycDiditSession, schema: accountsKycDiditSessionSchema, method: 'POST' }],
@@ -111,7 +117,45 @@ export const routes: RoutesMap = new Map([
   ['/merchants/policy', { handler: setTreasuryPolicy, schema: merchantsPolicySchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/policy/kyc', { handler: setKycPolicy, schema: merchantsPolicyKycSchema, method: 'POST', allowedRoles: ['staff'] }],
   ['/merchants/operations/treasury-send', { handler: createTreasurySend, schema: merchantsTreasurySendSchema, method: 'POST', allowedRoles: ['merchant'] }],
-])
+]
+
+export type RegisteredRoute = Route & { path: string }
+
+const routeKey = (method: string, path: string) => `${method} ${path}`
+
+// By `<METHOD> <path>`, e.g. `POST /accounts/withdraw` or `GET /accounts/{id}`
+export const routes = new Map<string, RegisteredRoute>(
+  routeList.map(([path, route]) => [routeKey(route.method, path), { ...route, path }])
+)
+
+// The route a path names: with this method; or on another method only (allowed lists them, for a
+// 405); or none. A path the router knows as it is wins over every template
+export const findRoute = (path: string, method: string):
+  | { route: RegisteredRoute, params: Record<string, string> }
+  | { route?: never, allowed: string[] }
+  | undefined => {
+  const exact = routes.get(routeKey(method, path))
+  if (exact) return { route: exact, params: {} }
+
+  const onPath = [...routes.values()].filter(route => route.path === path)
+  if (onPath.length) return { allowed: onPath.map(route => route.method) }
+
+  const fitting = [...routes.values()].filter(route => isTemplate(route.path) && matchTemplate(route.path, path))
+  if (!fitting.length) return undefined
+  const best = fitting.map(route => route.path).sort(moreSpecificFirst)[0]
+  const route = fitting.find(candidate => candidate.path === best && candidate.method === method)
+  if (!route) return { allowed: fitting.filter(candidate => candidate.path === best).map(candidate => candidate.method) }
+  return { route, params: matchTemplate(route.path, path)! }
+}
+
+// The route at a path, the first registered when no method is given (tests stub its handler)
+export const routeAt = (path: string, method?: string) =>
+  [...routes.values()].find(route => route.path === path && (!method || route.method === method))
+
+// Checks a template's captured values against its route's patterns: the name of the first that
+// does not match, or undefined
+const badParam = (route: RegisteredRoute, params: Record<string, string>) =>
+  placeholdersOf(route.path).find(name => !route.params?.[name]?.test(params[name]))
 
 export const router = async (event: { body: any, path: string, httpMethod: string, stageVariables?: Record<string, string | undefined> | null, queryStringParameters?: Record<string, string | undefined> | null }, context: any) => {
   // Never the event itself: its body and headers carry passwords, tokens and credentials
@@ -120,14 +164,24 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
   // Look up the route based on the path received from API Gateway
   // Custom-domain requests arrive as /v1/<route>; direct execute-api calls as /<route>.
   const routePath = event.path.replace(/^\/v1(?=\/)/, '')
-  const route = routes.get(routePath)
+  const found = findRoute(routePath, event.httpMethod)
+  const route = found?.route
 
   // The public API has a resource for its routes only; this keeps it that way
-  // if a resource is ever added there by mistake
+  // if a resource is ever added there by mistake. A template is public by its template
   const viaPublicApi = event.stageVariables?.API_SURFACE === PUBLIC_API_SURFACE
-  if (route && viaPublicApi && !isPublicRoute(routePath, event.httpMethod)) {
+  const isPublic = route
+    ? isPublicRoute(route.path, route.method)
+    : found?.allowed.some(method => isPublicRoute(routePath, method))
+  if (found && viaPublicApi && !isPublic) {
     console.log(`DEBUG: Route ${routePath} is not public, refused on the public API`)
     return response({ statusCode: 404, headers: null, bodyObject: { message: 'Not Found' } })
+  }
+
+  // We can also check if the method matches, though this should be handled by API Gateway configuration
+  if (found && !route) {
+    console.error(`ERROR: Method Mismatch. Expected: ${found.allowed.join(', ')}, Received: ${event.httpMethod}`)
+    return response({ statusCode: 405, headers: null, bodyObject: { message: 'Method Not Allowed' } })
   }
 
   if (!route) {
@@ -138,12 +192,6 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
 
   // DEBUG: Route found
   console.log(`DEBUG: Route FOUND: Handler=${route.handler.name}, Method=${route.method}, ${route.schema ? `Schema=${route.schema.title}` : `RequiredParams=${route.requiredParams.join(', ')}`}`)
-
-  // We can also check if the method matches, though this should be handled by API Gateway configuration
-  if (event.httpMethod !== route.method) {
-    console.error(`ERROR: Method Mismatch. Expected: ${route.method}, Received: ${event.httpMethod}`)
-    return response({ statusCode: 405, headers: null, bodyObject: { message: 'Method Not Allowed' } })
-  }
 
   try {
     // Preserve raw body before parsing (needed for Stripe webhook signature verification)
@@ -167,6 +215,14 @@ export const router = async (event: { body: any, path: string, httpMethod: strin
         console.log('DEBUG: RBAC denied for role:', role)
         return response({ statusCode: 403, headers: null, bodyObject: { message: 'Forbidden' } })
       }
+    }
+
+    // A template's values: checked against its patterns, then handed to the handler as
+    // pathParameters (API Gateway's own are { proxy } on the internal API)
+    if (isTemplate(route.path)) {
+      const bad = badParam(route, found!.params!)
+      if (bad) return processError(100031, bad)
+      ;(event as any).pathParameters = found!.params
     }
 
     // Parameter Validation

@@ -1,6 +1,6 @@
 import { isPermission, permissions, type Permission } from './permissions'
 import { publicRoutes } from './publicRoutes'
-import { routes } from './router'
+import { routeAt } from './router'
 
 const entries = Object.entries(permissions) as [Permission, (typeof permissions)[Permission]][]
 const keyRoutes = publicRoutes.filter(r => r.auth === 'custom')
@@ -25,7 +25,7 @@ describe('public routes', () => {
     for (const route of keyRoutes) {
       if (!isPermission(route.permission)) continue
       // Only a merchant's key (role admin) may call onboarding and its resend
-      const merchantOnly = routes.get(route.path)?.allowedRoles?.every(role => role === 'admin') ?? false
+      const merchantOnly = routeAt(route.path, route.method)?.allowedRoles?.every(role => role === 'admin') ?? false
       expect([route.path, permissions[route.permission].owner]).toEqual([route.path, merchantOnly ? 'merchant' : 'user'])
     }
   })
@@ -44,7 +44,7 @@ describe('public routes', () => {
   })
 
   it('names a public route for every route a key could reach', () => {
-    for (const route of keyRoutes) expect(routes.has(route.path)).toBe(true)
+    for (const route of keyRoutes) expect(routeAt(route.path, route.method)).toBeDefined()
   })
 })
 
