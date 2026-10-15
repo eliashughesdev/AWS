@@ -371,13 +371,16 @@ publicApi.addGatewayResponse('Default5xxCors', {
 // Authorization: API Gateway answers 401 without running the authorizer when an identity source is
 // missing, and an API key caller (`curl -u key:secret`) sends no X-Project. HMAC callers still
 // send theirs, and the authorizer refuses a Signature without it
+const publicApiIdentityHeaders = ['Authorization']
 const publicApiAuthorizer = new RequestAuthorizer(apiStack, 'PublicApiAuthorizer', {
   handler: customAuthorizerFn,
-  identitySources: [
-    IdentitySource.header('Authorization'),
-  ],
+  identitySources: publicApiIdentityHeaders.map(name => IdentitySource.header(name)),
   resultsCacheTtl: Duration.seconds(0)
 })
+// The stage serves a snapshot taken when its deployment was made, and CDK makes a new one only
+// when a method or resource changes: an authorizer's identity sources changed alone stay
+// undeployed (step 2.3's went live with the old X-Project + Authorization, so every key got 401)
+publicApi.latestDeployment?.addToLogicalId({ publicApiIdentityHeaders })
 
 // Every method adds a statement to mainApiFn's resource policy, which is capped at
 // 20 KB; the console's test-invoke permission would double them and pass the cap
@@ -865,6 +868,7 @@ apiKeyIssuerRole.addToPolicy(new iam.PolicyStatement({
 }))
 
 // No trigger or URL: only mainApiFn invokes it
+// eslint-disable-next-line no-new
 new lambda.NodejsFunction(apiStack, 'ApiKeyIssuerFn', {
   entry: url.fileURLToPath(new URL('./fn/api-key-issuer/handler.ts', import.meta.url)),
   runtime: Runtime.NODEJS_20_X,
