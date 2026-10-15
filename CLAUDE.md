@@ -252,7 +252,10 @@ npx tsx amplify/service/routes/e2e/accounts/AccountsOnboardingTest.ts
 These only work against a deployed stack (the target URL, e.g.
 `https://<api-id>.execute-api.us-east-2.amazonaws.com`, is baked into each test file) — a
 route added in code isn't reachable until `ampx pipeline-deploy` runs. Signing credentials for
-these live in `amplify/service/routes/e2e/credentials.ts`.
+these live in `amplify/service/routes/e2e/credentials.ts`. The account routes refuse an HMAC key,
+so their scripts call as a signed-in test user through `e2e/userSession.ts` (`callAsUser()`,
+`accountFor()`): set `E2E_USER_EMAIL` and `E2E_USER_PASSWORD` to a user of main's pool, never
+written into a file. They read the user's own account numbers and saved cards from the API.
 
 Four checks run locally with no deployed stack, all around custody keys:
 `npx tsx scripts/checks/hdWallet.ts` (the derivation module, against published test vectors
