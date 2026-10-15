@@ -119,8 +119,9 @@ next one that depends on it is started.
 
 ## Phase 3 — API keys, frontends → **M1**
 
-- [ ] **3.1 Core.** `api/apiKeys.ts`, `useApiKeys()`, `useStaffApiKeys()` (secret returned,
-  kept nowhere). → D4
+- [x] **3.1 Core.** `api/apiKeys.ts`, `useApiKeys()`, `useStaffApiKeys()` (secret returned,
+  kept nowhere). → D4 — done 2026-10-15, 7a2d26c. `useStaffApiKeys().load(filters)` keeps the
+  filters for `refresh()`.
 - [ ] **3.2 NODA API keys screen** — list, Create (form → secret once → unknown result), Edit,
   Revoke; avatar menu entry; both themes, mobile. → D7.1, D7.2
 - [ ] **3.3 Loudibly** — the same for custodial users; staff `/api-keys` page (all keys,
