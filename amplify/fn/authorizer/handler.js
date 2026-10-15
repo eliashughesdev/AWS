@@ -1,6 +1,7 @@
 const jsonwebtoken = require('jsonwebtoken')
 const crypto = require('crypto')
 const { getRecord } = require('./db')
+const { authenticateWithApiKey, isBasic } = require('./apiKey')
 const jwkToPem = require('jwk-to-pem')
 
 // authType says which credential was checked: 'jwt' (userId is the Cognito sub) or 'key' (a
@@ -33,20 +34,28 @@ const handler = async (event) => {
   console.log('DEBUG: --- HANDLER START ---')
   const resource = event.methodArn
   console.log('DEBUG: Resource ARN:', resource)
-  const auth = event.headers?.Authorization
+  // Any case: an HTTP/2 client sends header names in lower case
+  const auth = event.headers?.Authorization ?? event.headers?.authorization
   const project = event.headers?.['X-Project']
   console.log('DEBUG: X-Project Header (Key ID):', project)
   const sourceIp = event.requestContext.identity.sourceIp
   console.log('DEBUG: Source IP:', sourceIp)
 
-  if (auth?.includes('Signature') && !project) {
+  if (!isBasic(auth) && auth?.includes('Signature') && !project) {
     console.log('DEBUG: Deny: Signature provided but X-Project missing.')
     return generatePolicy(sourceIp, 'Deny', resource)
   }
 
   try {
     console.log('DEBUG: Entering Try Block')
-    if (auth?.includes('Bearer')) {
+    // First: a Basic header's base64 could happen to contain 'Bearer' or 'Signature'
+    if (isBasic(auth)) {
+      console.log('DEBUG: Auth Type: Basic (API key)')
+      const res = await authenticateWithApiKey({ authorization: auth, sourceIp, stageVariables: event.stageVariables })
+      console.log(`DEBUG: API key ${res.keyId ?? '(none)'}: ${res.allowed ? 'allowed' : `denied, ${res.reason}`}`)
+      if (!res.allowed) return generatePolicy(sourceIp, 'Deny', resource)
+      return { ...generatePolicy(res.principalId, 'Allow', resource, res.context.role, 'apikey'), context: res.context }
+    } else if (auth?.includes('Bearer')) {
       console.log('DEBUG: Auth Type: Bearer (JWT)')
       const res = await authenticateWithJWT({ event })
       console.log('DEBUG: JWT Result:', res.isValid, res.message ?? '')
@@ -87,7 +96,7 @@ const handler = async (event) => {
       }
       console.log('DEBUG: Authentication Type:', keys.res.type)
       const res = types[keys.res.type]()
-      console.log('res: ', res)
+      console.log('DEBUG: Signature valid:', res.isValid)
       // HMAC/RSA keys are B2B service clients — treated as admin
       return generatePolicy(project, res.isValid ? 'Allow' : 'Deny', resource, 'admin', 'key')
     }

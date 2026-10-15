@@ -365,11 +365,13 @@ publicApi.addGatewayResponse('Default5xxCors', {
   responseHeaders: corsGatewayHeaders,
 })
 
-// An authorizer belongs to one API, so the same function gets a second one
+// An authorizer belongs to one API, so the same function gets a second one. It needs only
+// Authorization: API Gateway answers 401 without running the authorizer when an identity source is
+// missing, and an API key caller (`curl -u key:secret`) sends no X-Project. HMAC callers still
+// send theirs, and the authorizer refuses a Signature without it
 const publicApiAuthorizer = new RequestAuthorizer(apiStack, 'PublicApiAuthorizer', {
   handler: customAuthorizerFn,
   identitySources: [
-    IdentitySource.header('X-Project'),
     IdentitySource.header('Authorization'),
   ],
   resultsCacheTtl: Duration.seconds(0)
