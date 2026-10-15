@@ -66,7 +66,7 @@ There are three deployable pieces in this one repo:
     transaction `type` shows as; a type it does not have is not listed. A list of rows asks
     `activityKinds()`, which also decides each `FEE` row: one that shares its account and `txId`
     with a listed row (a withdrawal) goes in that row's Fee column, and one with no such row (the
-    fee of a TRX or SOL sweep to the merchant's master) is listed as "Fee" (Recent Activity:
+    fee of a TRX or SOL sweep to the merchant's master, or of a USDT address's activation) is listed as "Fee" (Recent Activity:
     "Network fee"), Completed and outgoing, when it is above 0. A free-bandwidth sweep's `FEE`
     row of 0 is not shown. The
     Dashboard's 30-day line, % changes, Security Score, stat cards and other achievements are
@@ -77,7 +77,8 @@ There are three deployable pieces in this one repo:
     row shows the `FEE` row of the same account and `txId`, and a dash when there is none (of the
     listed rows only a TRX or SOL withdrawal is charged one; its row arrives with the chain's
     webhook, or from the receipt when the merchant's master sent it). A TRX or SOL account is also
-    charged for each sweep of its deposits to the merchant's master: that fee is a row of its own,
+    charged for each sweep of its deposits to the merchant's master, and a USDT account once, for
+    activating its address: that fee is a row of its own,
     with a brown "Fee" badge, a dash in its Fee column and "—" as its To, and it counts in the
     totals like any row. The %
     line under each total is still mockup data (`placeholders/transactions.ts`). Deposit is real for the Crypto method: a dropdown with one line
@@ -384,7 +385,15 @@ runs out, may leave an order behind, and then no other provider is tried. CatFee
 errors as HTTP 200 with a `code`, and sends an unclear create once more with the same
 `client_order_id`, which never makes a second order. Each rental logs `ENERGY_RENTED` and each
 move to the next provider `ENERGY_FALLBACK`; CatFee's settings are `CATFEE_BASE_URL`,
-`CATFEE_API_KEY` and `CATFEE_API_SECRET`. When a master signs (token withdrawals, and
+`CATFEE_API_KEY` and `CATFEE_API_SECRET`. Nothing can be rented to an address that was never
+activated: before renting, `ensureEnergy` checks it once (`isTronAccountActive`) and activates it
+only when given `onActivated`, which only a token sweep passes (through `sendOnChain`); otherwise,
+as for a master signing a withdrawal, it logs `CONFIG_ERROR` and throws. CatFee activates with the
+order (`activate=true`; it charged `activate_amount_sun` when `activate_status` is `ACTIVATE` or
+`ACTIVATED`). TronSave quotes, then runs its legacy v0 `is-active-address-check` and
+`multi-active-address` (1.5 TRX) and reads the chain for up to 30 s before buying. A provider calls
+the hook as soon as it has paid, whatever then happens to the order, and logs `ADDRESS_ACTIVATED`;
+`activationSun` is each one's published price. When a master signs (token withdrawals, and
 native ones once the merchant has a `ready` master for the coin), `withdrawFunds` debits both the
 customer's VA and the master's VA (`masterAccountId`, `fee: 0`) and completes both with the same
 txId, so `master VA = Σ customer VAs + fee VA` stays true; token debits record no fee (gas is rented
@@ -500,7 +509,17 @@ record, and `signTron` / `signSol` ask the signer, which reads the seed and inde
 build that reference from a queue message. A token account needs its merchant's master (its
 deposits are swept there, its withdrawals are signed by it): routes call `canHoldCurrency()`
 (`utils/masterAccount.ts`) before creating anything and answer `100050` when there is none, and
-`provisionCustodialAccount` refuses too. A native coin needs none yet, but a `ready` TRON or SOL
+`provisionCustodialAccount` refuses too. A token sweep sends the address's whole token balance
+(`getOnChainBalance`, a `balanceOf` dry run), so coins an earlier sweep left go with the next. A
+deposit address that was never activated is activated by its sweep, and the customer pays for it
+(`docs/energy-rental-plan.md` D6, D7). Before claiming, the sweep handler reads the TRX price from
+Binance.US (`fetchCryptoPrice`) and the customer's `availableBalance`. While that balance is below
+the dearest provider's activation (`maxActivationSun()`) at that price, it logs `SWEEP_WAITING` and
+claims nothing, and the coins wait for the next deposit's sweep. Once a provider has paid, the
+activation's sun × that price, rounded up, becomes a `FEE` row keyed `activation-<address>` and comes
+off the balance (`applyBalanceChangeOnce`, so a second report charges nothing). `transferFunds` then
+moves it from the customer's VA to the merchant's fee VA (`getFeeAccountId`). It logs
+`ACTIVATION_CHARGED`, or `CRITICAL FEE_UNSETTLED` for what it could not settle. A native coin needs none yet, but a `ready` TRON or SOL
 master (`/merchants/masters/provision` takes both) switches that coin over for its merchant: it
 signs the withdrawals, and each deposit queues a sweep. A native sweep sends the address's whole
 balance minus the exact fee (`sweepAll`), leaving 0, and the customer pays the fee: the fee

@@ -1,4 +1,5 @@
 import type { KeyRef } from '../../utils/signing'
+import type { Activation } from '../energy/EnergyProvider'
 
 export interface CreateAccountParams {
   userId: string
@@ -101,13 +102,16 @@ export interface SendOnChainParams {
   recipientAddress: string
   amount: string
   key: KeyRef
+  // Lets a token transfer activate a sender that was never activated, calling
+  // this once that is paid for, whatever happens to the transfer after
+  onActivated?: (activation: Activation) => Promise<void>
 }
 
 export interface SendOnChainResponse {
   txId: string
 }
 
-export type SweepAllParams = Omit<SendOnChainParams, 'amount'>
+export type SweepAllParams = Omit<SendOnChainParams, 'amount' | 'onActivated'>
 
 // In the network's coin
 export interface SweepAllResponse {

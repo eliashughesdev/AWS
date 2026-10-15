@@ -5,6 +5,10 @@ export interface RentRequest {
   receiver: string
   // Already includes the margin and the provider's minimum
   amount: number
+  // Only when the receiver was never activated: the provider activates it, and
+  // calls this with what that cost as soon as it is paid for, whatever happens
+  // to the order after
+  onActivated?: (sun: number) => Promise<void>
 }
 
 // 'placed': an order exists and was paid for; delivery is pending.
@@ -18,12 +22,20 @@ export type RentOutcome =
 // 'failed': it will never deliver, so trying the next provider is safe.
 export type OrderState = { status: 'pending' } | { status: 'failed', reason: string }
 
+// An address's activation, paid to a provider in sun
+export interface Activation {
+  provider: string
+  sun: number
+}
+
 export interface EnergyProvider {
   // Also its name in TRON_ENERGY_PROVIDERS, in any case
   readonly name: string
   readonly resources: ResourceType[]
   // How long a placed order may take to show on chain
   readonly deliveryTimeoutMs: number
+  // What activating an address costs, as the provider publishes it
+  readonly activationSun: number
   // 0 when none is known
   minimum(resource: ResourceType): number
   rent(request: RentRequest): Promise<RentOutcome>

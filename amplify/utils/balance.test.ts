@@ -1,4 +1,4 @@
-import { applyBalanceChange } from './balance'
+import { applyBalanceChange, applyBalanceChangeOnce } from './balance'
 import { putItem, updateItem } from './db'
 
 jest.mock('./db', () => ({
@@ -53,5 +53,23 @@ describe('applyBalanceChange', () => {
   it('fails when the balance cannot be updated, a missing record included', async () => {
     ;(updateItem as jest.Mock).mockResolvedValueOnce({ success: false, error: { name: 'ValidationException' } })
     expect(await change('CREDIT')).toBe(false)
+  })
+})
+
+// energy-rental-plan step 3: an activation charge must know whether it moved the balance before moving Tatum's
+describe('applyBalanceChangeOnce', () => {
+  const once = () => applyBalanceChangeOnce({ account: { vAccountId: 'va-1' }, direction: 'DEBIT', amount: 0.495, currency: 'USDT_TRON', txId: 'activation-TCustomer', type: 'FEE' })
+
+  it('says the balance moved', async () => {
+    expect(await once()).toBe('applied')
+  })
+
+  it('tells a transaction applied before from a failure', async () => {
+    ;(putItem as jest.Mock).mockResolvedValueOnce({ success: false, error: { name: 'ConditionalCheckFailedException' } })
+    expect(await once()).toBe('duplicate')
+    ;(putItem as jest.Mock).mockResolvedValueOnce({ success: false, error: new Error('throttled') })
+    expect(await once()).toBe('failed')
+    ;(updateItem as jest.Mock).mockResolvedValueOnce({ success: false, error: { name: 'ValidationException' } })
+    expect(await once()).toBe('failed')
   })
 })

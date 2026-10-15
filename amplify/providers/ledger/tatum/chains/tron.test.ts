@@ -1,6 +1,6 @@
 import axios from 'axios'
 import {
-  buildTronSweep, getTronTransactionFee, isTronAccountActive,
+  buildTronSweep, getTronTransactionFee, getTrc20Balance, isTronAccountActive,
   tronBandwidthBytes, tronBandwidthCovered, tronBandwidthFeeSun, tronSweepAmount,
 } from './tron'
 
@@ -138,6 +138,31 @@ describe('isTronAccountActive', () => {
   it('is true for an account, even an empty one', async () => {
     post.mockResolvedValue({ data: { address: 'TBypofoy6CJaSY1VrcrUjgFzDCNer7iVLW', create_time: 1774061511000 } })
     expect(await isTronAccountActive('TBypofoy6CJaSY1VrcrUjgFzDCNer7iVLW')).toBe(true)
+  })
+})
+
+// energy-rental-plan step 3: a token sweep sends the whole balance
+describe('getTrc20Balance', () => {
+  const contract = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'
+  const holder = 'TBypofoy6CJaSY1VrcrUjgFzDCNer7iVLW'
+
+  it('dry-runs balanceOf(holder) from the holder and reads the word it returns', async () => {
+    post.mockResolvedValue({ data: { result: { result: true }, constant_result: ['0000000000000000000000000000000000000000000000000000000002faf080'] } })
+    expect(await getTrc20Balance(contract, holder)).toBe(50_000_000)
+    expect(post.mock.calls[0][0]).toMatch(/\/wallet\/triggerconstantcontract$/)
+    expect(post.mock.calls[0][1]).toEqual({
+      owner_address: holder,
+      contract_address: contract,
+      function_selector: 'balanceOf(address)',
+      // The holder's 20 bytes (41160e2391… in the Shasta transfers above), padded to a word
+      parameter: '000000000000000000000000160e23917c48cc09cd6d2530dba6d925b0f5ea1f',
+      visible: true,
+    })
+  })
+
+  it('throws when the call reverted, rather than reading 0', async () => {
+    post.mockResolvedValue({ data: { result: { code: 'CONTRACT_VALIDATE_ERROR' } } })
+    await expect(getTrc20Balance(contract, holder)).rejects.toThrow(/^balanceOf\(TBypofoy6CJaSY1VrcrUjgFzDCNer7iVLW\) on TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t failed/)
   })
 })
 

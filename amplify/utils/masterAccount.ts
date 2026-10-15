@@ -30,6 +30,18 @@ export async function getMasterAccount(merchantId: string | undefined, currency:
   return { depositAddress: row.depositAddress, key: owner, vAccountId: row.vAccountId }
 }
 
+// The ledger-only VA where a merchant's fees in a currency collect (FEEVA#),
+// or null when it has none. provisionMerchantMaster creates it with the master
+export async function getFeeAccountId(merchantId: string | undefined, currency: string): Promise<string | null> {
+  const result = await queryRecord(
+    'v1MerchantTable',
+    'id = :id AND sk = :sk',
+    { ':id': merchantId ?? SYSTEM_MERCHANT_ID, ':sk': `FEEVA#${currency.toUpperCase()}` }
+  )
+  if (!result.success) throw new Error(`Failed to read the ${currency} fee VA of merchant ${merchantId}`)
+  return result.res?.[0]?.vAccountId ?? null
+}
+
 /**
  * Whether a merchant can hold accounts in a currency. A token account needs
  * its merchant's master: its deposits are swept there and its withdrawals are

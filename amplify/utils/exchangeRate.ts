@@ -17,7 +17,7 @@ export const fetchCryptoPrice = async (crypto: string, fiat: string): Promise<nu
   const url = `https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`
   console.log(`EXCHANGE_RATE: Fetching price for ${symbol} from Binance`)
 
-  const res = await fetch(url)
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
   const data = await res.json() as any
 
   if (!res.ok || data.code || !data.price) {

@@ -19,12 +19,13 @@ import { CreateAccountParams,
   OnChainTransaction,
   TransactionFeeParams,
   DebitFeeParams} from '../provider'
-  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee, buildTronSweep, isTronAccountActive } from './chains/tron'
+  import { getTronBalance, getTronHistory, estimateTrc20TransferEnergy, buildTrc20Transfer, estimateTronBandwidth, getTronTransactionFee, buildTronSweep, isTronAccountActive, getTrc20Balance } from './chains/tron'
   import { getSolanaBalance, getSolanaHistory, getSolanaTransactionFee, buildSolanaSweep, isSolanaRentExempt } from './chains/solana'
 import { Connection, PublicKey, SendTransactionError, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { signSol, signTron, type KeyRef } from '../../../utils/signing'
 import { networkFor, isNativeCurrency, trc20ContractFor, decimalsFor } from '../../../utils/currencies'
 import { ensureEnergy, ensureBandwidth } from '../../energy/ensureResources'
+import type { Activation } from '../../energy/EnergyProvider'
 
 export class TatumProvider implements AccountProvider {
   private readonly apiKey = process.env.TATUM_API_KEY
@@ -250,13 +251,13 @@ export class TatumProvider implements AccountProvider {
    * withdrawFunds(), there is no virtual account to debit here: used for
    * internal treasury moves (e.g. sweeping a deposit to the master account)
    * where the customer's own balance was already credited separately and
-   * must not be touched again.
+   * must not be touched again. Only this path may activate the sender.
    */
-  async sendOnChain({ chain, senderAddress, recipientAddress, amount, key }: SendOnChainParams): Promise<SendOnChainResponse> {
+  async sendOnChain({ chain, senderAddress, recipientAddress, amount, key, onActivated }: SendOnChainParams): Promise<SendOnChainResponse> {
     const normalizedChain = chain.toUpperCase()
     console.log(`DEBUG (TatumProvider): sendOnChain started. chain=${normalizedChain}, amount=${amount}, from=${senderAddress}, to=${recipientAddress}`)
 
-    const signedTxData = await this._buildAndSignTransaction({ chain: normalizedChain, senderAddress, recipientAddress, amount, key })
+    const signedTxData = await this._buildAndSignTransaction({ chain: normalizedChain, senderAddress, recipientAddress, amount, key, onActivated })
     const txId = await this._broadcastTransaction(normalizedChain, signedTxData)
 
     console.log(`DEBUG (TatumProvider): sendOnChain broadcast. txId=${txId}`)
@@ -326,8 +327,9 @@ export class TatumProvider implements AccountProvider {
    * Steps 2 + 3: Builds an unsigned blockchain transaction via Tatum's node
    * proxy, then signs it with the sender's key.
    */
-  private async _buildAndSignTransaction({ chain, senderAddress, recipientAddress, amount, key }: {
+  private async _buildAndSignTransaction({ chain, senderAddress, recipientAddress, amount, key, onActivated }: {
     chain: string; senderAddress: string; recipientAddress: string; amount: string; key: KeyRef
+    onActivated?: (activation: Activation) => Promise<void>
   }): Promise<any> {
     if (chain === 'TRON') {
       // Build unsigned TRON transaction via Tatum's TronGrid node proxy
@@ -382,7 +384,7 @@ export class TatumProvider implements AccountProvider {
       const amountInUnits = Math.round(parseFloat(amount) * 10 ** this.TRC20_DECIMALS)
 
       const estimatedEnergy = await estimateTrc20TransferEnergy(contractAddress, senderAddress, recipientAddress, amountInUnits)
-      await ensureEnergy(senderAddress, estimatedEnergy)
+      await ensureEnergy(senderAddress, estimatedEnergy, onActivated)
 
       const unsignedTx = await buildTrc20Transfer(contractAddress, senderAddress, recipientAddress, amountInUnits, this.TRC20_FEE_LIMIT_SUN)
 
@@ -525,12 +527,15 @@ export class TatumProvider implements AccountProvider {
     return { accountBalance: Number(res.data.accountBalance), availableBalance: Number(res.data.availableBalance) }
   }
 
+  // In the currency's own unit: a TRC-20 token's balance too
   async getOnChainBalance({ chain, address }: OnChainBalanceParams): Promise<number> {
     switch (chain.toUpperCase()) {
       case 'TRON': return getTronBalance(address)
       case 'SOL': return getSolanaBalance(address)
-      default: throw new Error(`getOnChainBalance: unsupported chain ${chain}`)
     }
+    const contractAddress = networkFor(chain) === 'TRON' && trc20ContractFor(chain)
+    if (!contractAddress) throw new Error(`getOnChainBalance: unsupported chain ${chain}`)
+    return await getTrc20Balance(contractAddress, address) / 10 ** this.TRC20_DECIMALS
   }
  
   // What the chain charged for a transaction, in its network's coin (a USDT_TRON

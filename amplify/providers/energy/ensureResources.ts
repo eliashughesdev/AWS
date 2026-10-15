@@ -1,6 +1,6 @@
-import { getTronBalance, getTronBandwidthPriceSun, getTronResources, type TronResources } from '../ledger/tatum/chains/tron'
+import { getTronBalance, getTronBandwidthPriceSun, getTronResources, isTronAccountActive, type TronResources } from '../ledger/tatum/chains/tron'
 import { CatFeeProvider } from './catfee/catfee'
-import type { EnergyProvider, ResourceType } from './EnergyProvider'
+import type { Activation, EnergyProvider, ResourceType } from './EnergyProvider'
 import { TronSaveProvider } from './tronsave/tronsave'
 
 const PROVIDERS: EnergyProvider[] = [new CatFeeProvider(), new TronSaveProvider()]
@@ -48,6 +48,18 @@ function providersFor(resource: ResourceType): EnergyProvider[] {
   return chosen.filter((p) => p.resources.includes(resource))
 }
 
+type OnActivated = (activation: Activation) => Promise<void>
+
+// The most activating an address can cost with the providers configured, for
+// checking that a balance covers it before an activation
+export const maxActivationSun = (): number => Math.max(0, ...providersFor('ENERGY').map((p) => p.activationSun))
+
+// What a provider calls once it has paid for activating the address
+const reportActivation = (provider: EnergyProvider, address: string, onActivated: OnActivated) => async (sun: number) => {
+  console.log(`ADDRESS_ACTIVATED provider=${provider.name} address=${address} costSun=${sun}`)
+  await onActivated({ provider: provider.name, sun })
+}
+
 // Reads the address until the order shows on chain. Ends early when the
 // provider says the order failed; throws when the provider's time runs out,
 // since the order may still deliver.
@@ -71,12 +83,12 @@ async function waitForDelivery(provider: EnergyProvider, orderId: string, resour
 // Rents from the first provider that delivers. A refusal, or an order its
 // provider says failed, moves on to the next one; a throw or a wait that runs
 // out may leave an order behind, so it is never followed by another provider's.
-async function rentAndWait(resource: ResourceType, address: string, amountNeeded: number, shortfall: number) {
+async function rentAndWait(resource: ResourceType, address: string, amountNeeded: number, shortfall: number, onActivated?: OnActivated) {
   const providers = providersFor(resource)
   const reasons: string[] = []
   for (const [i, provider] of providers.entries()) {
     const amount = Math.max(withMargin(shortfall), provider.minimum(resource))
-    const outcome = await provider.rent({ resource, receiver: address, amount })
+    const outcome = await provider.rent({ resource, receiver: address, amount, onActivated: onActivated && reportActivation(provider, address, onActivated) })
     let reason: string
     if (outcome.status === 'placed') {
       console.log(`DEBUG (ensureResources): ${provider.name} ${resource} order created for ${address}: short by ${shortfall}, renting ${amount}. orderId=${outcome.orderId}`)
@@ -101,12 +113,15 @@ async function rentAndWait(resource: ResourceType, address: string, amountNeeded
  * renting the shortfall if needed. Does nothing if the address already has
  * enough (e.g. leftover from a still-active prior rental). Shared by
  * ensureEnergy and ensureBandwidth below.
+ *
+ * Nothing can be delegated to an address that was never activated: the rental
+ * activates it only when given `onActivated`, the caller that charges for it.
  */
 async function ensureResource(
   resource: ResourceType,
   address: string,
   amountNeeded: number,
-  canPayWithoutRenting?: () => Promise<boolean>
+  { canPayWithoutRenting, onActivated }: { canPayWithoutRenting?: () => Promise<boolean>, onActivated?: OnActivated } = {}
 ): Promise<void> {
   const before = await getTronResources(address)
   const availableBefore = availableOf(resource, before)
@@ -114,11 +129,21 @@ async function ensureResource(
   if (availableBefore >= amountNeeded) return
   if (await canPayWithoutRenting?.()) return
 
-  await rentAndWait(resource, address, amountNeeded, amountNeeded - rentablePoolOf(resource, before))
+  const activate = !(await isTronAccountActive(address))
+  if (activate && !onActivated) {
+    console.error(`CONFIG_ERROR (ensureResources): ${address} was never activated, so no ${resource} can be rented to it. Only a sweep activates an address; a master is activated by a person`)
+    throw new Error(`${address} was never activated`)
+  }
+  await rentAndWait(resource, address, amountNeeded, amountNeeded - rentablePoolOf(resource, before), activate ? onActivated : undefined)
 }
 
-export async function ensureEnergy(address: string, energyNeeded: number): Promise<void> {
-  return ensureResource('ENERGY', address, energyNeeded)
+/**
+ * `onActivated` lets the rental activate an address that was never activated
+ * (a customer's deposit address, before its first sweep). It is called once
+ * that is paid for, whatever happens after, so the caller can charge for it.
+ */
+export async function ensureEnergy(address: string, energyNeeded: number, onActivated?: OnActivated): Promise<void> {
+  return ensureResource('ENERGY', address, energyNeeded, { onActivated })
 }
 
 /**
@@ -128,7 +153,7 @@ export async function ensureEnergy(address: string, energyNeeded: number): Promi
  * the burn (e.g. a customer address holding only USDT).
  */
 export async function ensureBandwidth(address: string, bandwidthNeeded: number): Promise<void> {
-  return ensureResource('BANDWIDTH', address, bandwidthNeeded, () => canBurnBandwidth(address, bandwidthNeeded))
+  return ensureResource('BANDWIDTH', address, bandwidthNeeded, { canPayWithoutRenting: () => canBurnBandwidth(address, bandwidthNeeded) })
 }
 
 async function canBurnBandwidth(address: string, bandwidthNeeded: number): Promise<boolean> {

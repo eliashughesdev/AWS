@@ -1,11 +1,16 @@
-import { putItem } from '../../../utils/db'
+import { putItem, queryRecord } from '../../../utils/db'
 import { ProviderRegistry } from '../../../utils/AccountProvider'
 import { ProviderName } from '../../../providers/ledger/ProviderName'
 import type { AccountProvider } from '../../../providers/ledger/provider'
-import { getMasterAccount, type MasterAccount } from '../../../utils/masterAccount'
+import { isTronAccountActive } from '../../../providers/ledger/tatum/chains/tron'
+import { maxActivationSun } from '../../../providers/energy/ensureResources'
+import type { Activation } from '../../../providers/energy/EnergyProvider'
+import { getFeeAccountId, getMasterAccount, type MasterAccount } from '../../../utils/masterAccount'
 import { findAccountByAddress } from '../../../utils/custodialAccount'
 import { isNativeCurrency } from '../../../utils/currencies'
 import { accountKeyRef, type KeyRef } from '../../../utils/signing'
+import { applyBalanceChangeOnce } from '../../../utils/balance'
+import { fetchCryptoPrice } from '../../../utils/exchangeRate'
 
 // A native sweep pays only its bandwidth fee, so the master must already be
 // active (TRON) or hold the rent-exempt minimum (SOL). A person does both
@@ -41,9 +46,77 @@ async function sweepNative(provider: AccountProvider, account: Record<string, an
   }
 }
 
+// What activating an address costs in a dollar token, rounded up to its 6
+// decimals. In integers, so float error can't add a unit (1.5 TRX at 0.3002 is 0.4503, not 0.450301)
+const activationFee = (sun: number, trxPrice: number) => Math.ceil(sun * Math.round(trxPrice * 1e8) / 1e8) / 1e6
+
+// Run before a token sweep is claimed (docs/energy-rental-plan.md D6, D7). An
+// address never activated is activated by its sweep, at the customer's cost and
+// the live TRX price: answers that price. Until their balance covers the dearest
+// activation, the coins wait there for a later deposit's sweep: answers 'wait'.
+// null when the address is active.
+async function activationPrice(account: Record<string, any>): Promise<number | 'wait' | null> {
+  const { vAccountId, chain, depositAddress } = account
+  if (await isTronAccountActive(depositAddress)) return null
+  const [trxPrice, balance] = await Promise.all([
+    fetchCryptoPrice('TRON', 'USDT'),
+    queryRecord('v1AccountBalanceTable', 'id = :id', { ':id': vAccountId }, true),
+  ])
+  if (!balance.success) throw new Error(`Failed to read the balance of ${vAccountId}`)
+  const available = Number(balance.res?.[0]?.availableBalance ?? 0)
+  const fee = activationFee(maxActivationSun(), trxPrice)
+  if (available >= fee) return trxPrice
+  console.log(`SWEEP_WAITING: ${depositAddress} was never activated, and the balance of ${vAccountId} (${available} ${chain}) is below the ${fee} activating it may cost`)
+  return 'wait'
+}
+
+// The customer pays for their address's activation (D6): a FEE row and the fee
+// off their balance, and the same amount moved from their VA to the merchant's
+// fee VA, so master VA = Σ customer VAs + fee VA still holds. Keyed by the
+// address, which activates once, so a second report (two sweeps racing) charges
+// nothing more. What fails is logged to be settled by hand; it never throws.
+async function chargeActivation(provider: AccountProvider, account: Record<string, any>, { provider: renter, sun }: Activation, trxPrice: number) {
+  const { vAccountId, chain, depositAddress, merchantId } = account
+  const fee = activationFee(sun, trxPrice)
+  const unsettled = (what: string, err: unknown = '') =>
+    console.error(`CRITICAL FEE_UNSETTLED: ${what}. Activation of ${depositAddress} by ${renter}: ${sun} sun at ${trxPrice}, fee=${fee} ${chain}, vAccountId=${vAccountId}`, err)
+  try {
+    const recorded = await applyBalanceChangeOnce({ account, direction: 'DEBIT', amount: fee, currency: chain, txId: `activation-${depositAddress}`, from: depositAddress, type: 'FEE' })
+    if (recorded === 'duplicate') return
+    if (recorded === 'failed') return unsettled('the FEE row or the balance was not written')
+    const feeVaId = await getFeeAccountId(merchantId, chain)
+    if (!feeVaId) return unsettled(`merchant ${merchantId ?? '(none)'} has no ${chain} fee VA`)
+    const { reference } = await provider.transferFunds({ senderAccountId: vAccountId, recipientAccountId: feeVaId, amount: String(fee) })
+    console.log(`ACTIVATION_CHARGED: ${fee} ${chain} from VA ${vAccountId} to fee VA ${feeVaId} for ${depositAddress} (${renter}, ${sun} sun at ${trxPrice}), reference=${reference}`)
+  } catch (err) {
+    unsettled('the fee was not moved to the fee VA', err)
+  }
+}
+
+// Sends the address's whole token balance, so coins a waiting or failed sweep
+// left behind go with this one. With `trxPrice`, the sweep may activate the
+// address, and the customer is charged at that price once it is paid for
+async function sweepToken(provider: AccountProvider, account: Record<string, any>, master: MasterAccount, key: KeyRef, depositTxId: string, trxPrice: number | null) {
+  const { chain, depositAddress } = account
+  const balance = await provider.getOnChainBalance({ chain, address: depositAddress })
+  if (!(balance > 0)) {
+    console.log(`SWEEP_SKIPPED: ${depositAddress} holds no ${chain} (depositTx=${depositTxId})`)
+    return
+  }
+  const { txId } = await provider.sendOnChain({
+    chain,
+    senderAddress: depositAddress,
+    recipientAddress: master.depositAddress,
+    amount: String(balance),
+    key,
+    onActivated: trxPrice == null ? undefined : (activation) => chargeActivation(provider, account, activation, trxPrice),
+  })
+  console.log(`SWEEP_SUCCESS: depositTx=${depositTxId}, sweepTx=${txId}, amount=${balance} ${chain}`)
+}
+
 /**
- * Consolidates a customer's just-received deposit to that currency's master
- * wallet: a token's deposited amount, or a native coin's whole balance.
+ * Consolidates a customer's deposit address to that currency's master wallet,
+ * sending its whole balance, a token's or a native coin's.
  *
  * Claimed before the on-chain move (not after), so a redelivered message
  * arriving while a slow rental/broadcast is still in flight doesn't
@@ -81,8 +154,20 @@ export const handleSweep = async (message: any): Promise<boolean> => {
 
   if (native && !(await masterCanReceive(provider, currency, master))) return false
 
+  let trxPrice: number | null = null
+  if (!native) {
+    try {
+      const price = await activationPrice(account)
+      if (price === 'wait') return true
+      trxPrice = price
+    } catch (err) {
+      console.error(`SWEEP_ERROR: could not tell whether ${senderAddress} must be activated, or what that costs ${vAccountId}; sweep ${txId} not claimed`, err)
+      return false
+    }
+  }
+
   console.log(`--- Processing Sweep [${txId}] for Account [${vAccountId}] ---`)
-  console.log(`Sweeping ${native ? 'the balance' : amount} ${currency} from ${senderAddress} to ${masterAddress}`)
+  console.log(`Sweeping the ${currency} balance from ${senderAddress} to ${masterAddress}`)
 
   const claim = await putItem(
     'v1TransactionLogsTable',
@@ -110,20 +195,8 @@ export const handleSweep = async (message: any): Promise<boolean> => {
   }
 
   try {
-    if (native) {
-      await sweepNative(provider, account, master, key, txId)
-      return true
-    }
-
-    const { txId: sweepTxId } = await provider.sendOnChain({
-      chain: currency,
-      senderAddress,
-      recipientAddress: masterAddress,
-      amount: String(amount),
-      key,
-    })
-
-    console.log(`SWEEP_SUCCESS: depositTx=${txId}, sweepTx=${sweepTxId}`)
+    if (native) await sweepNative(provider, account, master, key, txId)
+    else await sweepToken(provider, account, master, key, txId, trxPrice)
     return true
   } catch (err) {
     console.error(`SWEEP_ERROR: Failed to sweep depositTx=${txId} for ${vAccountId}.`, err)

@@ -37,6 +37,7 @@ const ledger = {
   completed: [] as string[],
   completedWith: {} as Record<string, string>,
   cancelled: [] as string[],
+  transfers: [] as { senderAccountId: string, recipientAccountId: string, amount: string }[],
 }
 const tronBroadcasts: { txId: string, from: string, to?: string, amount?: number, signedBy: string }[] = []
 const solBroadcasts: { txId: string, from: string, to: string, valid: boolean }[] = []
@@ -49,6 +50,8 @@ const SOL_FEE_LAMPORTS = 5000
 // Every TRON address has spent its free bandwidth, so a sweep burns 1000 sun a byte
 const onChain: Record<string, number> = {}
 const activeTron = new Set<string>()
+// TRC-20 balances in the token's smallest units, by holder
+const tokenBalances: Record<string, number> = {}
 const SOL_RENT_EXEMPT_LAMPORTS = 650_240
 
 Object.assign(axios, {
@@ -67,6 +70,13 @@ Object.assign(axios, {
     if (url.endsWith('/wallet/gettransactioninfobyid')) return { data: { id: payload.value, fee: TRON_FEE_SUN } }
     if (url.endsWith('/wallet/getaccountresource')) return { data: { freeNetLimit: 600, freeNetUsed: 600 } }
     if (url.endsWith('/wallet/getaccount')) return { data: activeTron.has(payload.address) ? { address: payload.address } : {} }
+    if (url.endsWith('/wallet/triggerconstantcontract') && payload.function_selector === 'balanceOf(address)') {
+      return { data: { result: { result: true }, constant_result: [(tokenBalances[payload.owner_address] ?? 0).toString(16).padStart(64, '0')] } }
+    }
+    if (url.endsWith('/ledger/transaction')) {
+      ledger.transfers.push(payload)
+      return { data: { id: `ledger-${ledger.transfers.length}` } }
+    }
     throw new Error(`stand-in: unexpected POST ${url}`)
   },
   get: async (url: string) => {
@@ -239,25 +249,45 @@ check('a SOL sweep is paid by the account that received the deposit, to its own 
 check('…and its fee comes off the customer\'s VA, completed with the sweep\'s txId',
   solSweepFee.accountId === hdSol.vAccountId && solSweepFee.amount === '0.000005' && solSweepFee.completedWith === solSweep?.txId)
 
-// 4. Token withdrawals and sweeps go through the master: what the handlers ask the provider for
+// 4. Token withdrawals and sweeps go through the master: what the handlers ask the provider for.
+// The send stands in for a rental that activated the sender, paying CatFee 1.2 TRX for it
 const asked: any[] = []
-const real = { withdrawFunds: TatumProvider.prototype.withdrawFunds, sendOnChain: TatumProvider.prototype.sendOnChain }
+const real = { withdrawFunds: TatumProvider.prototype.withdrawFunds, sendOnChain: TatumProvider.prototype.sendOnChain, fetch: globalThis.fetch }
 Object.assign(TatumProvider.prototype, {
   withdrawFunds: async (params: any) => { asked.push(params); return { withdrawalId: 'wd', txId: 'tx' } },
-  sendOnChain: async (params: any) => { asked.push(params); return { txId: 'tx' } },
+  sendOnChain: async (params: any) => {
+    asked.push(params)
+    await params.onActivated?.({ provider: 'CatFee', sun: 1_200_000 })
+    return { txId: 'tx' }
+  },
 })
+// Binance.US's TRX price, which the activation is charged at
+globalThis.fetch = async () => new Response(JSON.stringify({ symbol: 'TRXUSDT', price: '0.30020000' }))
 
 await handleWithdrawal(withdrawal(hdToken.vAccountId, destination))
 check('a token withdrawal debits the customer but signs as the merchant\'s master',
   asked.at(-1).accountId === hdToken.vAccountId && asked.at(-1).senderAddress === master.depositAddress &&
   JSON.stringify(asked.at(-1).key) === JSON.stringify(master.key) && asked.at(-1).masterAccountId === master.vAccountId)
 
+// An earlier deposit's coins are still on the address: 12.5 in all, never activated
+tokenBalances[hdToken.depositAddress] = 12_500_000
 await handleSweep({ vAccountId: hdToken.vAccountId, senderAddress: hdToken.depositAddress, amount: 5, txId: 'deposit-1', kmsKeyId: 'someone-elses-key', merchantId: 'someone-else', currency: 'TRON' })
 check('a sweep is signed by the account that received the deposit, to its own merchant\'s master',
   asked.at(-1).senderAddress === hdToken.depositAddress && asked.at(-1).recipientAddress === master.depositAddress &&
   asked.at(-1).chain === 'TUSDT_TRON' && JSON.stringify(asked.at(-1).key) === JSON.stringify(accountKeyRef(hdToken.accountRecord)))
+check('…it sends the address\'s whole token balance, not the deposit\'s amount', asked.at(-1).amount === '12.5', `amount ${asked.at(-1).amount}`)
 
-Object.assign(TatumProvider.prototype, real)
+// energy-rental-plan step 3: 1.2 TRX at 0.3002 is 0.36024
+const activationRow = transactions.get(`${hdToken.vAccountId}|TX#activation-${hdToken.depositAddress}`)
+const tokenBalance = balances.get(`${hdToken.vAccountId}|`)?.availableBalance
+check('…activating it is the customer\'s FEE row, off their balance, at the live TRX price',
+  activationRow?.type === 'FEE' && activationRow.amount === 0.36024 && tokenBalance === 10 - 0.36024, `row ${JSON.stringify(activationRow)}, availableBalance ${tokenBalance}`)
+const feeVa = merchants.get('acme|FEEVA#TUSDT_TRON')?.vAccountId
+check('…and moves from their VA to the merchant\'s fee VA',
+  !!feeVa && JSON.stringify(ledger.transfers) === JSON.stringify([{ senderAccountId: hdToken.vAccountId, recipientAccountId: feeVa, amount: '0.36024' }]), JSON.stringify(ledger.transfers))
+
+Object.assign(TatumProvider.prototype, { withdrawFunds: real.withdrawFunds, sendOnChain: real.sendOnChain })
+globalThis.fetch = real.fetch
 
 // 5. An old KMS-model master
 merchants.set('beta|MASTER#USDT_TRON', { id: 'beta', sk: 'MASTER#USDT_TRON', currency: 'USDT_TRON', status: 'ready', kmsKeyId: 'an-old-kms-key', depositAddress: 'T-none', vAccountId: 'va-x' })

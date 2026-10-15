@@ -1,11 +1,21 @@
 import axios from 'axios'
 import { Connection, Keypair, SystemProgram, TransactionMessage, VersionedTransaction } from '@solana/web3.js'
 import { TatumProvider } from './tatum'
-import { buildTronSweep, getTronTransactionFee, isTronAccountActive } from './chains/tron'
+import { buildTronSweep, getTronTransactionFee, getTrc20Balance, isTronAccountActive } from './chains/tron'
 import { buildSolanaSweep, getSolanaTransactionFee, isSolanaRentExempt } from './chains/solana'
 import { signSol, signTron } from '../../../utils/signing'
+import { ensureEnergy } from '../../energy/ensureResources'
 
-jest.mock('./chains/tron', () => ({ getTronTransactionFee: jest.fn(async () => 0.268), buildTronSweep: jest.fn(), isTronAccountActive: jest.fn() }))
+jest.mock('./chains/tron', () => ({
+  getTronTransactionFee: jest.fn(async () => 0.268),
+  buildTronSweep: jest.fn(),
+  isTronAccountActive: jest.fn(),
+  getTrc20Balance: jest.fn(),
+  estimateTrc20TransferEnergy: jest.fn(async () => 64_285),
+  buildTrc20Transfer: jest.fn(async () => ({ txID: 'tx-1', raw_data_hex: '00' })),
+  estimateTronBandwidth: jest.fn(() => 345),
+}))
+jest.mock('../../energy/ensureResources', () => ({ ensureEnergy: jest.fn(), ensureBandwidth: jest.fn() }))
 jest.mock('./chains/solana', () => ({ getSolanaTransactionFee: jest.fn(async () => 0.000005), buildSolanaSweep: jest.fn(), isSolanaRentExempt: jest.fn() }))
 jest.mock('../../../utils/signing', () => ({ signTron: jest.fn(async () => 'sig'), signSol: jest.fn(async () => 'ab'.repeat(64)) }))
 jest.mock('axios', () => ({ __esModule: true, default: { post: jest.fn(), put: jest.fn(), delete: jest.fn(), isAxiosError: () => false } }))
@@ -136,8 +146,42 @@ describe('TatumProvider.sweepAll', () => {
     expect(broadcasts()).toEqual([])
   })
 
-  it('refuses a token, which is swept by its deposited amount (sendOnChain)', async () => {
+  it('refuses a token, which is swept with sendOnChain', async () => {
     await expect(provider.sweepAll({ chain: 'USDT_TRON', senderAddress: 'TCustomer', recipientAddress: 'TMaster', key })).rejects.toThrow(/unsupported chain USDT_TRON/)
+  })
+})
+
+// energy-rental-plan step 3: only a sweep may activate its sender, and pays for it
+describe('TatumProvider: activating a token\'s sender', () => {
+  const provider = new TatumProvider()
+  const key = { accountNo: 'PCF0001' }
+
+  it('lets sendOnChain\'s rental activate the sender when given onActivated', async () => {
+    const onActivated = jest.fn()
+    await provider.sendOnChain({ chain: 'USDT_TRON', senderAddress: 'TCustomer', recipientAddress: 'TMaster', amount: '25', key, onActivated })
+    expect(ensureEnergy).toHaveBeenCalledWith('TCustomer', 64_285, onActivated)
+  })
+
+  it('never lets a withdrawal\'s rental activate the master that signs it', async () => {
+    await provider.withdrawFunds({ accountId: 'va-1', address: 'TDestination', amount: '25', currency: 'USDT_TRON', key, senderAddress: 'TMaster', masterAccountId: 'va-master' })
+    expect(ensureEnergy).toHaveBeenCalledWith('TMaster', 64_285, undefined)
+  })
+})
+
+describe('TatumProvider.getOnChainBalance', () => {
+  const provider = new TatumProvider()
+
+  it.each([
+    ['USDT_TRON', 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'],
+    ['TUSDT_TRON', 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs'],
+  ])('reads a %s balance from its contract, in USDT', async (chain, contract) => {
+    ;(getTrc20Balance as jest.Mock).mockResolvedValueOnce(37_500_001)
+    expect(await provider.getOnChainBalance({ chain, address: 'TCustomer' })).toBe(37.500001)
+    expect(getTrc20Balance).toHaveBeenCalledWith(contract, 'TCustomer')
+  })
+
+  it('refuses a currency of no known network', async () => {
+    await expect(provider.getOnChainBalance({ chain: 'BTC', address: 'x' })).rejects.toThrow(/unsupported chain BTC/)
   })
 })
 
