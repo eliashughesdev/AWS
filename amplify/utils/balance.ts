@@ -4,10 +4,7 @@ const BALANCE_TABLE_NAME = 'v1AccountBalanceTable'
 
 export type Direction = 'CREDIT' | 'DEBIT'
 
-// Applies one side of a transfer to an account. Idempotent per (account, txId)
-// via the transaction-log claim. Returns false only on an unexpected failure.
-// The update is relative, so a concurrent writer's change isn't lost (B4).
-export async function applyBalanceChange(params: {
+export interface BalanceChange {
   account: any
   direction: Direction
   amount: number
@@ -18,7 +15,18 @@ export async function applyBalanceChange(params: {
   blockNumber?: number
   index?: number
   type?: string
-}): Promise<boolean> {
+}
+
+// Applies one side of a transfer to an account. Idempotent per (account, txId)
+// via the transaction-log claim. Returns false only on an unexpected failure.
+// The update is relative, so a concurrent writer's change isn't lost (B4).
+export async function applyBalanceChange(params: BalanceChange): Promise<boolean> {
+  return (await applyBalanceChangeOnce(params)) !== 'failed'
+}
+
+// The same, saying whether this call moved the balance: 'duplicate' when the
+// txId was applied to the account before
+export async function applyBalanceChangeOnce(params: BalanceChange): Promise<'applied' | 'duplicate' | 'failed'> {
   const { account, direction, amount, currency, txId } = params
   const balanceKey: string = account.vAccountId
   const signedDelta = direction === 'CREDIT' ? amount : -amount
@@ -47,10 +55,10 @@ export async function applyBalanceChange(params: {
   if (!claim.success) {
     if (claim.error?.name === 'ConditionalCheckFailedException') {
       console.log(`DUPLICATE_TX: ${txId} already applied to ${balanceKey}. Skipping.`)
-      return true
+      return 'duplicate'
     }
     console.error(`LOG_ERROR: Failed to claim tx ${txId} for ${balanceKey}:`, claim.error)
-    return false
+    return 'failed'
   }
 
   // A missing balance record fails here too: the expression reads attributes it doesn't have
@@ -72,9 +80,9 @@ export async function applyBalanceChange(params: {
 
   if (!update.success) {
     console.error(`DB_ERROR: Failed to update balance for ${balanceKey}, tx ${txId}:`, update.error)
-    return false
+    return 'failed'
   }
 
   console.log(`TX_SUCCESS: ${balanceKey} updated to ${update.res?.Attributes?.balance?.N} ${currency}. TX: ${txId}`)
-  return true
+  return 'applied'
 }

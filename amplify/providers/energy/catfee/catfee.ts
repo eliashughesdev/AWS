@@ -16,6 +16,9 @@ type Config = NonNullable<ReturnType<typeof resolveConfig>>
 const DURATION = '1h'
 const MINIMUM = 65_000
 
+// activate_fee_sun in https://catfee.io/api/public/config
+const ACTIVATION_SUN = 1_200_000
+
 const REQUEST_TIMEOUT_MS = 10_000
 
 // Business codes that mean CatFee did nothing: auth, IP, clock, rate limit,
@@ -33,6 +36,8 @@ interface CatFeeOrder {
   status?: string
   confirm_status?: string
   pay_amount_sun?: number
+  activate_status?: string
+  activate_amount_sun?: number
 }
 
 // 'order': CatFee answered with one. 'refused': it did nothing. 'unsure': it may have.
@@ -85,6 +90,13 @@ async function catfeeRequest(config: Config, method: 'GET' | 'POST', path: strin
   return { kind: 'unsure', reason }
 }
 
+// What an order charged to activate its receiver: only when its activate_status
+// says it activates it. CatFee doesn't document the statuses further
+function activationOf(order: CatFeeOrder): number {
+  const activates = order.activate_status === 'ACTIVATE' || order.activate_status === 'ACTIVATED'
+  return activates && order.activate_amount_sun ? order.activate_amount_sun : 0
+}
+
 // Why an order will never deliver, or undefined while it still may
 function failureOf(order: CatFeeOrder): string | undefined {
   if (order.status && FAILED_STATUSES.has(order.status)) return order.status
@@ -96,17 +108,18 @@ export class CatFeeProvider implements EnergyProvider {
   readonly name = 'CatFee'
   readonly resources: EnergyProvider['resources'] = ['ENERGY']
   readonly deliveryTimeoutMs = 60_000
+  readonly activationSun = ACTIVATION_SUN
 
   minimum(): number {
     return MINIMUM
   }
 
-  async rent({ receiver, amount }: RentRequest): Promise<RentOutcome> {
+  async rent({ receiver, amount, onActivated }: RentRequest): Promise<RentOutcome> {
     const config = resolveConfig()
     if (!config) return { status: 'refused', reason: 'CATFEE_BASE_URL, CATFEE_API_KEY or CATFEE_API_SECRET is not set' }
 
     // Sending the same client_order_id again returns the order it made, never a second one
-    const query = { quantity: String(amount), receiver, duration: DURATION, client_order_id: randomUUID(), activate: 'false' }
+    const query = { quantity: String(amount), receiver, duration: DURATION, client_order_id: randomUUID(), activate: String(!!onActivated) }
     let answer = await catfeeRequest(config, 'POST', '/v1/order', query)
     if (answer.kind === 'unsure') {
       console.log(`DEBUG (CatFeeProvider): order ${query.client_order_id} for ${receiver} is unclear (${answer.reason}), sending it again`)
@@ -117,7 +130,10 @@ export class CatFeeProvider implements EnergyProvider {
     if (answer.kind === 'refused') return { status: 'refused', reason: answer.reason }
 
     const { order } = answer
-    console.log(`DEBUG (CatFeeProvider): order ${order.id} (${query.client_order_id}) for ${receiver}: status=${order.status} confirm_status=${order.confirm_status} pay_amount_sun=${order.pay_amount_sun}`)
+    console.log(`DEBUG (CatFeeProvider): order ${order.id} (${query.client_order_id}) for ${receiver}: status=${order.status} confirm_status=${order.confirm_status} pay_amount_sun=${order.pay_amount_sun} activate_status=${order.activate_status} activate_amount_sun=${order.activate_amount_sun}`)
+    // Paid with the order, even one that will not deliver
+    const activationSun = activationOf(order)
+    if (onActivated && activationSun) await onActivated(activationSun)
     const failure = failureOf(order)
     if (failure) return { status: 'refused', reason: `order ${order.id}: ${failure}` }
     return { status: 'placed', orderId: order.id, costSun: order.pay_amount_sun }

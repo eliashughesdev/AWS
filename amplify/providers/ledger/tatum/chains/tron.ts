@@ -129,6 +129,29 @@ export async function estimateTrc20TransferEnergy(
   return Number(res.data.energy_used ?? 0)
 }
 
+// An address's TRC-20 balance in the token's smallest units, read with a dry
+// run of balanceOf (which works for an address never activated too)
+export async function getTrc20Balance(contractAddress: string, address: string): Promise<number> {
+  const url = `${resolveBase()}/blockchain/node/TRON/wallet/triggerconstantcontract`
+  const res = await axios.post(
+    url,
+    {
+      owner_address: address,
+      contract_address: contractAddress,
+      function_selector: 'balanceOf(address)',
+      parameter: decodeTronAddressHex(address).padStart(64, '0'),
+      visible: true,
+    },
+    { headers: { 'x-api-key': process.env.TATUM_API_KEY } }
+  )
+
+  const word = res.data?.constant_result?.[0]
+  if (!res.data?.result?.result || !word) {
+    throw new Error(`balanceOf(${address}) on ${contractAddress} failed: ${JSON.stringify(res.data?.result)}`)
+  }
+  return Number(BigInt(`0x${word}`))
+}
+
 // Builds a real, signable TRC-20 transfer transaction (wallet/
 // triggersmartcontract)
 export async function buildTrc20Transfer(

@@ -1,9 +1,10 @@
-import { getTronBalance, getTronBandwidthPriceSun, getTronResources, type TronResources } from '../ledger/tatum/chains/tron'
+import { getTronBalance, getTronBandwidthPriceSun, getTronResources, isTronAccountActive, type TronResources } from '../ledger/tatum/chains/tron'
 import { CatFeeProvider } from './catfee/catfee'
-import { ensureBandwidth, ensureEnergy } from './ensureResources'
+import { ensureBandwidth, ensureEnergy, maxActivationSun } from './ensureResources'
+import type { RentRequest } from './EnergyProvider'
 import { TronSaveProvider } from './tronsave/tronsave'
 
-jest.mock('../ledger/tatum/chains/tron', () => ({ getTronResources: jest.fn(), getTronBalance: jest.fn(), getTronBandwidthPriceSun: jest.fn() }))
+jest.mock('../ledger/tatum/chains/tron', () => ({ getTronResources: jest.fn(), getTronBalance: jest.fn(), getTronBandwidthPriceSun: jest.fn(), isTronAccountActive: jest.fn() }))
 
 // Both vendors' APIs are stubbed: what is tested is the order they are tried
 // in, and what moves on to the next one (energy-rental-plan step 2, D3)
@@ -41,6 +42,7 @@ beforeEach(() => {
   tronsave.minimum.mockReturnValue(0)
   ;(getTronBalance as jest.Mock).mockResolvedValue(0)
   ;(getTronBandwidthPriceSun as jest.Mock).mockResolvedValue(1000)
+  ;(isTronAccountActive as jest.Mock).mockReset().mockResolvedValue(true)
 })
 
 afterEach(() => jest.useRealTimers())
@@ -165,6 +167,78 @@ describe('ensureEnergy falling back from CatFee to TronSave', () => {
     reads({ energyAvailable: 0 })
     const err = await settle(ensureEnergy('TSender', 64_285), 120_000)
     expect(err).toEqual(new Error('TronSave order ts-1 for TSender did not deliver enough ENERGY within 120s'))
+  })
+})
+
+// energy-rental-plan step 3: only a caller that pays for it (the sweep) may activate
+describe('ensureEnergy for an address never activated', () => {
+  const onActivated = jest.fn(async () => {})
+  // A provider that activates the receiver it is given, for `sun`, then places the order
+  const activating = (sun: number) => async ({ onActivated: paid }: RentRequest) => {
+    await paid?.(sun)
+    return { status: 'placed' as const, orderId: 'cf-1', costSun: 1_820_000 }
+  }
+
+  beforeEach(() => {
+    onActivated.mockClear()
+    ;(isTronAccountActive as jest.Mock).mockResolvedValue(false)
+  })
+
+  it('refuses, renting nothing, when the caller cannot pay for activating it', async () => {
+    reads({ energyAvailable: 0 })
+    await expect(ensureEnergy('TMaster', 64_285)).rejects.toThrow('TMaster was never activated')
+    expect(logError).toHaveBeenCalledWith(expect.stringMatching(/^CONFIG_ERROR \(ensureResources\): TMaster was never activated/))
+    expect(catfee.rent).not.toHaveBeenCalled()
+    expect(tronsave.rent).not.toHaveBeenCalled()
+  })
+
+  it('asks the provider to activate it, and reports what that cost and to whom', async () => {
+    catfee.rent.mockImplementation(activating(1_200_000))
+    reads({ energyAvailable: 0 }, { energyAvailable: 64_928 })
+    expect(await settle(ensureEnergy('TCustomer', 64_285, onActivated))).toBe('resolved')
+    expect(catfee.rent).toHaveBeenCalledWith({ resource: 'ENERGY', receiver: 'TCustomer', amount: 64_928, onActivated: expect.any(Function) })
+    expect(onActivated).toHaveBeenCalledTimes(1)
+    expect(onActivated).toHaveBeenCalledWith({ provider: 'CatFee', sun: 1_200_000 })
+    expect(logged('ADDRESS_ACTIVATED')).toEqual(['ADDRESS_ACTIVATED provider=CatFee address=TCustomer costSun=1200000'])
+  })
+
+  it('reports the activation even when the order then never delivers', async () => {
+    catfee.rent.mockImplementation(activating(1_200_000))
+    reads({ energyAvailable: 0 })
+    expect(await settle(ensureEnergy('TCustomer', 64_285, onActivated), 60_000)).toEqual(expect.any(Error))
+    expect(onActivated).toHaveBeenCalledWith({ provider: 'CatFee', sun: 1_200_000 })
+  })
+
+  it('lets the next provider activate it when the first refused', async () => {
+    catfee.rent.mockResolvedValue({ status: 'refused', reason: 'CATFEE_BASE_URL, CATFEE_API_KEY or CATFEE_API_SECRET is not set' })
+    tronsave.rent.mockImplementation(activating(1_500_000))
+    reads({ energyAvailable: 0 }, { energyAvailable: 64_928 })
+    expect(await settle(ensureEnergy('TCustomer', 64_285, onActivated))).toBe('resolved')
+    expect(onActivated).toHaveBeenCalledWith({ provider: 'TronSave', sun: 1_500_000 })
+  })
+
+  it('does not ask an active address to be activated, even when the caller would pay', async () => {
+    ;(isTronAccountActive as jest.Mock).mockResolvedValue(true)
+    reads({ energyAvailable: 0 }, { energyAvailable: 64_928 })
+    expect(await settle(ensureEnergy('TCustomer', 64_285, onActivated))).toBe('resolved')
+    expect(catfee.rent.mock.calls[0][0].onActivated).toBeUndefined()
+  })
+
+  it('does not read whether the address is active when it already has the energy', async () => {
+    reads({ energyAvailable: 64_285 })
+    await ensureEnergy('TCustomer', 64_285)
+    expect(isTronAccountActive).not.toHaveBeenCalled()
+  })
+})
+
+describe('maxActivationSun', () => {
+  it.each([
+    [undefined, 1_500_000],
+    ['catfee', 1_200_000],
+    ['tronsave', 1_500_000],
+  ])('is the dearest activation among the providers configured (%s)', (order, sun) => {
+    if (order) process.env.TRON_ENERGY_PROVIDERS = order
+    expect(maxActivationSun()).toBe(sun)
   })
 })
 

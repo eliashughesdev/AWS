@@ -127,6 +127,50 @@ describe('CatFeeProvider.rent', () => {
   })
 })
 
+// energy-rental-plan step 3
+describe('CatFeeProvider.rent activating the receiver', () => {
+  const provider = new CatFeeProvider()
+  const onActivated = jest.fn(async () => {})
+  const request = { resource: 'ENERGY' as const, receiver: 'TCustomer', amount: 65_000, onActivated }
+
+  beforeEach(() => onActivated.mockClear())
+
+  it('asks CatFee to activate only when the caller pays for it', async () => {
+    fetchMock.mockResolvedValueOnce(order({ activate_status: 'ACTIVATE', activate_amount_sun: 1_200_000 }))
+    await provider.rent(request)
+    expect(sent()[0].query.activate).toBe('true')
+  })
+
+  it.each(['ACTIVATE', 'ACTIVATED'])('reports activate_amount_sun when the order says %s, before answering', async (activate_status) => {
+    fetchMock.mockResolvedValueOnce(order({ activate_status, activate_amount_sun: 1_200_000 }))
+    expect(await provider.rent(request)).toEqual({ status: 'placed', orderId: 'cf-1', costSun: 1_820_000 })
+    expect(onActivated).toHaveBeenCalledWith(1_200_000)
+  })
+
+  it.each([
+    [{ activate_status: 'ALREADY_ACTIVATED', activate_amount_sun: 0 }],
+    [{ activate_status: 'ALREADY_ACTIVATED', activate_amount_sun: 1_200_000 }],
+    [{ activate_status: 'DEACTIVATE' }],
+    [{ activate_status: 'ACTIVATED', activate_amount_sun: 0 }],
+    [{}],
+  ])('reports nothing when the order activated nothing (%j)', async (fields) => {
+    fetchMock.mockResolvedValueOnce(order(fields))
+    expect(await provider.rent(request)).toMatchObject({ status: 'placed' })
+    expect(onActivated).not.toHaveBeenCalled()
+  })
+
+  // Paid with the order: the next provider will find the address active
+  it('reports an activation paid with an order that will not deliver', async () => {
+    fetchMock.mockResolvedValueOnce(order({ status: 'DELEGATE_FAIL', activate_status: 'ACTIVATED', activate_amount_sun: 1_200_000 }))
+    expect(await provider.rent(request)).toEqual({ status: 'refused', reason: 'order cf-1: DELEGATE_FAIL' })
+    expect(onActivated).toHaveBeenCalledWith(1_200_000)
+  })
+
+  it('publishes 1.2 TRX as its activation price', () => {
+    expect(provider.activationSun).toBe(1_200_000)
+  })
+})
+
 describe('CatFeeProvider.orderState', () => {
   const provider = new CatFeeProvider()
 
