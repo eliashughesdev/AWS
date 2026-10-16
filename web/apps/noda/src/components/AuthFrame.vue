@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppFooter from './AppFooter.vue'
 import logoMark from '../assets/logo-mark.png'
 import logoWordmark from '../assets/logo-wordmark.png'
 
@@ -28,8 +29,6 @@ defineProps<{ title: string; subtitle?: string }>()
       <slot name="after" />
     </main>
 
-    <footer class="px-[10px] py-[21px] text-[10px] leading-none font-semibold text-faint lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
-      NodabaseStaging©2025
-    </footer>
+    <AppFooter />
   </div>
 </template>

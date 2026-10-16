@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { signOut } from '@loudibly/core/auth/cognito'
 import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
+import AppFooter from '../components/AppFooter.vue'
 import AppIcon from '../components/AppIcon.vue'
 import type { IconName } from '../icons'
 import { useTheme } from '../theme'
@@ -159,7 +160,5 @@ async function handleSignOut() {
     <RouterView />
   </main>
 
-  <footer class="px-[10px] py-[21px] text-[10px] leading-none font-semibold text-faint lg:px-[30px] lg:pb-[23px] lg:pt-[31px]">
-    NodabaseStaging©2025
-  </footer>
+  <AppFooter />
 </template>
