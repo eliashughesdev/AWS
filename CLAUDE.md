@@ -361,7 +361,13 @@ instead, not `/webhook/`.
 provider webhooks (and, for now, the frontends). `loudiblyPublicApi` faces the public internet
 for merchant platforms and signed-in users: it has one resource per route in
 `amplify/service/publicRoutes.ts` and nothing else, with the same authorizer function and stage
-name `v1` (HMAC callers sign the path, `/v1` included). Its stage variable
+name `v1` (HMAC callers sign the path, `/v1` included). Custom domains, edge-optimized with
+base path `v1` mapped to stage `v1`, made by `scripts/setup/api-domains.sh` (DNS on Cloudflare,
+added by hand): the public API is `api.staging.loudibly.com` / `api.noda.money`, the name the API
+docs give, and the internal one `app-api.staging.loudibly.com` / `app-api.noda.money`, which
+`VITE_API_BASE` and SSM `TATUM_WEBHOOK_URL` use (since 2026-10-16; older Tatum subscriptions may
+still name the execute-api address, which works, but never `api.*`: `repoint-tatum-webhooks.sh`
+moves them). Its stage variable
 `API_SURFACE=public` makes the router answer 404 to any route not on that list. To expose a
 route publicly, add it to `publicRoutes` with the permission an API key needs to call it
 (`amplify/service/permissions.ts`; `any` for every key, `null` for none) and document it in
