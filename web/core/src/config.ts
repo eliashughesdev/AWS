@@ -12,6 +12,9 @@ function required(name: string, value: string | undefined): string {
 export const API_BASE   = required('VITE_API_BASE', import.meta.env.VITE_API_BASE)
 export const WS_BASE    = required('VITE_WS_BASE', import.meta.env.VITE_WS_BASE)
 export const RELAY_BASE = required('VITE_EVERVAULT_RELAY_BASE', import.meta.env.VITE_EVERVAULT_RELAY_BASE)
+// The public API, the only one an API key works on. Optional: it is shown to the user (the key
+// screens' curl example) and never called by the app.
+export const PUBLIC_API_BASE = import.meta.env.VITE_PUBLIC_API_BASE?.replace(/\/+$/, '') || null
 
 // Ledger currency to request when creating a USDT-TRON custodial account. Real
 // USDT_TRON is a Tatum mainnet-only built-in; on testnet, Shasta's USDT contract is

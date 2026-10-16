@@ -95,7 +95,8 @@ async function handleSignOut() {
         <!-- Not in Figma: a menu drawn like the design's dropdown buttons. A click anywhere else closes it. -->
         <template v-if="userMenuOpen">
           <div class="fixed inset-0 z-10" @click="userMenuOpen = false" />
-          <div class="card absolute right-0 top-full z-20 mt-[8px] rounded-[10px]">
+          <div class="card absolute right-0 top-full z-20 mt-[8px] flex flex-col rounded-[10px] py-[5px]">
+            <RouterLink :to="{ name: 'api-keys' }" class="flex h-[40px] items-center whitespace-nowrap px-[13px] text-[12px] font-semibold text-ink lg:text-[14px]" active-class="text-accent!">API keys</RouterLink>
             <button type="button" class="flex h-[40px] items-center whitespace-nowrap px-[13px] text-[12px] font-semibold text-ink lg:text-[14px]" @click="handleSignOut">Sign out</button>
           </div>
         </template>

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { ActivityStatus } from '../activity'
-import { pills } from '../tones'
+import { pills, type PillStatus } from '../tones'
 
-defineProps<{ status: ActivityStatus }>()
+defineProps<{ status: PillStatus }>()
 </script>
 
 <template>

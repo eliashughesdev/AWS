@@ -125,7 +125,13 @@ There are three deployable pieces in this one repo:
     `100036` only; when the link could not be checked for any other reason it offers the check
     again, and when the request that sets the password fails it stays on the form. Its button
     is disabled only while that request runs: the browser's own hints say which field is empty
-    or that the terms box is unticked, and the form says when the passwords differ. The avatar in `TopNavLayout` shows the user's initial and opens the sign-out menu. The
+    or that the terms box is unticked, and the form says when the passwords differ. The avatar in `TopNavLayout` shows the user's initial and opens a menu with API keys and Sign out.
+    API keys (`/developers/api-keys`, `ApiKeysView`, no Figma design) is real: the user's keys in a
+    `DataTable` on desktop and one `card` each on mobile, Edit and Revoke, and `CreateApiKeyDialog`,
+    mounted with `v-if`, which keeps the new key's secret in its own state, closes only through "I've
+    stored it", and on a 5xx or no answer says to check the list instead of offering a retry. Its
+    curl example needs `VITE_PUBLIC_API_BASE` (the public API; left out when unset). `src/apiKeys.ts`
+    holds what a row shows and the wording of each refusal. The
     sun and moon switch beside it flips the theme (`src/theme.ts`): dark is `main.css` as it
     stands, and light is `<html data-theme="light">`, whose values are all in
     `src/assets/light.css`. The browser keeps the choice and `index.html` applies it before the

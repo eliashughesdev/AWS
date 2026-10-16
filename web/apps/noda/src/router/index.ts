@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { checkAccess, type AccessRules } from '@loudibly/core/auth/guards'
 import TopNavLayout from '../layouts/TopNavLayout.vue'
 import AccountsView from '../views/AccountsView.vue'
+import ApiKeysView from '../views/ApiKeysView.vue'
 import AuthView from '../views/AuthView.vue'
 import ComingSoonView from '../views/ComingSoonView.vue'
 import ConfirmView from '../views/ConfirmView.vue'
@@ -56,6 +57,8 @@ const router = createRouter({
         { path: 'payments',     name: 'payments',     component: PaymentsView,   meta: { title: 'Payments', subtitle: 'Manage your payments and\npayment methods' } },
         { path: 'earn',         name: 'earn',         component: EarnView,       meta: { title: 'Earn', subtitle: 'Stake your crypto and earn passive income' } },
         { path: 'transactions', name: 'transactions', component: TransactionsView, meta: { title: 'Transactions', subtitle: 'View and manage all your transaction history' } },
+        // Reached from the avatar menu.
+        { path: 'developers/api-keys', name: 'api-keys', component: ApiKeysView, meta: { title: 'API keys', subtitle: 'Let your own software use your NODA account' } },
         // Where header controls with nothing behind them lead (language, notifications, settings).
         { path: 'coming-soon',  name: 'coming-soon',  component: ComingSoonView, meta: { title: 'Coming soon' } },
       ],
