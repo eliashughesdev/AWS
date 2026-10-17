@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+/* Class-based dark mode: triggers when .dark is present on any ancestor */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* ─── Brand roles — Loudibly, the default when no brand is selected ───────
+     Another brand overrides these in its [data-brand] block at the foot of
+     this file. --color-brand must stay a hex literal: the QR views read it
+     back via getComputedStyle and pass it to qrcode, which rejects color-mix(). */
+  --color-brand:       #CCFF00;
+  --color-brand-hover: #D6FF33;
+  --color-on-brand:    #000000;  /* text/icons drawn on top of --color-brand */
+
+  /* ─── Surfaces ──────────────────────────────────────── */
+  --color-page:      #0A0B0D;  /* base layer: page background and recessed inputs */
+  --color-page-deep: #111508;  /* page gradient end stop */
+  --color-surface-1: #1A1D10;  /* panels, cards, sidebar */
+  --color-surface-2: #282B1D;  /* elevated / hover */
+
+  /* ─── Neutrals ──────────────────────────────────────── */
+  --color-text-primary:   #FFFFFF;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted:     #52525B;
+  --color-border-subtle:  rgba(255, 255, 255, 0.08);
+
+  /* ─── Status ────────────────────────────────────────── */
+  --color-status-info:    #3B82F6;
+  --color-status-success: #10B981;
+  --color-status-warning: #F59E0B;
+  --color-status-danger:  #EF4444;
+
+  /* ─── Spacing ───────────────────────────────────────── */
+  --spacing-base:           4px;
+  --spacing-space-1:        4px;
+  --spacing-space-2:        8px;
+  --spacing-space-3:        12px;
+  --spacing-space-4:        16px;
+  --spacing-space-6:        24px;
+  --spacing-space-8:        32px;
+  --spacing-space-12:       48px;
+  --spacing-gutter:         16px;
+  --spacing-margin-mobile:  16px;
+  --spacing-margin-desktop: 32px;
+
+  /* ─── Font Families ─────────────────────────────────── */
+  /* Every role points at --font-sans, so a brand swaps one value, not eight. */
+  --font-sans: "Geist", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --font-headline-h1:        var(--font-sans);
+  --font-headline-h2:        var(--font-sans);
+  --font-headline-h3:        var(--font-sans);
+  --font-body-base:          var(--font-sans);
+  --font-body-large:         var(--font-sans);
+  --font-display-lg:         var(--font-sans);
+  --font-caption:            var(--font-sans);
+  --font-headline-h1-mobile: var(--font-sans);
+  --font-label-mono-base:    var(--font-mono);
+  --font-label-mono-lg:      var(--font-mono);
+
+  /* ─── Font Sizes ────────────────────────────────────── */
+  --text-display-lg:        48px;
+  --text-headline-h1:       32px;
+  --text-headline-h2:       24px;
+  --text-headline-h3:       18px;
+  --text-headline-h1-mobile: 24px;
+  --text-body-large:        16px;
+  --text-body-base:         14px;
+  --text-label-mono-lg:     16px;
+  --text-label-mono-base:   13px;
+  --text-caption:           12px;
+
+  /* ─── Border Radius ─────────────────────────────────── */
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg:      0.25rem;
+  --radius-xl:      0.5rem;
+  --radius-full:    0.75rem;
+}
+
+/* ─── Base page styles ──────────────────────────────────────────────── */
+html, body {
+  min-height: 100dvh;
+  margin: 0;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-text-primary);
+}
+
+/* ─── Themed backgrounds ────────────────────────────────────────────── */
+.bg-page-gradient {
+  background:
+    radial-gradient(120% 90% at 15% 0%, color-mix(in srgb, var(--color-brand) 16%, transparent) 0%, transparent 55%),
+    radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--color-brand-hover) 10%, transparent) 0%, transparent 50%),
+    linear-gradient(180deg, var(--color-page) 0%, var(--color-page-deep) 100%);
+}
+
+.focus-ring:focus-within {
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand) 15%, transparent);
+}
+
+/* ─── Brand overrides ───────────────────────────────────────────────────
+   One block per client. These sit outside @layer, so they beat the @theme
+   defaults regardless of specificity. Adding a client is a block here plus
+   an entry in src/brands.ts — no view touches a brand colour directly. */
+:root[data-brand="noda"] {
+  --color-brand:       #0DC1C6;
+  --color-brand-hover: #44EAEE;
+  --color-on-brand:    #060C39;
+
+  --color-page:      #060C39;
+  --color-page-deep: #04081F;
+  --color-surface-1: #0B1445;
+  --color-surface-2: #141E5C;
+
+  --font-sans: "Inter", sans-serif;
+}

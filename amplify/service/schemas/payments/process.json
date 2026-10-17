@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /payments/process",
+  "$comment": "userId is optional: a signed-in user pays as themselves, and a merchant's key must name one of its own users, which the handler checks (pci-remediation-plan.md F3). amount is in the currency's major unit (Stripe multiplies it by 100). Fields not listed are ignored, never queued (B1).",
+  "type": "object",
+  "required": ["paymentId", "amount", "currency"],
+  "properties": {
+    "paymentId": { "type": "string", "minLength": 1 },
+    "userId": { "type": "string", "minLength": 1 },
+    "amount": { "type": "number", "exclusiveMinimum": 0 },
+    "currency": { "$comment": "The fiat currency charged, an ISO 4217 code", "type": "string", "pattern": "^[A-Z]{3}$" },
+    "provider": { "type": "string", "enum": ["stripe", "clover"] },
+    "transactionId": { "type": "string", "minLength": 1 },
+    "offSession": { "type": "boolean" },
+    "bin": { "type": "string", "pattern": "^[0-9]{6,8}$" },
+    "email": { "type": "string", "format": "email" },
+    "firstName": { "type": "string", "maxLength": 100 },
+    "lastName": { "type": "string", "maxLength": 100 },
+    "returnUrl": { "$comment": "Where Stripe sends the payer back after 3DS", "type": "string", "pattern": "^https://", "maxLength": 2048 }
+  }
+}

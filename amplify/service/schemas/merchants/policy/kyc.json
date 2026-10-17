@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/policy/kyc",
+  "$comment": "Switches KYC on (true) or off (false) for one currency's withdrawals, transfers and card deposits (docs/public-api-plan.md D11). Only the switches sent change, so at least one is required; one never set requires KYC. currency is a ledger currency exactly as accounts name it (utils/currencies.ts).",
+  "type": "object",
+  "required": ["merchantId", "currency"],
+  "additionalProperties": false,
+  "properties": {
+    "merchantId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "currency": { "type": "string", "enum": ["TRON", "SOL", "USDT_TRON", "TUSDT_TRON"] },
+    "withdraw": { "type": "boolean" },
+    "transfer": { "type": "boolean" },
+    "cardDeposit": { "type": "boolean" }
+  },
+  "anyOf": [
+    { "required": ["withdraw"] },
+    { "required": ["transfer"] },
+    { "required": ["cardDeposit"] }
+  ]
+}

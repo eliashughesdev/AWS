@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /onboarding/claim",
+  "$comment": "token as in verify.json (its format is loadClaim's: 100034). The password policy is Cognito's: its 100037 carries the sentence the set-password screen shows, so no rule of it belongs here. 256 is Cognito's own limit, which it otherwise refuses only after the link was used and given back.",
+  "type": "object",
+  "required": ["token", "password"],
+  "properties": {
+    "token": { "type": "string", "minLength": 1 },
+    "password": { "type": "string", "minLength": 1, "maxLength": 256 }
+  }
+}

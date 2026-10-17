@@ -1,0 +1,10 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/rename",
+  "type": "object",
+  "required": ["accountNumber", "name"],
+  "properties": {
+    "accountNumber": { "type": "string", "pattern": "^PCF[0-9]{4}[0-9a-f]{32}$" },
+    "name": { "type": "string", "maxLength": 40 }
+  }
+}

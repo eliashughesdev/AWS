@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/members/remove",
+  "$comment": "userId is the member's Cognito sub. A member that does not exist, or was already removed, gets 100049 from the handler.",
+  "type": "object",
+  "required": ["merchantId", "userId"],
+  "properties": {
+    "merchantId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "userId": { "type": "string", "minLength": 1, "maxLength": 128 }
+  }
+}

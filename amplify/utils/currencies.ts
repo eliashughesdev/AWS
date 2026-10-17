@@ -1,0 +1,46 @@
+export type Network = 'TRON' | 'SOL'
+
+export const NETWORKS: Network[] = ['TRON', 'SOL']
+
+// Tatum ledger currencies the app supports, mapped to the network they settle on.
+// Mirrors Tatum's model: the asset *is* the ledger currency, so an account's `chain`
+// field holds one of these keys — not a network. Use networkFor() wherever the network
+// itself is needed (KMS key spec, address derivation, Tatum subscriptions).
+const LEDGER_CURRENCIES: Record<string, Network> = {
+  TRON: 'TRON',
+  SOL: 'SOL',
+  USDT_TRON: 'TRON',
+  // Shasta stand-in: Tatum doesn't support USDT_TRON on testnet, so Shasta's USDT
+  // contract is registered in Tatum's ledger under this name.
+  TUSDT_TRON: 'TRON',
+}
+
+// Every ledger currency this backend knows, e.g. for a setting kept per currency
+export const LEDGER_CURRENCY_IDS = Object.keys(LEDGER_CURRENCIES)
+
+export const networkFor = (currency?: string): Network | undefined =>
+  currency ? LEDGER_CURRENCIES[currency.toUpperCase()] : undefined
+
+// True when the currency is the network's own coin (TRON, SOL) rather than a token.
+export const isNativeCurrency = (currency?: string): boolean =>
+  !!currency && networkFor(currency) === currency.toUpperCase()
+
+// Decimal places a currency carries on its chain. The withdraw route rounds to
+// these and so does Tatum's withdrawal, so both ledgers and the chain move the same amount
+const DECIMALS: Record<string, number> = { TRON: 6, SOL: 9, USDT_TRON: 6, TUSDT_TRON: 6 }
+
+export const decimalsFor = (currency: string): number => DECIMALS[currency.toUpperCase()] ?? 6
+
+const TRC20_CONTRACTS: Record<string, string> = {
+  USDT_TRON: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+  TUSDT_TRON: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
+}
+
+export const trc20ContractFor = (currency?: string): string | undefined =>
+  currency ? TRC20_CONTRACTS[currency.toUpperCase()] : undefined
+
+// Tatum's webhooks name a token by its own symbol when it knows it (mainnet
+// USDT_TRON) and by its contract address otherwise; map the latter back to our
+// ledger currency
+export const currencyForAsset = (asset: string): string =>
+  Object.entries(TRC20_CONTRACTS).find(([, contract]) => contract === asset)?.[0] ?? asset

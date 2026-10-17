@@ -1,0 +1,35 @@
+{
+  "name": "loudibly",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@coreui/icons": "^3.1.0",
+    "@coreui/icons-vue": "^2.2.0",
+    "@coreui/vue": "^5.8.0",
+    "@loudibly/core": "*",
+    "@tailwindcss/forms": "^0.5.11",
+    "@tailwindcss/vite": "^4.3.0",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "qrcode": "^1.5.4",
+    "tailwindcss": "^4.3.0",
+    "vue": "^3.5.34",
+    "vue-router": "4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "@types/qrcode": "^1.5.6",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vite-plugin-node-polyfills": "^0.28.0",
+    "vue-tsc": "^3.2.8"
+  }
+}

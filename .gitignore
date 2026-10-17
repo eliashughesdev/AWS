@@ -1,0 +1,18 @@
+.idea
+.DS_Store
+dist
+node_modules
+*/**/**/node_modules
+.devcontainer.json
+.env
+amplify/service/routes/e2e/GetAccountUser.ts
+.devbox/
+devbox.json
+devbox.lock
+web/apps/noda/brand-source/
+energy-test.env
+.wallets.nile.json
+
+# Claude Code personal settings
+.claude/settings.local.json
+amplify/service/routes/e2e/credentials.js

@@ -1,0 +1,169 @@
+/* The light theme: what changes under <html data-theme="light"> (src/theme.ts). Dark is main.css.
+   Values measured from the Figma exports in brand-source/figma/lightTheme. */
+:root[data-theme="light"] {
+  --color-page:    #FFFFFF;
+  --color-ink:     #000000;
+  --color-accent:  #3BB8C6;
+  --color-muted:   #7F7F7F;
+  --color-line:    #FFFFFF;  /* the header has no divider */
+  --color-rule:    #E0E0E0;
+  --color-outline: #E0E0E0;
+  --color-control: #F3F4F6;
+
+  --color-card:      #F3F9F9;
+  --color-card-line: #F3F9F9;  /* a card's edge is its shadow */
+  --color-panel:      #F3F9F9;
+  --color-panel-line: #F3F9F9;
+  --color-card-inset:      #E3F2F2;
+  --color-card-inset-line: #E3F2F2;
+  --color-tile:      #F3F9F9;
+  --color-tile-line: #F3F9F9;
+  --color-chip:      #E3F2F2;
+  --color-field:     #E3F2F2;
+  --color-warn:      #F2EBD0;
+  --color-warn-ink:  #D8A944;
+  --color-track:     #D2DFDF;
+  --color-disc:      #F3F9F9;
+  --color-thumb:     #7F7F7F;  /* not from the design */
+  --color-slot:      #FFFFFF;
+  --color-slot-line: #E0E0E0;
+  --color-select:    #F3F9F9;
+  --color-action:    #E3F2F2;
+
+  --color-star:         #B3EBEE;
+  --color-star-off:     #DADADA;
+  --color-star-off-ink: #B2B2B2;
+
+  --color-green-dim:  #E4F9EA;
+  --color-blue-dim:   #BDC7E3;
+  --color-yellow-dim: #F2EBD0;
+  --color-accent-dim: #B3EBEE;
+  --color-red-dim:    #F2BBBC;  /* not from the design: red, as pale as the orange disc */
+  --color-orange-dim: #F2D5BB;
+  --color-usdt-dim:   #E4F9EA;
+
+  --shadow-card: 0 4px 4px rgb(0 0 0 / 0.1);
+}
+
+:root[data-theme="light"] .bg-tabbar {
+  background: #F3F4F6;
+}
+
+/* The colours of .bg-cta. */
+:root[data-theme="light"] .bg-tab-active {
+  background: linear-gradient(84deg, #42E0E6 3%, #0E2951);
+}
+
+/* The gradient border and the glow go: the fill runs to the edge. */
+:root[data-theme="light"] .card-glow,
+:root[data-theme="light"] .info-box,
+:root[data-theme="light"] .bg-method {
+  background: linear-gradient(to bottom right, #F3F9F9 7%, #ACE7E5) border-box;
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .card-stat {
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .bg-pill {
+  border-color: transparent;
+  background: #C9EFEE;
+}
+
+/* Solid, inside the same border. */
+:root[data-theme="light"] .button-outline {
+  background:
+    linear-gradient(var(--color-accent), var(--color-accent)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+  color: #FFFFFF;
+}
+
+/* Not in Figma: beside a dialog's main button it stays an outline, drawn like .bg-address. */
+:root[data-theme="light"] dialog .button-outline {
+  border-width: 1px;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+  color: var(--color-ink);
+}
+
+/* Accounts */
+:root[data-theme="light"] .bg-account {
+  background: var(--color-card);
+}
+
+/* The outline button's border, a pixel thick. */
+:root[data-theme="light"] .bg-address {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--color-card-inset), var(--color-card-inset)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}
+
+/* The colours of .bg-teal-rise, to the edge. */
+:root[data-theme="light"] .bg-copy,
+:root[data-theme="light"] .bg-toggle-active {
+  border-color: transparent;
+  background: linear-gradient(88deg, #184C6E, #3DCFD8) border-box;
+}
+
+/* The outline button's border, in place of the hairline. */
+:root[data-theme="light"] .value-box {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}
+
+/* Deposit draws the chosen method like the others: its disc tells them apart. */
+:root[data-theme="light"] .tile-selected {
+  border-color: var(--color-card-line);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Withdraw: the switch is a chip with no ring. */
+:root[data-theme="light"] .bg-toggle {
+  background: var(--color-chip);
+  box-shadow: var(--shadow-card);
+}
+
+/* The border and the glow go. The chosen chip keeps its fill, which runs to the edge. */
+:root[data-theme="light"] .currency-chip {
+  border-color: transparent;
+  background: var(--color-chip);
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme="light"] .currency-chip[aria-pressed="true"] {
+  background: linear-gradient(90deg, #184C6E, #3DCFD8) border-box;
+}
+
+/* Convert: the swap button is flat; the quote box is a card, not Deposit's info box. */
+:root[data-theme="light"] .bg-swap {
+  background: var(--color-accent);
+}
+
+:root[data-theme="light"] .quote-box {
+  border-color: var(--color-card-line);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Payments: a summary card's glow is stronger on a light card. */
+:root[data-theme="light"] .dot-glow {
+  box-shadow: 0 1px 5px color-mix(in srgb, var(--glow, currentColor) 60%, transparent);
+}
+
+/* Earn: the tag is the bar's gradient to the edge, white on it; Manage is flat accent. */
+:root[data-theme="light"] .bg-tag {
+  border-color: transparent;
+  background: linear-gradient(90deg, #184C6E, #3DCFD8) border-box;
+  color: #FFFFFF;
+}
+
+:root[data-theme="light"] .bg-manage {
+  background: var(--color-accent);
+}

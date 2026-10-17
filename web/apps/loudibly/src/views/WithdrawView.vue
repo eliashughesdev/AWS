@@ -1,0 +1,342 @@
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
+import { signOut } from '@loudibly/core/auth/cognito'
+import { useCurrentUser } from '@loudibly/core/composables/useCurrentUser'
+import { useRouter } from 'vue-router'
+import MainLayout from '../layouts/MainLayout.vue'
+import { useAccounts } from '@loudibly/core/composables/useAccounts'
+import { useExchangeRate } from '@loudibly/core/composables/useExchangeRate'
+import { useWithdraw } from '@loudibly/core/composables/useWithdraw'
+import KycNotice from '../components/KycNotice.vue'
+import { useKycGate } from '../kycGate'
+import { KYC_REQUIRED, verificationNeeded } from '@loudibly/core/composables/useKyc'
+
+const router = useRouter()
+
+const { userEmail, displayName, userId, load: loadUser } = useCurrentUser()
+const { cryptoAccounts: accounts, loading, load: loadAccounts } = useAccounts()
+const { rate: exchangeRate, loading: rateLoading, load: fetchExchangeRate } = useExchangeRate()
+const {
+  status: withdrawStatus,
+  error:  withdrawError,
+  errorCode: withdrawErrorCode,
+  txId:   withdrawTxId,
+  submitting,
+  send,
+  reset,
+} = useWithdraw({
+  rejected:   'Withdrawal request failed. Please try again.',
+  failed:     'Withdrawal failed. Please try again.',
+  timeout:    'No confirmation received. Your withdrawal may still be processing — check your balance later.',
+  unexpected: 'An unexpected error occurred.',
+})
+
+const selectedAccount    = ref('')
+const amount             = ref('')
+const destinationAddress = ref('')
+const formError          = ref('')
+const withdrawMode       = ref<'usd' | 'crypto'>('usd')
+
+const selectedAccountData = computed(() =>
+  accounts.value.find(a => a.accountNo === selectedAccount.value)
+)
+
+// The account's merchant may want a verified identity for withdrawals in its currency
+const { kyc, readKyc } = useKycGate()
+const mustVerify = computed(() => verificationNeeded(selectedAccountData.value?.kycRequired?.withdraw, kyc.value))
+const failureText = computed(() => withdrawErrorCode.value === KYC_REQUIRED
+  ? 'Withdrawals in this currency need a verified identity. Verify it, then try again.'
+  : withdrawError.value)
+
+// The policy refused it: the status read before may be out of date, and the notice must show
+watch(withdrawErrorCode, code => { if (code === KYC_REQUIRED) readKyc() })
+
+const cryptoEquivalent = computed(() => {
+  if (!exchangeRate.value || !amount.value || isNaN(parseFloat(amount.value))) return null
+  return (parseFloat(amount.value) / exchangeRate.value).toFixed(4)
+})
+
+const usdEquivalent = computed(() => {
+  if (!exchangeRate.value || !amount.value || isNaN(parseFloat(amount.value))) return null
+  return (parseFloat(amount.value) * exchangeRate.value).toFixed(2)
+})
+
+const copied = ref('')
+
+async function copyTxId() {
+  await navigator.clipboard.writeText(withdrawTxId.value)
+  copied.value = withdrawTxId.value
+  setTimeout(() => { copied.value = '' }, 2000)
+}
+
+watch(selectedAccount, (accountNo) => {
+  const acc = accounts.value.find(a => a.accountNo === accountNo)
+  if (acc?.chain) fetchExchangeRate(acc.chain)
+  amount.value = ''
+  withdrawMode.value = 'usd'
+})
+
+onMounted(async () => {
+  if (!(await loadUser())) {
+    router.push('/auth')
+    return
+  }
+
+  try {
+    await loadAccounts()
+
+    if (accounts.value.length > 0) {
+      selectedAccount.value = accounts.value[0].accountNo
+      fetchExchangeRate(accounts.value[0].chain)
+    }
+  } catch (e) {
+    console.error('Failed to load accounts', e)
+  }
+})
+
+async function submit() {
+  formError.value = ''
+
+  if (!selectedAccount.value) { formError.value = 'Please select an account.'; return }
+  if (mustVerify.value) return
+
+  const parsed = parseFloat(amount.value)
+  if (!amount.value || isNaN(parsed) || parsed <= 0) {
+    formError.value = 'Enter a valid amount greater than 0.'
+    return
+  }
+
+  if (!destinationAddress.value.trim()) {
+    formError.value = 'Enter a destination address.'
+    return
+  }
+
+  await submitCustodial(parsed)
+}
+
+async function submitCustodial(parsed: number) {
+  const isCryptoMode = withdrawMode.value === 'crypto'
+
+  if (isCryptoMode) {
+    if (parsed > (selectedAccountData.value?.balance ?? 0)) {
+      formError.value = `Insufficient balance. Available: ${selectedAccountData.value?.balance} ${selectedAccountData.value?.chain}`
+      return
+    }
+  } else if (selectedAccountData.value && cryptoEquivalent.value) {
+    if (parseFloat(cryptoEquivalent.value) > (selectedAccountData.value.balance ?? 0)) {
+      formError.value = `Insufficient balance. Available: ${selectedAccountData.value.balance} ${selectedAccountData.value.chain}`
+      return
+    }
+  }
+
+  await send({
+    accountNo:          selectedAccount.value,
+    chain:              selectedAccountData.value?.chain,
+    amount:             parsed,
+    unit:               withdrawMode.value,
+    userId:             userId.value,
+    destinationAddress: destinationAddress.value.trim(),
+  })
+}
+
+function resetForm() {
+  reset()
+  formError.value          = ''
+  amount.value             = ''
+  destinationAddress.value = ''
+}
+
+async function handleSignOut() {
+  await signOut()
+  router.push('/auth')
+}
+</script>
+
+<template>
+  <MainLayout :displayName="displayName" :userEmail="userEmail" @signOut="handleSignOut">
+    <section class="p-8 max-w-7xl mx-auto w-full">
+
+      <h1 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted mb-8">Withdraw</h1>
+
+      <!-- Loading skeleton -->
+      <div v-if="loading" class="max-w-lg mx-auto space-y-4">
+        <div class="h-20 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
+        <div class="h-20 bg-surface-1 border border-border-subtle rounded-xl animate-pulse" />
+      </div>
+
+      <template v-else>
+
+        <!-- Empty state: no crypto accounts -->
+        <div v-if="accounts.length === 0"
+          class="max-w-lg mx-auto flex flex-col items-center justify-center py-20 bg-surface-1 border border-border-subtle rounded-xl text-center">
+          <span class="material-symbols-outlined text-5xl text-text-muted mb-4">account_balance_wallet</span>
+          <p class="text-text-secondary text-sm mb-1">No crypto account found.</p>
+          <p class="text-text-muted text-xs mb-6">Please create one from your dashboard.</p>
+          <RouterLink :to="{ name: 'dashboard' }"
+            class="font-['JetBrains_Mono'] text-xs font-bold px-4 py-2 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all">
+            Go to Dashboard
+          </RouterLink>
+        </div>
+
+        <!-- Withdraw form -->
+        <div v-else class="max-w-lg mx-auto relative">
+
+          <!-- Processing overlay -->
+          <Transition name="overlay">
+            <div v-if="withdrawStatus !== 'idle'"
+              class="absolute inset-0 z-10 bg-page/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-4 p-8 text-center">
+
+              <template v-if="withdrawStatus === 'processing'">
+                <span class="material-symbols-outlined text-6xl text-brand animate-spin" style="animation-duration: 1.5s">autorenew</span>
+                <p class="font-['JetBrains_Mono'] text-sm text-text-secondary">Processing your withdrawal…</p>
+                <p class="text-xs text-text-muted">This may take a moment. Please don't close this page.</p>
+              </template>
+
+              <template v-else-if="withdrawStatus === 'success'">
+                <span class="material-symbols-outlined text-6xl text-brand" style="font-variation-settings: 'FILL' 1">check_circle</span>
+                <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Submitted!</p>
+                <p class="text-xs text-text-muted">Your balance will be updated once confirmed on-chain.</p>
+                <button
+                  v-if="withdrawTxId"
+                  type="button"
+                  @click="copyTxId"
+                  class="flex items-center gap-1.5 text-[11px] text-text-secondary hover:text-white transition-colors font-['JetBrains_Mono']">
+                  <span class="break-all">{{ withdrawTxId }}</span>
+                  <span class="material-symbols-outlined text-[14px] shrink-0">
+                    {{ copied === withdrawTxId ? 'check' : 'content_copy' }}
+                  </span>
+                </button>
+                <RouterLink :to="{ name: 'dashboard' }"
+                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-brand text-on-brand rounded-full hover:bg-brand-hover active:scale-95 transition-all">
+                  Back to Dashboard
+                </RouterLink>
+              </template>
+
+              <template v-else-if="withdrawStatus === 'failed'">
+                <span class="material-symbols-outlined text-6xl text-red-400" style="font-variation-settings: 'FILL' 1">cancel</span>
+                <p class="font-['JetBrains_Mono'] text-lg font-bold text-white">Withdrawal Failed</p>
+                <p class="text-sm text-red-400">{{ failureText }}</p>
+                <button @click="resetForm"
+                  class="mt-2 font-['JetBrains_Mono'] text-xs font-bold px-6 py-3 bg-surface-1 border border-border-subtle text-white rounded-full hover:bg-surface-2 active:scale-95 transition-all">
+                  Try Again
+                </button>
+              </template>
+
+            </div>
+          </Transition>
+
+          <!-- Form panel -->
+          <div class="bg-surface-1 border border-border-subtle rounded-xl p-6 flex flex-col gap-6">
+            <h2 class="font-['JetBrains_Mono'] text-xs uppercase tracking-[0.2em] text-text-muted">New Withdrawal</h2>
+
+            <!-- Mode toggle -->
+            <div class="flex bg-page border border-border-subtle rounded-lg p-1 gap-1">
+              <button
+                type="button"
+                @click="withdrawMode = 'usd'; amount = ''"
+                :class="[
+                  'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
+                  withdrawMode === 'usd' ? 'bg-brand text-on-brand' : 'text-text-secondary hover:text-white'
+                ]">
+                Pay in USD
+              </button>
+              <button
+                type="button"
+                @click="withdrawMode = 'crypto'; amount = ''"
+                :class="[
+                  'flex-1 py-2 rounded text-xs font-[\'JetBrains_Mono\'] font-bold transition-all',
+                  withdrawMode === 'crypto' ? 'bg-brand text-on-brand' : 'text-text-secondary hover:text-white'
+                ]">
+                Pay in {{ selectedAccountData?.chain ?? 'Crypto' }}
+              </button>
+            </div>
+
+            <!-- Account selector -->
+            <div>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Account</label>
+              <select
+                v-model="selectedAccount"
+                class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors appearance-none cursor-pointer">
+                <option v-for="acc in accounts" :key="acc.accountNo" :value="acc.accountNo">
+                  {{ acc.chain }} — Balance: {{ acc.balance }} {{ acc.chain }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Amount -->
+            <div>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Amount</label>
+              <div class="flex gap-3">
+                <input
+                  v-model="amount"
+                  type="number"
+                  min="0.000001"
+                  step="any"
+                  placeholder="0.00"
+                  class="flex-1 bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
+                />
+                <div class="flex items-center px-4 bg-page border border-border-subtle rounded-lg text-sm font-['JetBrains_Mono'] text-text-muted shrink-0">
+                  {{ withdrawMode === 'crypto' ? (selectedAccountData?.chain ?? '—') : 'USD' }}
+                </div>
+              </div>
+              <!-- Equivalent preview -->
+              <div class="mt-2 h-5 flex items-center">
+                <template v-if="rateLoading">
+                  <span class="text-xs text-text-muted animate-pulse">Fetching rate…</span>
+                </template>
+                <template v-else-if="withdrawMode === 'usd' && cryptoEquivalent && selectedAccountData">
+                  <span class="text-xs text-brand font-['JetBrains_Mono']">
+                    ≈ {{ cryptoEquivalent }} {{ selectedAccountData.chain }}
+                  </span>
+                  <span class="text-xs text-text-muted ml-2">(live rate)</span>
+                </template>
+                <template v-else-if="withdrawMode === 'crypto' && usdEquivalent && selectedAccountData">
+                  <span class="text-xs text-brand font-['JetBrains_Mono']">≈ ${{ usdEquivalent }}</span>
+                  <span class="text-xs text-text-muted ml-2">(live rate)</span>
+                </template>
+              </div>
+            </div>
+
+            <!-- Destination address -->
+            <div>
+              <label class="block font-['JetBrains_Mono'] text-[10px] uppercase tracking-widest text-text-muted mb-1.5">Destination Address</label>
+              <input
+                v-model="destinationAddress"
+                type="text"
+                placeholder="Paste blockchain address"
+                class="w-full bg-page border border-border-subtle rounded-lg px-4 py-3 text-sm text-white placeholder-text-muted font-['JetBrains_Mono'] focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/30 transition-colors"
+              />
+            </div>
+
+            <!-- Error -->
+            <p v-if="formError" class="text-red-400 text-xs -mt-2">{{ formError }}</p>
+
+            <!-- Submit, or what the account's KYC policy wants first -->
+            <KycNotice v-if="mustVerify" :what="`Withdrawals in ${selectedAccountData?.chain}`" :status="kyc!" />
+            <button
+              v-else
+              type="button"
+              @click="submit"
+              :disabled="submitting"
+              class="w-full bg-brand text-on-brand font-['JetBrains_Mono'] text-sm font-bold py-3 rounded-full hover:bg-brand-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              {{ submitting ? 'Submitting…' : 'Withdraw' }}
+            </button>
+          </div>
+
+        </div>
+      </template>
+
+    </section>
+  </MainLayout>
+</template>
+
+<style scoped>
+.overlay-enter-active,
+.overlay-leave-active {
+  transition: opacity 0.2s ease;
+}
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
+</style>

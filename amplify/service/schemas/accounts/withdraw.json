@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/withdraw",
+  "$comment": "Exactly one of amount (fiat, converted at the current rate) and cryptoAmount (the account's coin). Both debit the balance directly, so neither may be zero or negative. currency is the fiat of amount; with cryptoAmount the dashboard sends the account's chain, which is only recorded.",
+  "type": "object",
+  "required": ["accountNumber", "currency", "destinationAddress"],
+  "properties": {
+    "accountNumber": { "type": "string", "pattern": "^PCF[0-9]{4}[0-9a-f]{32}$" },
+    "currency": { "type": "string", "minLength": 1 },
+    "amount": { "type": "number", "exclusiveMinimum": 0 },
+    "cryptoAmount": { "type": "number", "exclusiveMinimum": 0 },
+    "destinationAddress": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "transactionId": { "type": "string", "minLength": 1 }
+  },
+  "oneOf": [{ "required": ["amount"] }, { "required": ["cryptoAmount"] }],
+  "if": { "required": ["amount"] },
+  "then": { "properties": { "currency": { "pattern": "^[A-Z]{3}$" } } }
+}

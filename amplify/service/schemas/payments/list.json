@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /payments/list",
+  "$comment": "The query string, not a body: the router checks a GET route's schema against queryStringParameters, whose values are always strings. userId is optional: a signed-in user lists their own cards, and a merchant's key must name one of its own users, which the handler checks (pci-remediation-plan.md F3).",
+  "type": "object",
+  "properties": {
+    "userId": { "type": "string", "minLength": 1, "maxLength": 128 }
+  }
+}

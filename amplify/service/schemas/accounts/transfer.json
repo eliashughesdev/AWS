@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/transfer",
+  "type": "object",
+  "required": ["provider", "senderAccountNumber", "recipientAccountNumber", "amount"],
+  "properties": {
+    "provider": { "type": "string", "enum": ["PCF0001"] },
+    "senderAccountNumber": { "type": "string", "pattern": "^PCF[0-9]{4}[0-9a-f]{32}$" },
+    "recipientAccountNumber": { "type": "string", "pattern": "^PCF[0-9]{4}[0-9a-f]{32}$" },
+    "amount": {
+      "$comment": "A plain decimal above zero: the ledger takes the string, and the balances move by parseFloat of it",
+      "type": "string",
+      "maxLength": 38,
+      "pattern": "^(?!0+(\\.0+)?$)(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/operations/treasury-send",
+  "$comment": "Only the shape is checked here. The handler answers its own codes for the meaning: 100045 for a currency with no treasury send (a native coin, an unknown one, or no master), 100048 for an address that is not a TRON address. The merchant comes from the caller's membership, never the body.",
+  "type": "object",
+  "required": ["currency", "amount", "destinationAddress"],
+  "properties": {
+    "currency": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "amount": { "type": "number", "exclusiveMinimum": 0 },
+    "destinationAddress": { "type": "string", "minLength": 1, "maxLength": 128 }
+  }
+}

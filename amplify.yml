@@ -1,0 +1,73 @@
+version: 1
+backend:
+  phases:
+    build:
+      commands:
+        # Node 20 from the image (no Node override in the Amplify console)
+        - . scripts/ci/node.sh
+        - cd amplify/layers/nodejs
+        - yarn install --frozen-lockfile
+        - cd ../../fn/authorizer
+        - yarn install --frozen-lockfile
+        - cd ../../..
+        - yarn install --frozen-lockfile
+        # A failing test stops the job here: nothing is deployed, backend or frontend
+        - yarn test --ci
+        # Deploys only when amplify/, package.json or yarn.lock changed since the last deploy
+        - scripts/ci/backend.sh
+        - |
+          if [ -d "evFunctions" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "evFunctions/")
+
+            if echo "$CHANGED_FILES" | grep -q "evFunctions/"; then
+              echo "Changes detected in evFunctions directory"
+
+              # Install Evervault CLI using official installer
+              echo "Installing Evervault CLI..."
+              curl https://cli.evervault.com/v4/install -sL | sh
+
+              # Deploy changed functions
+              for function_dir in evFunctions/*/; do
+                if [ -d "$function_dir" ]; then
+                  function_name=$(basename "$function_dir")
+
+                  if echo "$CHANGED_FILES" | grep -q "evFunctions/$function_name/"; then
+                    echo "Deploying changed function: $function_name"
+                    cd "$function_dir"
+                    ev function deploy || echo "Warning: Failed to deploy $function_name"
+                    cd ../..
+                  else
+                    echo "Skipping unchanged function: $function_name"
+                  fi
+                fi
+              done
+
+              echo "Evervault function deployment complete"
+            else
+              echo "No changes in evFunctions, skipping Evervault deployment"
+            fi
+          else
+            echo "No evFunctions directory found"
+          fi
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - . scripts/ci/node.sh
+        - yarn install --frozen-lockfile
+        - cd web && yarn install --frozen-lockfile && cd ..
+    build:
+      commands:
+        - yarn run build
+        # NODA's files always sit in /noda/; a branch whose addresses start at / sets VITE_ROUTER_BASE=/.
+        - cd web && yarn workspace loudibly build && yarn workspace noda build --base=/noda/ && cd ..
+        - cp -r web/apps/loudibly/dist dist/v2
+        - cp -r web/apps/noda/dist dist/noda
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - web/node_modules/**/*

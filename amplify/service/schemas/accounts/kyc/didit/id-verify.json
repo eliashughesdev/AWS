@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /accounts/kyc/didit/id-verify",
+  "$comment": "Each image is plain base64 (no data: prefix), which the handler decodes for Didit; Buffer.from skips characters that are not base64 instead of failing, so the alphabet is checked here. API Gateway's 10 MB payload limit bounds the size.",
+  "type": "object",
+  "required": ["front_image"],
+  "properties": {
+    "front_image": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" },
+    "back_image": { "type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$" }
+  }
+}

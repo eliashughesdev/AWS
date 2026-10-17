@@ -1,0 +1,270 @@
+@import "tailwindcss";
+@import "./light.css";
+
+/* light:… applies under <html data-theme="light">, for what light.css cannot say with a colour. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+/* Values measured from the Figma exports in brand-source/figma. */
+@theme {
+  --font-sans: "Inter", sans-serif;
+
+  --color-page:    #000000;
+  --color-ink:     #FFFFFF;  /* text */
+  --color-accent:  #43E5EA;
+  --color-muted:   #ACACAC;  /* inactive tabs and header icons */
+  --color-line:    #303030;  /* divider under the header */
+  --color-rule:    #303030;  /* line under a title, inside a panel */
+  --color-outline: #454545;  /* border of the header controls */
+  --color-control: transparent;  /* their fill */
+
+  /* The same in both themes */
+  --color-accent-bright: #43E5EA;  /* line under the active tab, the toggle's lit side */
+  --color-faint:         #ACACAC;  /* the toggle's other side, the footer */
+  --color-pending:       #E1C65A;  /* fill of the Pending pill in light */
+  --color-qr:            #121214;  /* a QR code's squares, on white */
+
+  --color-card:      #0F111A;
+  --color-card-line: #272831;
+  --color-panel:      #02040E;  /* the big section boxes */
+  --color-panel-line: #303030;
+  --color-card-inset:      #0F111A;  /* a card inside a panel */
+  --color-card-inset-line: #272831;
+  --color-tile:      #091426;  /* quick-action tiles */
+  --color-tile-line: #2B344A;
+  --color-chip:      #131819;
+  --color-field:     #040A1F;  /* text inputs */
+  --color-warn:      #1A160C;  /* fill of the yellow warning box */
+  --color-warn-ink:  #FFCC00;  /* its text and icon */
+  --color-track:     #204E54;  /* the empty part of a bar */
+  --color-disc:      #272831;  /* an icon's disc with no colour of its own */
+  --color-slot:      #1B1D26;  /* a text input's fill, and its hairline */
+  --color-slot-line: #32343C;
+  --color-select:    #1B1D26;  /* a dropdown button's fill, which light draws apart from the input */
+  --color-action:    #151A31;  /* a table row's actions button */
+  --color-thumb:     #E0E0E0;  /* the thumb of ScrollX's bar */
+
+  /* Achievements: the disc of a star that is earned, then the disc and star of one that is not */
+  --color-star:         #12384B;
+  --color-star-off:     #3C3C3C;
+  --color-star-off-ink: #272829;
+
+  /* Icon colours and the darker disc each one sits on */
+  --color-green:       #34C759;
+  --color-green-dim:   #10343B;
+  --color-blue:        #5168C5;
+  --color-blue-dim:    #15244B;
+  --color-yellow:      #FFCC00;
+  --color-yellow-dim:  #3F3824;
+  --color-accent-dim:  #152F39;
+  --color-red:         #FF383C;
+  --color-red-dim:     #3C1417;  /* not from the design: the TRX coin's disc */
+  --color-orange:      #FF8D28;
+  --color-orange-dim:  #39210D;  /* the SOL coin's disc */
+  --color-usdt-dim:    #243F2B;  /* the USDT coin's disc, a different green from the icons' */
+  --color-brown:       #AC7F5E;
+
+  --shadow-card: none;  /* light draws a card's edge with it */
+}
+
+html, body {
+  min-height: 100dvh;
+  margin: 0;
+}
+
+#app {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+/* The design's text matches Inter's display cut (optical size 32) at every size. */
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-variation-settings: "opsz" 32;
+}
+
+/* On every element, so the spacing follows each font size. */
+@layer base {
+  * {
+    letter-spacing: 0.01em;
+  }
+}
+
+.bg-tabbar {
+  background: linear-gradient(90deg, #0D0E0E, #13191A);
+}
+
+.bg-tab-active {
+  background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-swap {
+  background: linear-gradient(180deg, #143336, #11191A);
+}
+
+.bg-method {
+  background: #051A24;
+}
+
+.bg-avatar {
+  background: linear-gradient(90deg, #3CCCD6, #0E2952);
+}
+
+@utility card {
+  border: 1px solid var(--color-card-line);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* A card inside a panel takes the inset colours: a card's own in dark, one step darker in light. */
+@utility panel {
+  border: 1px solid var(--color-panel-line);
+  background: var(--color-panel);
+  box-shadow: var(--shadow-card);
+  --color-card: var(--color-card-inset);
+  --color-card-line: var(--color-card-inset-line);
+}
+
+@utility tile {
+  border: 1px solid var(--color-tile-line);
+  background: var(--color-tile);
+  box-shadow: var(--shadow-card);
+}
+
+/* A small box inside a card. */
+@utility chip {
+  border: 1px solid var(--color-card-inset-line);
+  background: var(--color-chip);
+  box-shadow: var(--shadow-card);
+}
+
+/* Cards with a teal-to-blue border: the fill sits on the padding box, the border gradient behind it. */
+.card-glow,
+.card-stat {
+  border: 1px solid transparent;
+}
+
+.card-glow {
+  background:
+    linear-gradient(180deg, #0B0F23, #020617) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+  box-shadow: 2px 3px 12px #0E3031;
+}
+
+.card-stat {
+  background:
+    linear-gradient(160deg, #0C1026, #050B25) padding-box,
+    linear-gradient(90deg, #1F7583, #0D294F) border-box;
+}
+
+.bg-shield {
+  background: linear-gradient(90deg, #42E0E6, #1D627D);
+}
+
+.bg-pill {
+  background: linear-gradient(90deg, #215056, #142E36 50%, #050B14);
+}
+
+/* Accounts */
+.bg-account {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+}
+
+/* An element can turn it with --cta-angle. */
+.bg-cta {
+  background: linear-gradient(var(--cta-angle, 82deg), #42E0E6, #0E2951);
+}
+
+.bg-address {
+  background: linear-gradient(90deg, #152F39, #142424);
+}
+
+.bg-copy {
+  background: linear-gradient(45deg, #262626 8%, #474747 38%, #282828 88%);
+}
+
+/* A summary card's dot glows in its own colour. */
+.dot-glow {
+  background: currentColor;
+  box-shadow: 0 1px 5px color-mix(in srgb, var(--glow, currentColor) 40%, transparent);
+}
+
+/* Scrolls without the browser's scrollbar (ScrollX draws the design's own). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Deposit */
+.tile-selected {
+  border-color: var(--color-accent);
+  background: linear-gradient(90deg, #03060F, #11272F);
+  box-shadow: 2.5px 2.5px 9px rgb(67 229 234 / 0.25);
+}
+
+/* Like .card-glow's border, half a pixel thick, on a flat fill. A utility, so it takes variants (lg:info-box). */
+@utility info-box {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(#040F19, #040F19) padding-box,
+    linear-gradient(90deg, #1F7583, #0D284E) border-box;
+}
+
+/* A value in a box (the chosen account, its address): a hairline on the card fill. */
+.value-box {
+  border: 0.5px solid var(--color-card-line);
+  background: var(--color-card);
+}
+
+/* Withdraw */
+/* The Withdraw / History switch: the account card's fill inside a ring. */
+.bg-toggle {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+  box-shadow: inset 0 0 0 1px var(--color-card-line);
+}
+
+.bg-toggle-active {
+  background: linear-gradient(180deg, #154144, #111B1C);
+}
+
+.currency-chip {
+  border: 0.5px solid var(--color-accent);
+  background: linear-gradient(180deg, #091A22, #040D19);
+  box-shadow: -2px 3px 5px rgb(0 229 212 / 0.21);
+}
+
+/* The selected currency and the filled part of the limit bar. */
+.bg-teal-rise,
+.currency-chip[aria-pressed="true"] {
+  background: linear-gradient(90deg, #184C6E, #3DCFD8);
+}
+
+/* The taller of the two desktop table styles (Withdraw History, Convert). */
+.table-tall {
+  --table-title: 22px;
+  --table-head-gap: 41px;
+  --table-rows-gap: 3px;
+  --table-row: 59.5px;
+  --table-foot: 15px;
+}
+
+/* Earn */
+.bg-tag {
+  background: linear-gradient(90deg, #24585D, #03050E);
+}
+
+.bg-manage {
+  background: linear-gradient(to top right, #0D0D0D, #151F1F);
+}
+
+/* A half-pixel teal border that fades to the right, on the card fill. */
+.button-outline {
+  border: 0.5px solid transparent;
+  background:
+    linear-gradient(var(--color-card), var(--color-card)) padding-box,
+    linear-gradient(90deg, #42E1E7, #1E6381) border-box;
+}

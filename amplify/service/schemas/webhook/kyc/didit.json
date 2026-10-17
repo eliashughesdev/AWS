@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /webhook/kyc/didit",
+  "$comment": "Didit's payload (docs.didit.me/integration/webhooks): only the fields the handler reads are checked, and only their types, since Didit does not retry a 400 and an event refused here is lost. webhook_type and status are always sent; session_id only on session events and vendor_data only when the session was created with it, so neither is required (the handler answers a missing vendor_data with 200). Other fields, and new status values, pass through.",
+  "type": "object",
+  "required": ["webhook_type", "status"],
+  "properties": {
+    "webhook_type": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "vendor_data": { "type": "string" }
+  }
+}

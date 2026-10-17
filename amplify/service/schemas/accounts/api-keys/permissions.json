@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /accounts/api-keys/permissions",
+  "$comment": "The query string. The route takes nothing: it answers the permissions a user's key may hold (service/permissions.ts).",
+  "type": "object",
+  "additionalProperties": false
+}

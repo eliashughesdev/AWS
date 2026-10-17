@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GET /accounts/api-keys/list",
+  "$comment": "The query string. The route takes nothing: the keys are always the caller's own (docs/public-api-plan.md D2.6).",
+  "type": "object",
+  "additionalProperties": false
+}

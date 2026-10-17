@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "POST /merchants/api-keys/create",
+  "$comment": "Staff create a key for an active merchant (D2.6, D9), with merchant permissions only (100058). Same rules as a user's key for name, expiresAt and ipAllowlist.",
+  "type": "object",
+  "required": [
+    "merchantId",
+    "name",
+    "permissions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "merchantId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "\\S"
+    },
+    "permissions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ipAllowlist": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      }
+    }
+  }
+}
