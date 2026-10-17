@@ -437,6 +437,19 @@ move to another merchant's customer as a withdrawal. The refusal is `100001`, th
 account that does not exist, and comes before the currency check, so a caller cannot tell that
 another merchant's account exists (D11).
 
+**Issued cards come from a provider too.** Prepaid cards for users (`docs/card-issuing-plan.md`;
+no route calls it yet): `providers/cards/CardIssuer.ts` is the interface, in our words
+(cardholder, card account, corporate balance, payment, reveal), and `providers/cards/ecapz/` its
+one implementation, ecapz's API (its spec is titled "Card Bridge"). Elsewhere "card" means a saved
+payment card (`/payments/*`, `useCards`); these are issued cards. Each call answers a
+`CardOutcome`: `done`, `refused` (ecapz's `code`, for the log only) or `unknown`. An unknown
+create or money move may have happened, so it is found again by listing (`findCardholder`,
+`findCardAccount`, `listCards`), never sent again: ecapz takes no idempotency key. Success is a 2xx
+and `res.data`, never the `success` field, which some answers lack. Where the live API differs
+from the spec, the client follows the live one. Settings: `ECAPZ_URL`, `ECAPZ_PROJECT`,
+`ECAPZ_SECRET` (hex), `ECAPZ_WEBHOOK_SECRET`, `ECAPZ_WEBHOOK_URL`; a missing one logs
+`CONFIG_ERROR` and the call is refused. Tests never call ecapz.
+
 **Account provisioning undoes itself.** `provisionCustodialAccount` (`utils/custodialAccount.ts`)
 creates the Tatum VA, then takes the next address under the merchant's seed, and on any failure
 cancels the subscription, removes the address and deactivates the VA (an unused address only skips
