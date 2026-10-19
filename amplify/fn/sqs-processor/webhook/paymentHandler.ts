@@ -124,7 +124,8 @@ export const handlePayment = async (message: any): Promise<boolean> => {
       return false
     }
 
-    console.log('DEBUG: Payment processor configuration built.', JSON.stringify(processorConfig))
+    //Esta línea es la que expone las claves de Stripe, Clover y Evervault.
+    //console.log('DEBUG: Payment processor configuration built.', JSON.stringify(processorConfig))
 
     // Determine provider based on BIN lookup (US/CA → Clover, otherwise → Stripe)
     let resolvedProvider = provider
