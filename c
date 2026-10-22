@@ -1,0 +1,416 @@
+[33mcommit 83c2e429feb87dbc0ef5bafbf43af7e442807403[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Merge: 52dba19 7908adb
+Author: eliashughesdev <eliashughesdev@gmail.com>
+Date:   Sat Oct 17 08:11:13 2026 -0400
+
+    Resolver conflictos de fusion y sincronizar main
+
+[33mcommit 7908adbb04fd4f727e1423db152a91545207c9e7[m
+Author: eliashughesdev <eliashughesdev@gmail.com>
+Date:   Fri Oct 16 22:17:59 2026 -0400
+
+    first commit
+
+[33mcommit 52dba1946d99dbe2efdcff854cd04fd9fd7cb0ad[m[33m ([m[1;31morigin/nodapay_ui[m[33m)[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 23:30:23 2026 -0400
+
+    Public API on api.*, internal API on app-api.*
+    
+    api.staging.loudibly.com and api.noda.money, the server the API docs give,
+    pointed at the internal API, where an API key does not work. They now map
+    v1 to loudiblyPublicApi, and app-api.staging.loudibly.com / app-api.noda.money
+    map it to loudiblyRestApi, which VITE_API_BASE and SSM TATUM_WEBHOOK_URL use.
+    
+    scripts/setup/api-domains.sh creates the app-api domain (and its
+    certificate) and moves api., refusing while anything still calls the
+    internal API there. scripts/migrations/repoint-tatum-webhooks.sh moves
+    Tatum's subscriptions to another host: Tatum allows one per address and
+    coin, so each is deleted and made again. Both ran on staging and
+    production on 2026-10-16.
+
+[33mcommit 00472eb892a8b6062cc43e7790e4a5be95e59805[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 21:19:43 2026 -0400
+
+    NODA: footer shows the site's domain and the current year
+    
+    "NodabaseStaging©2025" was written into both footers. AppFooter, which
+    TopNavLayout and AuthFrame now share, reads location.hostname and the
+    year when the page loads, e.g. "my.noda.money©2026".
+
+[33mcommit b97e5a2fada43fcd07f4d680b80a1691317f9297[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 21:12:16 2026 -0400
+
+    Plan: step 3.2 done
+
+[33mcommit 352951a12dbf70573a37f649dd9f1eeef5a1f1a4[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 21:12:10 2026 -0400
+
+    NODA: API keys screen (step 3.2)
+    
+    /developers/api-keys, from the avatar menu: the user's keys in a table on
+    desktop and one card each on mobile, Edit and Revoke, and Create key, whose
+    dialog keeps the secret in its own state, closes only through "I've stored
+    it", and on a 5xx or no answer says to check the list instead of retrying.
+    The curl example takes the public API from VITE_PUBLIC_API_BASE (core's
+    PUBLIC_API_BASE), left out when unset. Status pills gain Active, Expired and
+    Revoked.
+
+[33mcommit c5cb1d2fd3a4af24c5466087caf53322efa6fdd9[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 15:04:34 2026 -0400
+
+    Plan: step 3.1 done
+
+[33mcommit 7a2d26cbe5f05305e3078021b307c80d8cc4356b[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 15:04:34 2026 -0400
+
+    Core: API keys client and composables (step 3.1)
+    
+    api/apiKeys.ts calls the user and staff key routes; useApiKeys() and
+    useStaffApiKeys() send create, update, revoke and rate-limit requests only,
+    and return the secret from create without keeping it.
+
+[33mcommit 5e3b5e105c354dbcf3618b747fca675a1dc562df[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:51:11 2026 -0400
+
+    Plan: step 2.7 done
+
+[33mcommit 35a21df6df5efc659acae966bf7babc533f1452e[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:51:11 2026 -0400
+
+    e2e: API keys on main (step 2.7)
+    
+    ApiKeysTest.ts creates a user key and a merchant key, uses them on the public
+    API (permission 403, burst 429, revoke) and revokes them. userSession.ts signs
+    in as the staff test user too and knows the public API's address.
+
+[33mcommit 63a1bca2b1c9a93ec42511ee0c3faed0ce254acc[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:15:48 2026 -0400
+
+    Public API: redeploy the stage when the authorizer's identity sources change
+    
+    The stage still served the snapshot from before step 2.3, whose authorizer
+    wanted X-Project too, so API Gateway answered every API key 401 without
+    running the authorizer.
+
+[33mcommit 3fabbac32b7a0b34f0dbaa42ecea5ca211c69e01[m
+Merge: 7032674 a661025
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:06:09 2026 -0400
+
+    Merge remote-tracking branch 'origin/main'
+
+[33mcommit 7032674cd3ca975d11df9b24e7d6ca0e3574d891[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:05:53 2026 -0400
+
+    Plan: step 2.6 done
+
+[33mcommit ca6944d6c9a08c82639c64a2e6d8ad3c8fe6aca3[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 14:05:48 2026 -0400
+
+    API keys: key-management routes and owner emails (step 2.6)
+    
+    /accounts/api-keys/{permissions,create,list,update,revoke} for a signed-in
+    user, /merchants/api-keys/{create,list,rate-limit,revoke} for staff. At most
+    10 usable keys per owner, permissions per owner type, an IP allowlist of up
+    to 20 single addresses (an IPv6 zone is refused here and in the authorizer).
+    The owner is emailed on create and revoke, never with the secret.
+
+[33mcommit a66102530831dd518baf55ee3971c1ec52ebb520[m
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Thu Oct 15 11:27:23 2026 -0400
+
+    Raise TronSave orders to its minimum of 64,000 energy and 1,000 bandwidth
+
+[33mcommit ec0bf967397fcc8739594a419713022c2a7b511d[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:38:33 2026 -0400
+
+    Plan: step 2.5 done
+
+[33mcommit 69af03ab293c328754fa4d4b6fb428b9a6b033e7[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:38:33 2026 -0400
+
+    Router: API key checks (step 2.5)
+    
+    service/apiKeyChecks.ts, before roles and schema: a key off the public
+    API is 404; over its rate limit 429 100056 with Retry-After; without the
+    route's permission 403 100055 ('any' passes, null takes no key). Every
+    answer to a key carries X-RateLimit-*. callerUser() takes a user's key
+    and refuses a merchant's; callerMerchant() and resolvePayer() take a
+    merchant's key as its HMAC key. A key shares its owner's
+    Idempotency-Key namespace; request logs name the key id. Error codes
+    100054-100058, 100060, 100062.
+
+[33mcommit 71778e0e0384f9814cd8ae1a25d2631f99a28cd5[m
+Merge: bac55f5 2262263
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Thu Oct 15 10:35:43 2026 -0400
+
+    Merge branch 'main' of ssh://git-codecommit.us-east-2.amazonaws.com/v1/repos/loudibly-api
+
+[33mcommit bac55f5584540f444c5709ff37ff0b8e07f58dc4[m
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Thu Oct 15 10:35:23 2026 -0400
+
+    Activate a token deposit address on its first sweep and sweep the whole balance
+
+[33mcommit 9f2c6c2b02421f45be0e88459975e684633e9b44[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:31:32 2026 -0400
+
+    Plan: step 2.4 done
+
+[33mcommit ad1681abf78836120cda9513cbd3976993b86877[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:31:32 2026 -0400
+
+    API keys: rate limit per key (step 2.4)
+    
+    The authorizer counts each key's calls per second in v1ApiKeyUsageTable
+    (one conditional ADD on <keyId>#<epochSecond>, ttl a minute) against the
+    row's rateLimit.perSecond (10 when missing). Over it the call is let in
+    with throttled 'true', for the router's 429; rateLimit, rateRemaining
+    and rateReset go in the context too. A counter that cannot be written
+    lets the call through. defaultRateLimit(): API_KEY_DEFAULT_RPS, else 10.
+    Public stage throttle 50/100 -> 500/1000 (agreed 2026-10-14).
+
+[33mcommit 34eb684ec32934acbc869e8c6f0656e336dd1a71[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:11:43 2026 -0400
+
+    Plan: step 2.3 done
+
+[33mcommit bd1810f881710adb05002d8d04b9aff2491cab5a[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 10:11:43 2026 -0400
+
+    Authorizer: API keys over Basic (step 2.3)
+    
+    amplify/fn/authorizer/apiKey.js: public API only; the row is read every
+    call (active, not expired, IP allowlist), the secret's SHA-256 compared
+    in constant time with the hash from SSM (cached 10 min), the owner still
+    active; lastUsedAt at most once a minute. Context: authType 'apikey',
+    ownerType, keyId, permissions; a merchant key is role admin with its
+    merchantId, as its HMAC key is. Basic is checked first, the header is
+    read in any case, and logs name only the key id and the reason. The
+    public API's authorizer no longer requires X-Project (curl -u sends
+    none).
+
+[33mcommit 8557b3133b26b486b355a9e81cf260f635a11a6f[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 09:53:36 2026 -0400
+
+    Plan: step 2.2 done
+
+[33mcommit fe79afe46f38012bc5c76fe2f661bb271d363be8[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 09:53:36 2026 -0400
+
+    API key issuer: create and revoke (step 2.2)
+    
+    create: lk_live_<16 hex> and lks_<43 base64url>; the secret's SHA-256
+    goes to SSM as a SecureString under alias/loudibly-api-keys (never
+    overwriting), then the row (no secret, no hash); the hash is deleted
+    again when the row cannot be written. The secret is returned once.
+    revoke: the row first (the key stops at once), then the hash; ownerId
+    limits it to the owner's key; a revoked key answers ok and its hash is
+    deleted again. utils/apiKeyIssuer.ts is mainApiFn's client.
+
+[33mcommit 226226374fec52a33f7af50bcf5df189ff3c5d13[m
+Merge: 50eb0bb ae8f6e0
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 09:47:44 2026 -0400
+
+    Merge remote-tracking branch 'origin/main'
+
+[33mcommit 50eb0bbea86c2c39d8b197943e8c7a26e9c6acb5[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 09:47:29 2026 -0400
+
+    Plan: step 2.1 done
+
+[33mcommit bfaac56fa328aa4ad0fde35d0eee3464f632eba4[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 09:47:25 2026 -0400
+
+    API keys infrastructure (step 2.1)
+    
+    v1ApiKeysTable (GSI byOwner) and v1ApiKeyUsageTable (ttl); KMS key
+    alias/loudibly-api-keys that only ApiKeyIssuerRole encrypts with and
+    only the authorizer decrypts with; apiKeyIssuerFn (refuses everything
+    until step 2.2), invoked only by mainApiFn; mainApiFn denied ssm:* on
+    /loudibly/api-keys/*; the authorizer may read and decrypt key hashes
+    and use the key tables. Names in utils/apiKeyStore.ts.
+
+[33mcommit ae8f6e096471ab5f839d51726aa1d7477acc391d[m
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Thu Oct 15 09:09:43 2026 -0400
+
+    Implemented catfee energy provider
+
+[33mcommit 11febca8ad6a7d7344b48fa541fc42023bedafd6[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 07:45:16 2026 -0400
+
+    Keep provider API keys out of logged axios errors (utils/redactAxios.ts)
+    
+    An axios error holds its request's headers in config.headers and as raw
+    text in request; logging it printed the Tatum x-api-key (seen on staging
+    with a refused ledger transfer). An interceptor, loaded by the Tatum,
+    TRON, Solana and Didit providers, masks credential headers and makes
+    request non-enumerable on every error before any caller sees it. Status,
+    response body, method and URL stay.
+
+[33mcommit e2cedbc70d3e0ba79bf1ff709a5ba76b4cd287b9[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 07:39:25 2026 -0400
+
+    Transfer: answer 100002 when the ledger refuses
+    
+    The catch answered processError(100004), a code not in httpErrors, so
+    processError threw and the caller got a bare 500. Found on staging with
+    a 1 TRX transfer from an empty account (Tatum answers 403).
+
+[33mcommit 7c39aef87865f7ac597a61f8387a581e52b63dae[m
+Author: Di <bas24a@gmail.com>
+Date:   Thu Oct 15 07:39:25 2026 -0400
+
+    e2e: send X-Project with the test user's calls
+    
+    API Gateway answers 401 before the authorizer runs when X-Project is
+    missing (it is one of the authorizer's identity sources); the frontends
+    send 'web'. callAsUser() never did, so no user script could reach the API.
+
+[33mcommit 1592f8b5ad864119e619cb2117890ef73149ab43[m
+Merge: c5e9f14 ded7b07
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 23:13:05 2026 -0400
+
+    Merge remote-tracking branch 'origin/main'
+    
+    # Conflicts:
+    #       amplify/service/routes/accounts/transfer.test.ts
+
+[33mcommit c5e9f148571f73fe441ec762a9811dfccc1d44e9[m
+Merge: ea27716 7ca628a
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 23:12:39 2026 -0400
+
+    Merge remote-tracking branch 'origin/main'
+    
+    # Conflicts:
+    #       amplify/fn/sqs-processor/webhook/withdrawalHandler.test.ts
+    #       amplify/fn/sqs-processor/webhook/withdrawalHandler.ts
+    #       amplify/service/routes/accounts/withdraw.test.ts
+    #       amplify/service/routes/accounts/withdraw.ts
+    #       docs/openapi/public-api.yaml
+
+[33mcommit ded7b0789f0d313adcb079e1d759173ab27c0f4f[m
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Wed Oct 14 23:11:57 2026 -0400
+
+    Fix failling test
+
+[33mcommit ea277166dcd52b4b8a24a3746c76d0f5a71c7897[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 23:10:06 2026 -0400
+
+    Plan: step 1.5 done; phase 1 complete
+
+[33mcommit 20a54900fad9bcc1c6882e19177c0f8d07db793d[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 23:10:06 2026 -0400
+
+    A record of each withdrawal and card deposit (utils/operations.ts, step 1.5)
+    
+    OP#<transactionId> on the user in v2CustomerTable: written pending before
+    anything is queued (a withdrawal in the same transaction as its debit), moved
+    on by the queue processors with settleOperation(), forward only and never
+    throwing. An uncertain broadcast stays pending, a card charged but not credited
+    stays pending for staff, and only a provably undone operation is failed. It is
+    what an API caller will read for the outcome the browser gets over the
+    WebSocket. A transactionId sent twice now answers 100031 and moves nothing.
+
+[33mcommit 01968cbbdee025202c02c1e52f6dd057b9ff295b[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:58:49 2026 -0400
+
+    Plan: step 1.4 done
+
+[33mcommit cf59092a5132f3900fd536b40ed8475ae0ddc10e[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:58:49 2026 -0400
+
+    Idempotency-Key for the routes that move money (utils/idempotency.ts)
+    
+    The first request with a key claims IDEM#<caller>#<key> in v2CustomerTable and
+    stores its answer; a retry of the same request gets that answer again, marked
+    Idempotent-Replayed, and runs nothing. Another request on the key, or one still
+    running, answers 409 100061; a handler that throws leaves its key claimed until
+    it expires (24 h), never run twice on its own. Routes opt in; withdraw, transfer
+    and deposit take it as optional, so requests without one run as before.
+    v2CustomerTable gets a ttl attribute and both APIs allow the header (step 1.4).
+
+[33mcommit 7ca628af2340a9ff31660a3765804d739b181949[m
+Merge: 4dfbd7f 4e43271
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Wed Oct 14 22:56:38 2026 -0400
+
+    Merge branch 'main' of ssh://git-codecommit.us-east-2.amazonaws.com/v1/repos/loudibly-api into implement-catfee
+
+[33mcommit 4dfbd7f5bc923cd058084b120c2e3e1a014ce9e5[m
+Author: Teodoro Alcantara Aquino <teodoro641@hotmail.com>
+Date:   Wed Oct 14 22:52:40 2026 -0400
+
+    Refactor tronsave code to energy provider module
+
+[33mcommit c053d4e9de1fe1f37d08a9cfdc7a701685bfa519[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:16:27 2026 -0400
+
+    Plan: step 1.3 done
+
+[33mcommit eda9040e85b8dccc740956c68dd3160235c8aa4b[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:16:27 2026 -0400
+
+    Router: path templates and one route per method (step 1.3)
+    
+    A route's path may hold {placeholders} (service/routeMatch.ts). Each value is
+    checked against the route's pattern (100031 naming it) and reaches the handler
+    as event.pathParameters; a path written as it is wins over every template.
+    Routes are keyed by method and path, so GET and PATCH /accounts/{id} can both
+    exist, and a template is public by its template. Tests find a route with
+    routeAt(). Every existing route behaves as before.
+
+[33mcommit 4e43271c28617cf977a5be50d074ff20ec4dfa60[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:08:11 2026 -0400
+
+    Plan: steps 1.6 and 1.7 done
+
+[33mcommit 37901dc80816514be344330e513ccbbc04f8c0c3[m
+Author: Di <bas24a@gmail.com>
+Date:   Wed Oct 14 22:08:11 2026 -0400
+
+    Show the KYC policy in NODA and Loudibly (step 1.7)
+    
+    A form whose operation the account's merchant gates for an unverified user
+    shows KycNotice instead of its submit button and offers verification under the
+    Dashboard's rule; each words the API's 100059 itself. NODA: Withdraw. Loudibly:
+    Withdraw, Transfer, Deposit, and a switch per currency and operation for staff
+    on Merchants. Core: kycRequired on accounts and merchants, setKycPolicy,
+    verificationNeeded() and canStartKyc(), errorCode from useTransfer and
+    useDeposit. Not yet seen in a browser: staging has no 1.6 yet.
